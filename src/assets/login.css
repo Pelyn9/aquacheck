@@ -1,0 +1,88 @@
+/* login.css*/
+/* RESET + BASE */
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+body {
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  background: linear-gradient(to bottom right, #0077b6, #00b4d8);
+  height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* WRAPPER */
+.login-wrapper {
+  width: 200%;
+  max-width: 420px;
+  padding: 20px;
+}
+
+/* CARD DESIGN */
+.login-card {
+  background: white;
+  border-radius: 16px;
+  padding: 40px 40px;
+  box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+  text-align: center;
+}
+
+.login-card h1 {
+  font-size: 32px;
+  color: #0077b6;
+  margin-bottom: 5px;
+}
+
+.login-card .subtitle {
+  font-size: 16px;
+  color: #555;
+  margin-bottom: 25px;
+}
+
+/* INPUT GROUP */
+.input-group {
+  margin-bottom: 20px;
+  text-align: left;
+}
+.input-group label {
+  display: block;
+  margin-bottom: 8px;
+  color: #333;
+}
+.input-group input {
+  width: 100%;
+  padding: 12px;
+  border-radius: 8px;
+  border: 1px solid #ccc;
+  outline: none;
+  transition: border 0.3s ease;
+}
+.input-group input:focus {
+  border-color: #00b4d8;
+}
+
+/* BUTTON */
+button {
+  width: 100%;
+  padding: 12px;
+  background-color: #0077b6;
+  color: white;
+  font-size: 16px;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background 0.3s ease;
+}
+button:hover {
+  background-color: #023e8a;
+}
+
+/* ERROR MESSAGE */
+.error-message {
+  margin-top: 12px;
+  color: red;
+  font-size: 14px;
+}
