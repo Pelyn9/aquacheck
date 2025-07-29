@@ -33,13 +33,18 @@ const Dashboard = () => {
     return () => clearInterval(interval);
   }, [intervalTime]);
 
-  // Save every 24 hours (86400000 ms)
+  // Save every 24 hours (optional logic placeholder)
   useEffect(() => {
     const dailySave = setInterval(() => {
-      console.log("✅ Data saved to history:", sensorData);
-    }, 86400000);
+      console.log("✅ Auto-saved to history:", sensorData);
+    }, 86400000); // 24 hours
     return () => clearInterval(dailySave);
   }, [sensorData]);
+
+  // Save button manually logs data
+  const handleSave = () => {
+    console.log("✅ Manually saved to history:", sensorData);
+  };
 
   return (
     <div className="container">
@@ -72,12 +77,17 @@ const Dashboard = () => {
               </select>
             </div>
 
-            <button className="manual-scan-btn" onClick={fetchSensorData}>
-              Manual Scan
-            </button>
+            <div className="button-group">
+              <button className="manual-scan-btn" onClick={fetchSensorData}>
+                Manual Scan
+              </button>
+              <button className="manual-scan-btn save-btn" onClick={handleSave}>
+                Save
+              </button>
+            </div>
           </div>
 
-          {/* Sensor data cards */}
+          {/* Sensor Data Cards */}
           <div className="sensor-grid">
             <div className="sensor-card"><h3>pH Level</h3><p>{sensorData.ph}</p></div>
             <div className="sensor-card"><h3>Turbidity</h3><p>{sensorData.turbidity}</p></div>

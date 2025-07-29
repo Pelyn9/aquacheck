@@ -204,6 +204,32 @@ label[for="scanInterval"] {
   background-color: #009ac1;
 }
 
+/* ==== BUTTON GROUP FOR SCAN + SAVE ==== */
+.button-group {
+  display: flex;
+  gap: 10px;
+}
+
+/* ==== SAVE BUTTON ==== */
+.save-btn {
+  width: 160px;
+  height: 40px;
+  padding: 10px 20px;
+  font-size: 16px;
+  font-weight: bold;
+  background-color: #00b4d8;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background-color 0.3s ease;
+}
+
+.save-btn:hover {
+  background-color: #009ac1;
+}
+
 /* ==== FOOTER ==== */
 footer {
   margin-top: 40px;
