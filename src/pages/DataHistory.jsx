@@ -1,100 +1,84 @@
+import React, { useState} from "react";
 import Sidebar from "../components/Sidebar";
-import * as XLSX from "xlsx";
-import { saveAs } from "file-saver";
+import "../assets/datahistory.css";
+
+const mockData = [
+  { time: "2025-08-03 10:00", ph: "7.2", turbidity: "1.3", temp: "24.5", tds: "350" },
+  { time: "2025-08-03 10:01", ph: "7.3", turbidity: "1.4", temp: "24.6", tds: "360" },
+  // Add more sample entries here
+];
 
 const DataHistory = () => {
-  const dataset = [
-    { date: "2025-07-10", pH: 7.1, turbidity: 2.9, temperature: "25°C", tds: 430 },
-    { date: "2025-07-09", pH: 7.3, turbidity: 3.0, temperature: "24°C", tds: 440 },
-    { date: "2025-07-08", pH: 7.0, turbidity: 3.2, temperature: "26°C", tds: 460 },
-  ];
+  const [data, setData] = useState(mockData);
 
-  const downloadExcel = () => {
-    const worksheet = XLSX.utils.json_to_sheet(dataset);
-    const workbook = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(workbook, worksheet, "Dataset History");
-    const excelBuffer = XLSX.write(workbook, { bookType: "xlsx", type: "array" });
-    const data = new Blob([excelBuffer], { type: "application/octet-stream" });
-    saveAs(data, "dataset-history.xlsx");
+  const handleSave = () => {
+    const newEntry = {
+      time: new Date().toLocaleString(),
+      ph: (7 + Math.random()).toFixed(2),
+      turbidity: (1 + Math.random()).toFixed(2),
+      temp: (24 + Math.random()).toFixed(1),
+      tds: (300 + Math.floor(Math.random() * 100)).toString()
+    };
+    setData(prev => [newEntry, ...prev]);
   };
 
-  const getAlertMessages = () => {
-    return dataset
-      .map((entry) => {
-        const alerts = [];
-        if (entry.tds > 450) {
-          alerts.push(`🚨 High TDS detected on ${entry.date} (${entry.tds} ppm)`);
-        }
-        if (entry.turbidity > 3.0) {
-          alerts.push(`🌫️ Turbidity slightly above normal on ${entry.date}`);
-        }
-        return alerts;
-      })
-      .flat();
-  };
+  const handleDownload = () => {
+    const csv = [
+      ["Time", "pH", "Turbidity", "Temperature", "TDS"],
+      ...data.map(row => [row.time, row.ph, row.turbidity, row.temp, row.tds])
+    ]
+      .map(e => e.join(","))
+      .join("\n");
 
-  const alertMessages = getAlertMessages();
+    const blob = new Blob([csv], { type: "text/csv" });
+    const url = URL.createObjectURL(blob);
+
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = "AquaCheck_History.csv";
+    link.click();
+
+    URL.revokeObjectURL(url);
+  };
 
   return (
     <div className="container">
       <Sidebar />
-      <main className="main-content">
-        <header className="topbar">
-          <h1>📊 Dataset History</h1>
-        </header>
-
-        <section className="history-section">
-          <div className="table-wrapper">
-            <table className="history-table" aria-label="Dataset history table">
-              <thead>
-                <tr>
-                  <th>Date</th>
-                  <th>pH</th>
-                  <th>Turbidity (NTU)</th>
-                  <th>Temperature (°C)</th>
-                  <th>TDS (ppm)</th>
+      <div className="history-content">
+        <h2>📊 Water Quality History</h2>
+        <div className="history-buttons">
+          <button onClick={handleSave}>📥 Save</button>
+          <button onClick={handleDownload}>⬇ Download</button>
+        </div>
+        <table>
+          <thead>
+            <tr>
+              <th>Time</th>
+              <th>pH</th>
+              <th>Turbidity</th>
+              <th>Temperature (°C)</th>
+              <th>TDS (ppm)</th>
+            </tr>
+          </thead>
+          <tbody>
+            {data.length === 0 ? (
+              <tr>
+                <td colSpan="5" className="no-data">No data available.</td>
+              </tr>
+            ) : (
+              data.map((entry, index) => (
+                <tr key={index}>
+                  <td>{entry.time}</td>
+                  <td>{entry.ph}</td>
+                  <td>{entry.turbidity}</td>
+                  <td>{entry.temp}</td>
+                  <td>{entry.tds}</td>
                 </tr>
-              </thead>
-              <tbody>
-                {dataset.map((data, index) => (
-                  <tr key={index}>
-                    <td>{data.date}</td>
-                    <td>{data.pH}</td>
-                    <td>{data.turbidity}</td>
-                    <td>{data.temperature}</td>
-                    <td>{data.tds}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-
-          <div className="download-wrapper-small">
-            <button
-              onClick={downloadExcel}
-              className="download-btn-small"
-              aria-label="Download dataset as Excel"
-            >
-              ⬇ Download
-            </button>
-          </div>
-        </section>
-
-        {alertMessages.length > 0 && (
-          <section className="alert-section">
-            <h2>⚠️ Critical Alerts</h2>
-            {alertMessages.map((alert, idx) => (
-              <div key={idx} className="alert fade-in" role="alert">
-                {alert}
-              </div>
-            ))}
-          </section>
-        )}
-
-        <footer>
-          <p>© 2025 AquaCheck System. All rights reserved.</p>
-        </footer>
-      </main>
+              ))
+            )}
+          </tbody>
+        </table>
+      </div>
     </div>
   );
 };
