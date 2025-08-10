@@ -1,69 +1,133 @@
-import { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { createUserWithEmailAndPassword } from "firebase/auth";
 import { auth } from "../firebase";
+import { useNavigate, Link } from "react-router-dom";
 import "../assets/login.css";
+
+const ADMIN_SECRET_KEY = "SuperSecretAdminKey123";
 
 const CreateAdmin = () => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [master, setMaster] = useState("");
+  const [rePassword, setRePassword] = useState("");
+  const [adminKey, setAdminKey] = useState("");
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [showWelcome, setShowWelcome] = useState(false);
+  const navigate = useNavigate();
 
-  const MASTER_KEY = "AquaCheckH2O";
+  useEffect(() => {
+    let timer;
+    if (showWelcome) {
+      timer = setTimeout(() => {
+        navigate("/dashboard");
+      }, 5000);
+    }
+    return () => clearTimeout(timer);
+  }, [showWelcome, navigate]);
 
-  const handleCreate = async (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    if (master !== MASTER_KEY) {
-      setError("❌ Invalid master password.");
+    setError("");
+    setSuccess("");
+
+    if (password !== rePassword) {
+      setError("❌ Passwords do not match.");
       return;
     }
+    if (adminKey !== ADMIN_SECRET_KEY) {
+      setError("❌ Invalid Admin Key.");
+      return;
+    }
+
+    setLoading(true);
     try {
       await createUserWithEmailAndPassword(auth, email, password);
-      setSuccess("✅ Admin account created!");
-      setError("");
+      setSuccess("✅ Admin account created successfully!");
+      setShowWelcome(true);
+      localStorage.setItem("isAdmin", "true");
     } catch (err) {
-      setError("❌ Failed to create account. Maybe email already used.");
+      setError("❌ " + err.message);
+    } finally {
+      setLoading(false);
     }
   };
 
+  if (showWelcome) {
+    return (
+      <div className="login-wrapper modern">
+        <div className="login-card modern">
+          <h1>Welcome, {email}!</h1>
+          <p>You will be redirected to the dashboard shortly...</p>
+          <p>(Redirecting in 5 seconds)</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <div className="login-wrapper">
-      <div className="login-card">
+    <div className="login-wrapper modern">
+      <div className="login-card modern">
         <h1>AquaCheck</h1>
-        <p className="subtitle">Create Admin</p>
-        <form onSubmit={handleCreate}>
-          <div className="input-group">
+        <p className="subtitle highlight">Create Admin Account</p>
+        <form onSubmit={handleSubmit}>
+          <div className="input-group modern">
             <label>Email</label>
             <input
               type="email"
               required
               value={email}
               onChange={(e) => setEmail(e.target.value)}
+              autoComplete="username"
+              className="input-modern"
             />
           </div>
-          <div className="input-group">
+          <div className="input-group modern">
             <label>Password</label>
             <input
               type="password"
               required
               value={password}
               onChange={(e) => setPassword(e.target.value)}
+              autoComplete="new-password"
+              className="input-modern"
             />
           </div>
-          <div className="input-group">
-            <label>Master Password</label>
+          <div className="input-group modern">
+            <label>Re-enter Password</label>
             <input
               type="password"
               required
-              value={master}
-              onChange={(e) => setMaster(e.target.value)}
+              value={rePassword}
+              onChange={(e) => setRePassword(e.target.value)}
+              autoComplete="new-password"
+              className="input-modern"
             />
           </div>
-          <button type="submit">Create Admin</button>
+          <div className="input-group modern">
+            <label>Admin Key</label>
+            <input
+              type="password"
+              required
+              value={adminKey}
+              onChange={(e) => setAdminKey(e.target.value)}
+              placeholder="Enter secret admin key"
+              className="input-modern"
+            />
+          </div>
+          <button type="submit" disabled={loading} className="btn btn-primary">
+            {loading ? "Creating..." : "Create Admin"}
+          </button>
           {error && <p className="error-message">{error}</p>}
-          {success && <p className="success">{success}</p>}
+          {success && <p className="highlight">{success}</p>}
         </form>
+        <p>
+          Already have an account?{" "}
+          <Link to="/admin" className="btn btn-secondary" style={{ textDecoration: "none", display: "inline-block", textAlign: "center" }}>
+            Login here
+          </Link>
+        </p>
       </div>
     </div>
   );

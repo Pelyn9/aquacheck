@@ -1,33 +1,95 @@
-import React, { useState} from "react";
+import React, { useState, useEffect, useRef } from "react";
 import Sidebar from "../components/Sidebar";
 import "../assets/datahistory.css";
 
-const mockData = [
-  { time: "2025-08-03 10:00", ph: "7.2", turbidity: "1.3", temp: "24.5", tds: "350" },
-  { time: "2025-08-03 10:01", ph: "7.3", turbidity: "1.4", temp: "24.6", tds: "360" },
-  // Add more sample entries here
-];
+const isSafe = (entry) => {
+  return (
+    entry.ph >= 6.5 &&
+    entry.ph <= 8.5 &&
+    parseFloat(entry.turbidity) < 5 &&
+    parseFloat(entry.temp) < 30 &&
+    parseFloat(entry.tds) < 500
+  );
+};
 
 const DataHistory = () => {
-  const [data, setData] = useState(mockData);
+  const [data, setData] = useState([]);
+  const [filteredData, setFilteredData] = useState([]);
+  const [page, setPage] = useState(1);
+  const itemsPerPage = 5; // Show 10 items per page now
 
-  const handleSave = () => {
-    const newEntry = {
-      time: new Date().toLocaleString(),
-      ph: (7 + Math.random()).toFixed(2),
-      turbidity: (1 + Math.random()).toFixed(2),
-      temp: (24 + Math.random()).toFixed(1),
-      tds: (300 + Math.floor(Math.random() * 100)).toString()
-    };
-    setData(prev => [newEntry, ...prev]);
-  };
+  const [searchStatusInput, setSearchStatusInput] = useState("all");
+  const [searchDateInput, setSearchDateInput] = useState("");
+  const [searchTextInput, setSearchTextInput] = useState("");
+
+  const [filters, setFilters] = useState({
+    status: "all",
+    date: "",
+    text: "",
+  });
+
+  const tableContainerRef = useRef(null);
+
+  useEffect(() => {
+    // Generate mock data
+    const mockData = [];
+    for (let i = 1; i <= 50; i++) {
+      const date = new Date();
+      date.setDate(date.getDate() - i);
+      mockData.push({
+        time: date.toISOString().slice(0, 19).replace("T", " "),
+        ph: (6 + Math.random() * 3).toFixed(2),
+        turbidity: (Math.random() * 10).toFixed(2),
+        temp: (20 + Math.random() * 15).toFixed(1),
+        tds: (300 + Math.floor(Math.random() * 300)).toString(),
+      });
+    }
+    setData(mockData);
+  }, []);
+
+  useEffect(() => {
+    let filtered = data;
+
+    if (filters.status !== "all") {
+      filtered = filtered.filter((entry) =>
+        filters.status === "safe" ? isSafe(entry) : !isSafe(entry)
+      );
+    }
+    if (filters.date.trim() !== "") {
+      filtered = filtered.filter((entry) => entry.time.startsWith(filters.date));
+    }
+    if (filters.text.trim() !== "") {
+      filtered = filtered.filter((entry) =>
+        entry.time.toLowerCase().includes(filters.text.toLowerCase())
+      );
+    }
+
+    setFilteredData(filtered);
+    setPage(1);
+  }, [data, filters]);
+
+  const totalPages = Math.ceil(filteredData.length / itemsPerPage);
+  const currentData = filteredData.slice(
+    (page - 1) * itemsPerPage,
+    page * itemsPerPage
+  );
+
+  const goPrev = () => setPage((p) => Math.max(p - 1, 1));
+  const goNext = () => setPage((p) => Math.min(p + 1, totalPages));
 
   const handleDownload = () => {
     const csv = [
-      ["Time", "pH", "Turbidity", "Temperature", "TDS"],
-      ...data.map(row => [row.time, row.ph, row.turbidity, row.temp, row.tds])
+      ["Time", "pH", "Turbidity", "Temperature", "TDS", "Status"],
+      ...filteredData.map((row) => [
+        row.time,
+        row.ph,
+        row.turbidity,
+        row.temp,
+        row.tds,
+        isSafe(row) ? "Safe" : "Unsafe",
+      ]),
     ]
-      .map(e => e.join(","))
+      .map((e) => e.join(","))
       .join("\n");
 
     const blob = new Blob([csv], { type: "text/csv" });
@@ -41,43 +103,109 @@ const DataHistory = () => {
     URL.revokeObjectURL(url);
   };
 
+  const handleSearchClick = () => {
+    setFilters({
+      status: searchStatusInput,
+      date: searchDateInput.trim(),
+      text: searchTextInput.trim(),
+    });
+  };
+
   return (
     <div className="container">
       <Sidebar />
       <div className="history-content">
-        <h2>📊 Water Quality History</h2>
-        <div className="history-buttons">
-          <button onClick={handleSave}>📥 Save</button>
-          <button onClick={handleDownload}>⬇ Download</button>
+        {/* Header + Filters */}
+        <div className="header-filters">
+          <h2>📊 Water Quality History</h2>
+          <div className="filter-controls">
+            <label>
+              Status:
+              <select
+                value={searchStatusInput}
+                onChange={(e) => setSearchStatusInput(e.target.value)}
+              >
+                <option value="all">All</option>
+                <option value="safe">Safe</option>
+                <option value="unsafe">Unsafe</option>
+              </select>
+            </label>
+
+            <label>
+              Date (YYYY or YYYY-MM-DD):
+              <input
+                type="text"
+                placeholder="e.g. 2025 or 2025-08-10"
+                value={searchDateInput}
+                onChange={(e) => setSearchDateInput(e.target.value)}
+              />
+            </label>
+
+            <label>
+              Search Time:
+              <input
+                type="text"
+                placeholder="Search timestamp..."
+                value={searchTextInput}
+                onChange={(e) => setSearchTextInput(e.target.value)}
+              />
+            </label>
+
+            <button onClick={handleSearchClick}>Search</button>
+            <button onClick={handleDownload}>⬇ Download CSV</button>
+          </div>
         </div>
-        <table>
-          <thead>
-            <tr>
-              <th>Time</th>
-              <th>pH</th>
-              <th>Turbidity</th>
-              <th>Temperature (°C)</th>
-              <th>TDS (ppm)</th>
-            </tr>
-          </thead>
-          <tbody>
-            {data.length === 0 ? (
+
+        {/* Scrollable Table Container */}
+        <div className="table-container" ref={tableContainerRef}>
+          <table>
+            <thead>
               <tr>
-                <td colSpan="5" className="no-data">No data available.</td>
+                <th>Time</th>
+                <th>pH</th>
+                <th>Turbidity</th>
+                <th>Temperature (°C)</th>
+                <th>TDS (ppm)</th>
+                <th>Status</th>
               </tr>
-            ) : (
-              data.map((entry, index) => (
-                <tr key={index}>
-                  <td>{entry.time}</td>
-                  <td>{entry.ph}</td>
-                  <td>{entry.turbidity}</td>
-                  <td>{entry.temp}</td>
-                  <td>{entry.tds}</td>
+            </thead>
+            <tbody>
+              {currentData.length === 0 ? (
+                <tr>
+                  <td colSpan="6" className="no-data">
+                    No data available.
+                  </td>
                 </tr>
-              ))
-            )}
-          </tbody>
-        </table>
+              ) : (
+                currentData.map((entry, index) => (
+                  <tr key={index} className={isSafe(entry) ? "safe" : "unsafe"}>
+                    <td>{entry.time}</td>
+                    <td>{entry.ph}</td>
+                    <td>{entry.turbidity}</td>
+                    <td>{entry.temp}</td>
+                    <td>{entry.tds}</td>
+                    <td>{isSafe(entry) ? "Safe" : "Unsafe"}</td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
+
+        {/* Pagination */}
+        {totalPages > 1 && (
+          <div className="pagination">
+            <button onClick={goPrev} disabled={page === 1}>
+              Previous
+            </button>
+            <span>
+              Page {page} of {totalPages}
+            </span>
+            <button onClick={goNext} disabled={page === totalPages}>
+              Next
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );

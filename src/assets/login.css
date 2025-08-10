@@ -1,145 +1,194 @@
-/* RESET + BASE */
-* {
-  margin: 0;
-  padding: 0;
-  box-sizing: border-box;
-}
-body {
-  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-  background: linear-gradient(to bottom right, #0077b6, #00b4d8);
-  height: 100vh;
+/* Modern wrapper */
+.login-wrapper.modern {
   display: flex;
-  align-items: center;
   justify-content: center;
-}
-
-/* WRAPPER */
-.login-wrapper {
-  width: 200%;
-  max-width: 420px;
+  align-items: center;
+  min-height: 94.2vh;
+  background: linear-gradient(135deg, #005f73, #0a9396);
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  color: #e0fbfc;
   padding: 20px;
-  align-items: center;
-  justify-content: center;
 }
 
-/* CARD DESIGN */
-.login-card {
-  background: white;
-  border-radius: 16px;
-  padding: 60px 40px;
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
-  text-align: center;
-}
-
-.login-card h1 {
-  font-size: 32px;
-  color: #0077b6;
-  margin-bottom: 5px;
-}
-
-.login-card .subtitle {
-  font-size: 16px;
-  color: #555;
-  margin-bottom: 25px;
-}
-
-/* INPUT GROUP */
-.input-group {
-  margin-bottom: 20px;
-  text-align: left;
-}
-.input-group label {
-  display: block;
-  margin-bottom: 8px;
-  color: #333;
-}
-.input-group input {
+/* Center everything inside the card */
+.login-card.modern {
+  background: rgba(255 255 255 / 0.12);
+  backdrop-filter: blur(12px);
+  padding: 48px 60px;
+  border-radius: 40px;
   width: 100%;
-  padding: 14px;
-  border-radius: 8px;
-  border: 1px solid #ccc;
-  outline: none;
-  transition: border 0.3s ease;
-}
-.input-group input:focus {
-  border-color: #00b4d8;
+  max-width: 420px;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.3);
+  text-align: center;
+  transition: all 0.3s ease;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
 }
 
-/* PASSWORD TOGGLE */
-.password-wrapper {
+/* Align labels and inputs to center */
+.input-group.modern {
+  text-align: center;
+  margin-bottom: 28px;
+  width: 100%;
+  max-width: 320px;
+  position: relative; /* For positioning toggle button */
+}
+
+/* Make label block but centered */
+.input-group.modern label {
+  display: block;
+  font-weight: 700;
+  margin-bottom: 10px;
+  color: #a9e6ff;
+  text-shadow: 0 0 4px rgba(0, 180, 216, 0.8);
+  text-align: center;
+  letter-spacing: 0.05em;
+}
+
+/* Inputs full width and nicely centered */
+.input-modern {
+  width: 100%;
   position: relative;
+  padding: 16px 20px;
+  padding-right: 60px; /* space for toggle button */
+  border-radius: 14px;
+  border: none;
+  font-size: 1.05rem;
+  background: rgba(255 255 255 / 0.3);
+  color: #e0fbfc;
+  outline: none;
+  transition: background-color 0.3s ease, box-shadow 0.3s ease;
+  box-sizing: border-box;
+  box-shadow: inset 0 0 8px rgba(255 255 255 / 0.2);
 }
-.password-wrapper input {
-  padding-right: 40px;
+
+.input-modern::placeholder {
+  color: #c0e9ff;
+  opacity: 0.8;
 }
+
+.input-modern:focus {
+  background: rgba(255 255 255 / 0.55);
+  box-shadow: 0 0 10px 3px #00b4d8;
+}
+
 .toggle-password {
   position: absolute;
-  right: 10px;
-  top: 50%;
+  top: var(--toggle-top, 50%);
+  right: var(--toggle-right, 15px);
+  left: var(--toggle-left, auto);
+  bottom: var(--toggle-bottom, auto);
   transform: translateY(-50%);
-  cursor: pointer;
-  font-size: 18px;
-  color: #0077b6;
-  user-select: none;
-}
-
-/* BUTTON */
-button {
-  width: 100%;
-  padding: 12px;
-  background-color: #0077b6;
-  color: white;
-  font-size: 16px;
-  border: none;
-  border-radius: 8px;
-  cursor: pointer;
-  transition: background 0.3s ease;
-}
-button:hover {
-  background-color: #023e8a;
-}
-button:disabled {
-  background-color: #90e0ef;
-  cursor: not-allowed;
-}
-
-/* MESSAGE */
-.error-message {
-  margin-top: 12px;
-  font-size: 14px;
-  transition: opacity 0.3s ease-in-out;
-  opacity: 0;
-}
-
-/* TOGGLE SWITCH */
-.switch-text {
-  margin-top: 20px;
-  font-size: 14px;
-  color: #333;
-}
-.switch-btn {
   background: none;
   border: none;
-  color: #0077b6;
+  color: #00b4d8;
+  font-weight: 700;
   cursor: pointer;
-  font-weight: bold;
-  margin-left: 5px;
-  text-decoration: underline;
+  font-size: 1.1rem;
+  padding: 4px 8px;
+  user-select: none;
+  transition: color 0.3s ease, background-color 0.3s ease;
+  border-radius: 6px;
 }
 
-/* RESPONSIVE DESIGN */
-@media (max-width: 480px) {
-  .login-card {
-    padding: 30px 20px;
-  }
+.toggle-password:hover,
+.toggle-password:focus {
+  color: #0096c7;
+  background-color: rgba(0, 180, 216, 0.15);
+  outline: none;
+}
 
-  .login-card h1 {
-    font-size: 28px;
-  }
+/* Buttons */
+.btn {
+  cursor: pointer;
+  font-weight: 600;
+  padding: 14px 0;
+  width: 100%;
+  max-width: 320px;
+  border-radius: 12px;
+  font-size: 1.1rem;
+  border: none;
+  transition: background-color 0.3s ease;
+  box-shadow: 0 4px 15px rgb(0 180 216 / 0.3);
+  margin: 10px auto;
+  display: block;
+}
 
-  .input-group input,
-  button {
-    font-size: 15px;
-    padding: 10px;
-  }
+.btn-primary {
+  background-color: #00b4d8;
+  color: #001219;
+}
+
+.btn-primary:hover:not(:disabled) {
+  background-color: #0096c7;
+}
+
+.btn-primary:disabled {
+  background-color: #0077b6;
+  cursor: not-allowed;
+  opacity: 0.7;
+}
+
+.btn-secondary {
+  background-color: transparent;
+  border: 2px solid #caf0f8;
+  color: #caf0f8;
+  margin-top: 20px;
+  max-width: 320px;
+  width: 100%;
+  margin-left: auto;
+  margin-right: auto;
+  display: block;
+}
+
+.btn-secondary:hover {
+  background-color: #caf0f8;
+  color: #001219;
+}
+
+.error-message {
+  margin-top: 15px;
+  color: #ffb4a2;
+  font-weight: 600;
+  font-size: 0.95rem;
+  max-width: 320px;
+  margin-left: auto;
+  margin-right: auto;
+  text-align: center;
+  text-shadow: 0 0 6px #ff7f7f;
+}
+
+.highlight {
+  color: #94d2bd;
+  font-weight: 700;
+  text-shadow: 0 0 5px #7bb298;
+}
+
+/* Progress Bar */
+.progress-bar-container {
+  width: 100%;
+  max-width: 320px;
+  height: 10px;
+  background: rgba(255 255 255 / 0.25);
+  border-radius: 10px;
+  margin: 20px auto 10px;
+  overflow: hidden;
+  box-shadow: inset 0 0 6px rgba(255 255 255 / 0.2);
+}
+
+.progress-bar {
+  height: 100%;
+  background-color: #52b69a;
+  border-radius: 10px;
+  transition: width 1s linear;
+  box-shadow: 0 0 6px #52b69a;
+}
+
+.countdown-text {
+  font-weight: 500;
+  opacity: 0.85;
+  font-size: 1rem;
+  margin-bottom: 10px;
+  letter-spacing: 0.05em;
 }

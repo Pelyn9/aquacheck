@@ -1,11 +1,14 @@
-import React, { useEffect, useState } from "react";
+import React, { useState, useEffect, useContext } from "react";
 import Sidebar from "../components/Sidebar";
 import "../assets/databoard.css";
 
-import { database } from "../firebase"; // ✅ Firebase config
-import { ref, push } from "firebase/database"; // ✅ Realtime DB functions
+import { database } from "../firebase";
+import { ref, push } from "firebase/database";
+import { AdminContext } from "../App";
 
 const Dashboard = () => {
+  const { isAdmin } = useContext(AdminContext);
+
   const [sensorData, setSensorData] = useState({
     ph: "N/A",
     turbidity: "N/A",
@@ -13,13 +16,14 @@ const Dashboard = () => {
     tds: "N/A",
   });
 
-  const [intervalTime, setIntervalTime] = useState(60000); // Default: 1 minute
+  const [intervalTime, setIntervalTime] = useState(1800000); // 30 minutes default
   const [status, setStatus] = useState("Awaiting sensor data...");
+  const [autoScanRunning, setAutoScanRunning] = useState(false);
 
-  // ✅ Fetch real sensor data from backend
+  // Fetch sensor data from API
   const fetchSensorData = async () => {
     try {
-      const response = await fetch("http://192.168.0.100:5000/sensor-data"); // ← Replace with your local IP
+      const response = await fetch("http://192.168.0.100:5000/sensor-data");
       if (!response.ok) throw new Error("Network response was not ok");
 
       const data = await response.json();
@@ -39,14 +43,20 @@ const Dashboard = () => {
     }
   };
 
-  // ✅ Auto scan at selected interval
+  // Auto scan effect: only if admin and running
   useEffect(() => {
+    if (!isAdmin || !autoScanRunning) return;
+
+    fetchSensorData(); // fetch immediately
+
     const interval = setInterval(fetchSensorData, intervalTime);
     return () => clearInterval(interval);
-  }, [intervalTime]);
+  }, [autoScanRunning, intervalTime, isAdmin]);
 
-  // ✅ Auto-save to Firebase every 24 hours
+  // Auto-save to Firebase every 24h (admin only)
   useEffect(() => {
+    if (!isAdmin) return;
+
     const dailySave = setInterval(() => {
       const historyRef = ref(database, "sensorHistory/");
       const newEntry = {
@@ -55,19 +65,17 @@ const Dashboard = () => {
       };
 
       push(historyRef, newEntry)
-        .then(() => {
-          console.log("✅ Auto-saved to Firebase:", newEntry);
-        })
-        .catch((err) => {
-          console.error("❌ Auto-save failed:", err);
-        });
-    }, 86400000); // 24 hours
+        .then(() => console.log("✅ Auto-saved to Firebase:", newEntry))
+        .catch((err) => console.error("❌ Auto-save failed:", err));
+    }, 86400000);
 
     return () => clearInterval(dailySave);
-  }, [sensorData]);
+  }, [sensorData, isAdmin]);
 
-  // ✅ Manual save to Firebase
+  // Manual save to Firebase (admin only)
   const handleSave = () => {
+    if (!isAdmin) return;
+
     const historyRef = ref(database, "sensorHistory/");
     const newEntry = {
       ...sensorData,
@@ -79,10 +87,14 @@ const Dashboard = () => {
         console.log("✅ Manually saved to Firebase:", newEntry);
         setStatus("✅ Data saved to history!");
       })
-      .catch((error) => {
-        console.error("❌ Failed to save:", error);
+      .catch(() => {
         setStatus("❌ Failed to save to history.");
       });
+  };
+
+  // Toggle auto scan start/stop
+  const toggleAutoScan = () => {
+    setAutoScanRunning((prev) => !prev);
   };
 
   return (
@@ -96,37 +108,54 @@ const Dashboard = () => {
         <section className="sensor-section" id="dashboard">
           <h2>Real-Time Water Sensor Data</h2>
 
-          {/* Scan Controls */}
-          <div className="scan-controls">
-            <div className="interval-setting">
-              <label htmlFor="scanInterval">Set Auto Scan Interval:</label>
-              <select
-                id="scanInterval"
-                onChange={(e) => setIntervalTime(Number(e.target.value))}
-              >
-                <option value={60000}>Every 1 Minute</option>
-                <option value={300000}>Every 5 Minutes</option>
-                <option value={900000}>Every 15 Minutes</option>
-                <option value={1800000}>Every 30 Minutes</option>
-                <option value={3600000}>Every 1 Hour</option>
-                <option value={7200000}>Every 2 Hours</option>
-                <option value={10800000}>Every 3 Hours</option>
-                <option value={14400000}>Every 4 Hours</option>
-                <option value={86400000}>Every 24 Hours</option>
-              </select>
-            </div>
+          {/* Show controls only if admin */}
+          {isAdmin && (
+            <div className="scan-controls">
+              <div className="interval-setting">
+                <label htmlFor="scanInterval">Set Auto Scan Interval:</label>
+                <select
+                  id="scanInterval"
+                  value={intervalTime}
+                  onChange={(e) => setIntervalTime(Number(e.target.value))}
+                  disabled={autoScanRunning}
+                >
+                  <option value={1800000}>Every 30 Minutes</option>
+                  <option value={3600000}>Every 1 Hour</option>
+                  <option value={7200000}>Every 2 Hours</option>
+                  <option value={10800000}>Every 3 Hours</option>
+                  <option value={14400000}>Every 4 Hours</option>
+                  <option value={86400000}>Every 24 Hours</option>
+                </select>
+              </div>
 
-            <div className="button-group">
-              <button className="manual-scan-btn" onClick={fetchSensorData}>
-                Manual Scan
-              </button>
-              <button className="manual-scan-btn save-btn" onClick={handleSave}>
-                Save
-              </button>
-            </div>
-          </div>
+              <div className="button-group">
+                <button
+                  className="manual-scan-btn"
+                  onClick={fetchSensorData}
+                  disabled={autoScanRunning}
+                >
+                  Manual Scan
+                </button>
 
-          {/* Sensor Data Grid */}
+                <button
+                  className="manual-scan-btn save-btn"
+                  onClick={handleSave}
+                >
+                  Save
+                </button>
+
+                <button
+                  className={`manual-scan-btn start-stop-btn ${
+                    autoScanRunning ? "stop" : "start"
+                  }`}
+                  onClick={toggleAutoScan}
+                >
+                  {autoScanRunning ? "Stop Auto Scan" : "Start Auto Scan"}
+                </button>
+              </div>
+            </div>
+          )}
+
           <div className="sensor-grid">
             <div className="sensor-card">
               <h3>pH Level</h3>

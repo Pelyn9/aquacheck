@@ -10,63 +10,93 @@
   color: white;
   height: 100vh;
   transition: width 0.3s ease;
-  padding: 10px;
+  padding: 15px 10px;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
 }
 
 .sidebar.collapsed {
   width: 80px;
+  padding: 15px 5px;
 }
 
+/* Sidebar header */
 .sidebar-header {
   display: flex;
-  flex-direction: column;
   align-items: center;
-  justify-content: center;
-  margin-bottom: 20px;
+  justify-content: flex-start;
+  margin-bottom: 25px;
+  gap: 10px;
+  padding-left: 10px;
 }
 
 .sidebar-header h2 {
-  font-size: 20px;
-  margin-left: 55px;
+  font-size: 22px;
   color: #00d4ff;
-  margin: 10px 0 0;
+  margin: 0;
+  white-space: nowrap;
 }
 
+/* Hamburger button */
 .hamburger {
   background: none;
   border: none;
   color: white;
-  font-size: 1.5rem;
+  font-size: 1.7rem;
   cursor: pointer;
+  padding: 5px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
+/* === NAVIGATION LINKS === */
 .nav-links {
   list-style: none;
   padding: 0;
-  margin-top: 20px;
+  margin: 0;
+  flex-grow: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
 }
 
+/* Each nav item (li) styles removed padding to let link handle that */
 .nav-links li {
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+/* The actual clickable link */
+.nav-link {
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 12px;
-  background-color: #0077b6;
-  border-radius: 8px;
-  margin-bottom: 10px;
+  gap: 12px;
+  padding: 12px 20px;
+  color: inherit;
+  text-decoration: none;
   cursor: pointer;
   transition: background-color 0.3s ease;
+  user-select: none;
+  height: 44px; /* consistent height */
+  box-sizing: border-box;
+  border-radius: 8px;
 }
 
-.nav-links li:hover {
+.nav-link:hover,
+.nav-link:focus {
   background-color: #00b4d8;
+  outline: none;
 }
 
-.nav-links li span {
-  white-space: nowrap;
+.nav-link svg {
+  font-size: 1.2rem;
+  min-width: 20px; /* keeps icon aligned */
 }
 
-.sidebar.collapsed .nav-links li span {
+/* Hide text when collapsed */
+.sidebar.collapsed .nav-link span {
   display: none;
 }
 
@@ -81,37 +111,41 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  z-index: 999;
+  z-index: 9999;
 }
 
 .logout-modal {
-  background-color: white;
-  padding: 20px 25px;
-  border-radius: 10px;
+  background-color: #fff;
+  padding: 25px 30px;
+  border-radius: 12px;
   text-align: center;
-  width: 300px;
-  box-shadow: 0 5px 25px rgba(0, 0, 0, 0.2);
+  width: 320px;
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.15);
 }
 
 .logout-modal p {
-  font-size: 16px;
-  font-weight: 500;
-  margin-bottom: 15px;
+  font-size: 17px;
+  font-weight: 600;
+  margin-bottom: 20px;
+  color: #333;
 }
 
 .confirm-buttons {
   display: flex;
   justify-content: center;
-  gap: 15px;
+  gap: 20px;
 }
 
 .confirm-buttons .yes,
 .confirm-buttons .no {
-  padding: 6px 16px;
+  padding: 8px 18px;
   border: none;
-  border-radius: 6px;
+  border-radius: 8px;
   cursor: pointer;
-  font-weight: bold;
+  font-weight: 600;
+  font-size: 14px;
+  transition: background-color 0.3s ease;
+  user-select: none;
 }
 
 .confirm-buttons .yes {
@@ -119,7 +153,15 @@
   color: white;
 }
 
+.confirm-buttons .yes:hover {
+  background-color: #005f8d;
+}
+
 .confirm-buttons .no {
-  background-color: #ccc;
-  color: #333;
+  background-color: #ddd;
+  color: #555;
+}
+
+.confirm-buttons .no:hover {
+  background-color: #bbb;
 }

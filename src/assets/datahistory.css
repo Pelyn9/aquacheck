@@ -1,93 +1,280 @@
+/* Container & layout */
 .container {
   display: flex;
   min-height: 100vh;
-  background-color: #f5faff;
+  background-color: #f0f4f8;
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
 }
 
-/* CONTENT AREA */
+/* History content area */
 .history-content {
   flex: 1;
-  padding: 30px;
+  padding: 40px 50px;
+  max-width: 1200px;
+  margin: auto;
 }
 
+/* Title */
 .history-content h2 {
-  font-size: 24px;
-  color: #0077b6;
-  margin-bottom: 20px;
+  font-size: 28px;
+  color: #1a202c;
+  margin-bottom: 30px;
+  font-weight: 700;
 }
 
-/* BUTTONS */
-.history-buttons {
+/* Filters wrapper */
+.filter-controls {
   display: flex;
-  justify-content: flex-end;
-  gap: 12px;
-  margin-bottom: 20px;
+  flex-wrap: wrap;
+  gap: 25px;
+  margin-bottom: 30px;
+  align-items: flex-end;
 }
 
-.history-buttons button {
-  padding: 10px 20px;
-  background-color: #0077b6;
+/* Label + inputs styling */
+.filter-controls label {
+  display: flex;
+  flex-direction: column;
+  font-weight: 600;
+  color: #2d3748;
+  font-size: 14px;
+}
+
+.filter-controls input,
+.filter-controls select {
+  margin-top: 6px;
+  padding: 10px 14px;
+  border-radius: 10px;
+  border: 1.8px solid #cbd5e0;
+  background: white;
+  font-size: 15px;
+  width: 180px;
+  transition: border-color 0.3s ease;
+}
+
+.filter-controls input:focus,
+.filter-controls select:focus {
+  outline: none;
+  border-color: #4299e1;
+  box-shadow: 0 0 8px rgba(66, 153, 225, 0.4);
+}
+
+/* Buttons */
+.filter-controls button {
+  padding: 12px 28px;
+  background-color: #3182ce;
   color: white;
   border: none;
-  border-radius: 8px;
-  font-weight: bold;
+  border-radius: 12px;
+  font-weight: 700;
   cursor: pointer;
-  transition: background 0.3s ease;
+  font-size: 16px;
+  transition: background-color 0.3s ease;
+  height: 42px;
+  align-self: center;
+  box-shadow: 0 4px 8px rgba(49, 130, 206, 0.3);
 }
 
-.history-buttons button:hover {
-  background-color: #023e8a;
+.filter-controls button:hover {
+  background-color: #2b6cb0;
+  box-shadow: 0 6px 12px rgba(43, 108, 176, 0.5);
 }
 
-/* TABLE */
+/* Table styling */
 table {
   width: 100%;
-  border-collapse: collapse;
-  background-color: white;
-  border-radius: 12px;
+  border-collapse: separate;
+  border-spacing: 0 12px;
+  background-color: transparent;
+  font-size: 15px;
+  color: #2d3748;
+  box-shadow: 0 4px 20px rgba(45, 55, 72, 0.1);
+  border-radius: 16px;
   overflow: hidden;
-  box-shadow: 0 0 10px rgba(0,0,0,0.05);
 }
 
-table thead {
-  background-color: #00b4d8;
+/* Table header */
+thead tr {
+  position: sticky;
+  top: 0;
+  background-color: #2b6cb0; /* same as original header bg */
   color: white;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  z-index: 10; /* ensure header stays on top */
 }
 
-table th,
-table td {
-  padding: 14px 16px;
+thead th {
+  padding: 16px 20px;
   text-align: center;
-  border-bottom: 1px solid #eee;
 }
 
-table tr:hover {
-  background-color: #f1f9ff;
+/* Table body rows */
+tbody tr {
+  background-color: white;
+  box-shadow: 0 4px 8px rgba(45, 55, 72, 0.05);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  border-radius: 12px;
+  cursor: default;
 }
 
+tbody tr:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 10px 15px rgba(45, 55, 72, 0.12);
+}
+
+tbody td {
+  padding: 18px 20px;
+  text-align: center;
+  vertical-align: middle;
+}
+
+/* Status styling */
+tr.safe {
+  border-left: 5px solid #48bb78; /* green */
+}
+
+tr.unsafe {
+  border-left: 5px solid #f56565; /* red */
+}
+
+/* No data cell */
 .no-data {
-  text-align: center;
-  padding: 20px;
-  color: #888;
+  padding: 40px 0;
+  color: #a0aec0;
+  font-size: 16px;
 }
 
-/* RESPONSIVE */
-@media (max-width: 768px) {
-  .history-buttons {
-    flex-direction: column;
-    align-items: flex-end;
-  }
+/* Pagination */
+.pagination {
+  margin-top: 10px;
+  display: flex;
+  justify-content: center;
+  gap: 20px;
+  align-items: center;
+  font-weight: 600;
+  color: #2d3748;
+  user-select: none;
+}
 
-  .history-buttons button {
+.pagination button {
+  padding: 10px 24px;
+  background-color: #3182ce;
+  color: white;
+  border: none;
+  border-radius: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  font-size: 16px;
+  box-shadow: 0 4px 10px rgba(49, 130, 206, 0.3);
+  transition: background-color 0.3s ease;
+}
+
+.pagination button:disabled {
+  background-color: #a0aec0;
+  cursor: not-allowed;
+  box-shadow: none;
+}
+
+.pagination button:hover:not(:disabled) {
+  background-color: #2b6cb0;
+  box-shadow: 0 6px 15px rgba(43, 108, 176, 0.5);
+}
+
+.pagination span {
+  font-size: 16px;
+}
+
+/* Responsive adjustments */
+@media (max-width: 1024px) {
+  .history-content {
+    padding: 30px 30px;
+  }
+  .filter-controls input,
+  .filter-controls select {
+    width: 140px;
+  }
+}
+
+@media (max-width: 600px) {
+  .history-content {
+    padding: 20px 15px;
+  }
+  .filter-controls {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .filter-controls label {
     width: 100%;
   }
-
-  .history-content h2 {
-    font-size: 20px;
+  .filter-controls input,
+  .filter-controls select {
+    width: 100%;
   }
-
-  table th, table td {
-    font-size: 14px;
-    padding: 10px;
+  .filter-controls button {
+    width: 100%;
   }
+  table thead {
+    display: none; /* hide table headers for small screens */
+  }
+  table,
+  tbody,
+  tr,
+  td {
+    display: block;
+    width: 100%;
+  }
+  tbody tr {
+    margin-bottom: 20px;
+    box-shadow: 0 4px 20px rgba(45, 55, 72, 0.1);
+    border-radius: 16px;
+    padding: 20px;
+  }
+  tbody td {
+    text-align: right;
+    padding-left: 50%;
+    position: relative;
+  }
+  tbody td::before {
+    content: attr(data-label);
+    position: absolute;
+    left: 20px;
+    width: 45%;
+    padding-left: 10px;
+    font-weight: 700;
+    text-align: left;
+    color: #4a5568;
+  }
+}
+
+/* Table container with scroll on hover */
+.table-container {
+  max-height: 500px;
+  overflow-y: auto;
+  border: 1px solid #ccc;
+  border-radius: 12px;
+
+  /* Hide scrollbar by default */
+  scrollbar-width: none; /* Firefox */
+  -ms-overflow-style: none;  /* IE 10+ */
+}
+
+.table-container::-webkit-scrollbar {
+  width: 0;
+  height: 0;
+}
+
+/* Show scrollbar only on hover */
+.table-container:hover {
+  scrollbar-width: thin;
+}
+
+.table-container:hover::-webkit-scrollbar {
+  width: 8px;
+}
+
+.table-container:hover::-webkit-scrollbar-thumb {
+  background-color: rgba(0, 0, 0, 0.2);
+  border-radius: 8px;
 }

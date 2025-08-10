@@ -230,6 +230,37 @@ label[for="scanInterval"] {
   background-color: #009ac1;
 }
 
+/* ==== START/STOP AUTO SCAN BUTTON ==== */
+.start-stop-btn {
+  width: 160px;
+  height: 40px;
+  padding: 10px 20px;
+  font-size: 16px;
+  font-weight: bold;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background-color 0.3s ease;
+}
+
+.start-stop-btn.start {
+  background-color: #2ecc71; /* green */
+}
+
+.start-stop-btn.start:hover {
+  background-color: #27ae60;
+}
+
+.start-stop-btn.stop {
+  background-color: #e74c3c; /* red */
+}
+
+.start-stop-btn.stop:hover {
+  background-color: #c0392b;
+}
+
 /* ==== FOOTER ==== */
 footer {
   margin-top: 40px;
