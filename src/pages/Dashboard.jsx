@@ -99,8 +99,11 @@ const Dashboard = () => {
 
   return (
     <div className="container">
-      <Sidebar />
-      <main className="main-content">
+      {isAdmin && <Sidebar />}
+      <main
+        className="main-content"
+        style={{ marginLeft: isAdmin ? undefined : 0 }}
+      >
         <header className="topbar">
           <h1>Dashboard</h1>
         </header>

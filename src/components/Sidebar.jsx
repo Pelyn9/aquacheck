@@ -10,7 +10,7 @@ import {
 } from "@fortawesome/free-solid-svg-icons";
 import "../assets/Sidebar.css";
 
-import { AdminContext } from "../App"; // import your context
+import { AdminContext } from "../App";
 
 export default function Sidebar() {
   const [isCollapsed, setIsCollapsed] = useState(false);
@@ -18,8 +18,6 @@ export default function Sidebar() {
 
   const { isAdmin, setIsAdmin } = useContext(AdminContext);
   const navigate = useNavigate();
-
-  // Removed useEffect that overrides isAdmin from localStorage here!
 
   const toggleSidebar = () => {
     setIsCollapsed(!isCollapsed);
@@ -70,9 +68,15 @@ export default function Sidebar() {
                   {!isCollapsed && <span> Dataset History</span>}
                 </Link>
               </li>
-              <li onClick={handleLogout} style={{ cursor: "pointer" }}>
-                <FontAwesomeIcon icon={faSignOutAlt} />
-                {!isCollapsed && <span> Logout</span>}
+              <li>
+                <button
+                  onClick={handleLogout}
+                  className="nav-link logout-button"
+                  type="button"
+                >
+                  <FontAwesomeIcon icon={faSignOutAlt} />
+                  {!isCollapsed && <span> Logout</span>}
+                </button>
               </li>
             </>
           )}

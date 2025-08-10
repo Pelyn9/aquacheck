@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useContext } from "react";
 import { useNavigate } from "react-router-dom";
 import { AdminContext } from "../App"; // adjust path if needed
-import "../assets/login.css";
+import "../assets/login.css"; // ensure this has your CSS
 
 const AdminLogin = () => {
   const { setIsAdmin } = useContext(AdminContext);
@@ -41,7 +41,7 @@ const AdminLogin = () => {
 
   if (showWelcome) {
     return (
-      <div className="login-wrapper modern">
+      <div className="login-wrapper modern" role="alert" aria-live="polite">
         <div className="login-card modern">
           <h1>
             Welcome, <span className="highlight">{email.trim()}</span>!
@@ -56,10 +56,14 @@ const AdminLogin = () => {
   }
 
   return (
-    <div className="login-wrapper modern">
-      <div className="login-card modern" role="main">
-        <h1 className="title">AquaCheck</h1>
-        <p className="subtitle">Admin Login</p>
+    <main className="login-wrapper modern">
+      <section className="login-card modern" role="main" aria-labelledby="loginTitle">
+        <h1 id="loginTitle" className="title" style={{ marginBottom: "8px" }}>
+          AquaCheck
+        </h1>
+        <p className="subtitle" style={{ marginBottom: "24px" }}>
+          Admin Login
+        </p>
         <form onSubmit={handleSubmit} noValidate>
           <div className="input-group modern">
             <label htmlFor="email">Email</label>
@@ -74,7 +78,7 @@ const AdminLogin = () => {
               className="input-modern"
             />
           </div>
-          <div className="input-group modern">
+          <div className="input-group modern" style={{ position: "relative" }}>
             <label htmlFor="password">Password</label>
             <input
               id="password"
@@ -95,17 +99,35 @@ const AdminLogin = () => {
               {showPassword ? "Hide" : "Show"}
             </button>
           </div>
-          <button type="submit" className="btn btn-primary">
+
+          {/* Forgot Password Link */}
+          <div style={{ textAlign: "right", marginBottom: "20px" }}>
+            <button
+              type="button"
+              className="btn btn-secondary"
+              style={{ padding: "6px 12px", fontSize: "0.9rem", borderRadius: "8px" }}
+              onClick={() => navigate("/forgot-password")} // adjust route accordingly
+            >
+              Forgot Password?
+            </button>
+          </div>
+
+          <button
+            type="submit"
+            className="btn btn-primary"
+            aria-label="Login to Admin Dashboard"
+          >
             Login
           </button>
+
           {error && (
             <p className="error-message" role="alert" aria-live="assertive">
               {error}
             </p>
           )}
         </form>
-      </div>
-    </div>
+      </section>
+    </main>
   );
 };
 

@@ -12,6 +12,10 @@
   padding: 40px 50px;
   max-width: 1200px;
   margin: auto;
+  display: flex;
+  flex-direction: column;
+  height: 100vh; /* Full viewport height */
+  box-sizing: border-box;
 }
 
 /* Title */
@@ -20,6 +24,7 @@
   color: #1a202c;
   margin-bottom: 30px;
   font-weight: 700;
+  flex-shrink: 0;
 }
 
 /* Filters wrapper */
@@ -29,6 +34,7 @@
   gap: 25px;
   margin-bottom: 30px;
   align-items: flex-end;
+  flex-shrink: 0;
 }
 
 /* Label + inputs styling */
@@ -80,29 +86,38 @@
   box-shadow: 0 6px 12px rgba(43, 108, 176, 0.5);
 }
 
+/* Table container */
+.table-container {
+  flex-grow: 1; /* Take all available vertical space */
+  overflow-y: auto; /* Scroll only tbody */
+  border-radius: 12px;
+  box-shadow: 0 4px 20px rgba(45, 55, 72, 0.1);
+  margin-bottom: 20px;
+  background-color: white;
+}
+
 /* Table styling */
 table {
   width: 100%;
   border-collapse: separate;
   border-spacing: 0 12px;
-  background-color: transparent;
   font-size: 15px;
   color: #2d3748;
-  box-shadow: 0 4px 20px rgba(45, 55, 72, 0.1);
   border-radius: 16px;
   overflow: hidden;
+  table-layout: fixed;
 }
 
-/* Table header */
+/* Table header fixed */
 thead tr {
   position: sticky;
   top: 0;
-  background-color: #2b6cb0; /* same as original header bg */
+  background-color: #2b6cb0;
   color: white;
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.05em;
-  z-index: 10; /* ensure header stays on top */
+  z-index: 10;
 }
 
 thead th {
@@ -128,6 +143,7 @@ tbody td {
   padding: 18px 20px;
   text-align: center;
   vertical-align: middle;
+  word-wrap: break-word;
 }
 
 /* Status styling */
@@ -144,11 +160,11 @@ tr.unsafe {
   padding: 40px 0;
   color: #a0aec0;
   font-size: 16px;
+  text-align: center;
 }
 
 /* Pagination */
 .pagination {
-  margin-top: 10px;
   display: flex;
   justify-content: center;
   gap: 20px;
@@ -156,6 +172,7 @@ tr.unsafe {
   font-weight: 600;
   color: #2d3748;
   user-select: none;
+  flex-shrink: 0;
 }
 
 .pagination button {
@@ -246,35 +263,4 @@ tr.unsafe {
     text-align: left;
     color: #4a5568;
   }
-}
-
-/* Table container with scroll on hover */
-.table-container {
-  max-height: 500px;
-  overflow-y: auto;
-  border: 1px solid #ccc;
-  border-radius: 12px;
-
-  /* Hide scrollbar by default */
-  scrollbar-width: none; /* Firefox */
-  -ms-overflow-style: none;  /* IE 10+ */
-}
-
-.table-container::-webkit-scrollbar {
-  width: 0;
-  height: 0;
-}
-
-/* Show scrollbar only on hover */
-.table-container:hover {
-  scrollbar-width: thin;
-}
-
-.table-container:hover::-webkit-scrollbar {
-  width: 8px;
-}
-
-.table-container:hover::-webkit-scrollbar-thumb {
-  background-color: rgba(0, 0, 0, 0.2);
-  border-radius: 8px;
 }

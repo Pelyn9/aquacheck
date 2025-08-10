@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import { createUserWithEmailAndPassword } from "firebase/auth";
 import { auth } from "../firebase";
 import { useNavigate, Link } from "react-router-dom";
-import "../assets/login.css";
+import "../assets/createadmin.css";
 
 const ADMIN_SECRET_KEY = "SuperSecretAdminKey123";
 
@@ -73,41 +73,48 @@ const CreateAdmin = () => {
         <p className="subtitle highlight">Create Admin Account</p>
         <form onSubmit={handleSubmit}>
           <div className="input-group modern">
-            <label>Email</label>
+            <label htmlFor="email">Email</label>
             <input
+              id="email"
               type="email"
               required
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               autoComplete="username"
               className="input-modern"
+              placeholder="Enter your email"
             />
           </div>
           <div className="input-group modern">
-            <label>Password</label>
+            <label htmlFor="password">Password</label>
             <input
+              id="password"
               type="password"
               required
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               autoComplete="new-password"
               className="input-modern"
+              placeholder="Create a password"
             />
           </div>
           <div className="input-group modern">
-            <label>Re-enter Password</label>
+            <label htmlFor="rePassword">Re-enter Password</label>
             <input
+              id="rePassword"
               type="password"
               required
               value={rePassword}
               onChange={(e) => setRePassword(e.target.value)}
               autoComplete="new-password"
               className="input-modern"
+              placeholder="Confirm your password"
             />
           </div>
           <div className="input-group modern">
-            <label>Admin Key</label>
+            <label htmlFor="adminKey">Admin Key</label>
             <input
+              id="adminKey"
               type="password"
               required
               value={adminKey}
@@ -116,7 +123,12 @@ const CreateAdmin = () => {
               className="input-modern"
             />
           </div>
-          <button type="submit" disabled={loading} className="btn btn-primary">
+          <button
+            type="submit"
+            disabled={loading}
+            className="btn btn-primary"
+            aria-busy={loading}
+          >
             {loading ? "Creating..." : "Create Admin"}
           </button>
           {error && <p className="error-message">{error}</p>}
@@ -124,7 +136,11 @@ const CreateAdmin = () => {
         </form>
         <p>
           Already have an account?{" "}
-          <Link to="/admin" className="btn btn-secondary" style={{ textDecoration: "none", display: "inline-block", textAlign: "center" }}>
+          <Link
+            to="/admin"
+            className="btn btn-secondary"
+            style={{ textDecoration: "none", display: "inline-block", textAlign: "center" }}
+          >
             Login here
           </Link>
         </p>

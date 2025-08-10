@@ -1,54 +1,100 @@
 /* === SIDEBAR CONTAINER === */
 .sidebar-container {
   display: flex;
+  height: 100vh;
+  background: #f0f4f8;
+  overflow: hidden;
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
 }
 
 /* === SIDEBAR === */
 .sidebar {
-  width: 250px;
-  background-color: #002244;
-  color: white;
+  width: 400px; /* Wide sidebar */
   height: 100vh;
-  transition: width 0.3s ease;
-  padding: 15px 10px;
+  background: linear-gradient(180deg, #004e92, #000428);
+  color: #e0f7fa;
+  padding: 20px 24px; /* equal left-right padding */
   box-sizing: border-box;
   display: flex;
   flex-direction: column;
+  user-select: none;
+  transition: width 0.4s ease, padding 0.4s ease;
+  box-shadow:
+    inset 2px 0 5px rgba(255, 255, 255, 0.1),
+    4px 0 12px rgba(0, 0, 0, 0.2);
+  border-radius: 0 16px 16px 0;
+  flex-shrink: 0;
 }
 
+/* Collapsed sidebar */
 .sidebar.collapsed {
-  width: 80px;
-  padding: 15px 5px;
+  width: 90px;
+  padding-left: 12px;
+  padding-right: 8px;
+  overflow-x: hidden;
 }
 
-/* Sidebar header */
+/* === SIDEBAR HEADER === */
 .sidebar-header {
   display: flex;
   align-items: center;
-  justify-content: flex-start;
-  margin-bottom: 25px;
-  gap: 10px;
-  padding-left: 10px;
+  gap: 8px; /* smaller gap to fit title better */
+  margin-bottom: 32px;
+  padding-left: 0; /* remove left padding for max space */
+  flex-shrink: 0;
 }
 
 .sidebar-header h2 {
-  font-size: 22px;
-  color: #00d4ff;
+  font-size: 24px; /* slightly smaller font */
+  font-weight: 700;
+  color: #00e5ff;
   margin: 0;
-  white-space: nowrap;
+  white-space: nowrap;    /* prevent wrapping */
+  overflow: hidden;       /* hide overflow */
+  text-overflow: ellipsis;/* show ellipsis if too long */
+  flex-shrink: 1;         /* allow shrinking */
+  max-width: calc(100% - 40px); /* leave space for icon + gap */
+  text-shadow: 0 0 6px #00e5ff88;
+  user-select: none;
+  transition: opacity 0.3s ease;
 }
 
-/* Hamburger button */
+/* Hide header text on collapse */
+.sidebar.collapsed .sidebar-header h2 {
+  opacity: 0;
+  pointer-events: none;
+  width: 0;
+  overflow: hidden;
+}
+
+.main-content {
+  flex-grow: 1;
+  /* fill the rest of the screen */
+}
+
+/* === HAMBURGER BUTTON === */
 .hamburger {
   background: none;
   border: none;
-  color: white;
-  font-size: 1.7rem;
+  color: #00e5ff;
+  font-size: 1.8rem;
   cursor: pointer;
-  padding: 5px;
+  padding: 8px;
+  border-radius: 12px;
+  box-shadow: 0 0 8px #00e5ff55;
+  transition: background-color 0.25s ease, color 0.25s ease;
   display: flex;
   align-items: center;
   justify-content: center;
+  user-select: none;
+  flex-shrink: 0;
+}
+
+.hamburger:hover,
+.hamburger:focus {
+  background-color: #00e5ff22;
+  color: #00b8d4;
+  outline: none;
 }
 
 /* === NAVIGATION LINKS === */
@@ -59,109 +105,181 @@
   flex-grow: 1;
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 14px;
+  overflow-y: auto;
 }
 
-/* Each nav item (li) styles removed padding to let link handle that */
 .nav-links li {
-  border-radius: 8px;
+  border-radius: 14px;
   overflow: hidden;
+  box-shadow:
+    inset 0 0 6px #007bbd33,
+    0 2px 5px rgba(0, 123, 189, 0.15);
+  transition: box-shadow 0.3s ease;
 }
 
-/* The actual clickable link */
+.nav-links li:hover {
+  box-shadow:
+    inset 0 0 10px #00e5ffbb,
+    0 4px 12px #00e5ff88;
+}
+
 .nav-link {
   display: flex;
   align-items: center;
-  gap: 12px;
-  padding: 12px 20px;
+  gap: 14px;
+  padding: 14px 24px;
   color: inherit;
   text-decoration: none;
   cursor: pointer;
-  transition: background-color 0.3s ease;
   user-select: none;
-  height: 44px; /* consistent height */
+  height: 48px;
   box-sizing: border-box;
-  border-radius: 8px;
+  border-radius: 14px;
+  font-weight: 600;
+  font-size: 1rem;
+  transition: background-color 0.3s ease, color 0.3s ease;
+  outline-offset: 3px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .nav-link:hover,
 .nav-link:focus {
-  background-color: #00b4d8;
+  background-color: #00e5ff44;
+  color: #00bcd4;
   outline: none;
+  text-shadow: 0 0 8px #00bcd4cc;
 }
 
 .nav-link svg {
-  font-size: 1.2rem;
-  min-width: 20px; /* keeps icon aligned */
+  font-size: 1.4rem;
+  min-width: 24px;
+  filter: drop-shadow(0 0 1px #00bcd4aa);
+  flex-shrink: 0;
 }
 
-/* Hide text when collapsed */
+/* Hide nav link text on collapse */
 .sidebar.collapsed .nav-link span {
   display: none;
+}
+
+/* === LOGOUT BUTTON SPECIFIC STYLES === */
+.nav-link.logout-button {
+  background: none;
+  border: none;
+  color: inherit;
+  width: 100%;
+  text-align: left;
+  padding-left: 25px;
+  cursor: pointer;
+  font-weight: 600;
+  font-size: 1rem;
+  height: 48px;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  border-radius: 14px;
+  transition: background-color 0.3s ease, color 0.3s ease;
+  user-select: none;
+  outline-offset: 3px;
+}
+
+.nav-link.logout-button:hover,
+.nav-link.logout-button:focus {
+  background-color: #00e5ff44;
+  color: #00bcd4;
+  outline: none;
+  text-shadow: 0 0 8px #00bcd4cc;
 }
 
 /* === LOGOUT CONFIRMATION MODAL === */
 .overlay {
   position: fixed;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  background: rgba(0, 0, 0, 0.4);
+  inset: 0;
+  background: rgba(0, 0, 0, 0.48);
   display: flex;
   align-items: center;
   justify-content: center;
   z-index: 9999;
+  user-select: none;
 }
 
 .logout-modal {
   background-color: #fff;
-  padding: 25px 30px;
-  border-radius: 12px;
+  padding: 28px 36px;
+  border-radius: 16px;
   text-align: center;
-  width: 320px;
-  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.15);
+  width: 360px;
+  box-shadow:
+    0 12px 24px rgba(0, 0, 0, 0.12),
+    0 0 12px rgba(0, 229, 255, 0.15);
+  user-select: none;
+  font-family: inherit;
 }
 
 .logout-modal p {
-  font-size: 17px;
-  font-weight: 600;
-  margin-bottom: 20px;
-  color: #333;
+  font-size: 18px;
+  font-weight: 700;
+  margin-bottom: 28px;
+  color: #004a6e;
+  letter-spacing: 0.05em;
 }
 
+/* Confirm buttons container */
 .confirm-buttons {
   display: flex;
   justify-content: center;
-  gap: 20px;
+  gap: 24px;
 }
 
+/* Confirm buttons styles */
 .confirm-buttons .yes,
 .confirm-buttons .no {
-  padding: 8px 18px;
+  padding: 12px 24px;
   border: none;
-  border-radius: 8px;
+  border-radius: 16px;
   cursor: pointer;
-  font-weight: 600;
-  font-size: 14px;
+  font-weight: 700;
+  font-size: 16px;
   transition: background-color 0.3s ease;
   user-select: none;
+  min-width: 110px;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.1);
 }
 
 .confirm-buttons .yes {
-  background-color: #0077b6;
-  color: white;
+  background-color: #0097c2;
+  color: #e0f7fa;
+  box-shadow: 0 4px 16px #00bcd4aa;
 }
 
-.confirm-buttons .yes:hover {
-  background-color: #005f8d;
+.confirm-buttons .yes:hover,
+.confirm-buttons .yes:focus {
+  background-color: #007a9e;
+  outline: none;
 }
 
 .confirm-buttons .no {
-  background-color: #ddd;
-  color: #555;
+  background-color: #e0e0e0;
+  color: #4f4f4f;
 }
 
-.confirm-buttons .no:hover {
-  background-color: #bbb;
+.confirm-buttons .no:hover,
+.confirm-buttons .no:focus {
+  background-color: #bdbdbd;
+  outline: none;
+}
+
+/* Scrollbar styling for nav-links */
+.nav-links::-webkit-scrollbar {
+  width: 8px;
+}
+.nav-links::-webkit-scrollbar-track {
+  background: transparent;
+}
+.nav-links::-webkit-scrollbar-thumb {
+  background-color: rgba(0, 229, 255, 0.3);
+  border-radius: 8px;
 }

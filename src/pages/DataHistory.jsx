@@ -16,11 +16,7 @@ const DataHistory = () => {
   const [data, setData] = useState([]);
   const [filteredData, setFilteredData] = useState([]);
   const [page, setPage] = useState(1);
-  const itemsPerPage = 5; // Show 10 items per page now
-
-  const [searchStatusInput, setSearchStatusInput] = useState("all");
-  const [searchDateInput, setSearchDateInput] = useState("");
-  const [searchTextInput, setSearchTextInput] = useState("");
+  const itemsPerPage = 10;
 
   const [filters, setFilters] = useState({
     status: "all",
@@ -30,8 +26,8 @@ const DataHistory = () => {
 
   const tableContainerRef = useRef(null);
 
+  // Generate mock data on mount
   useEffect(() => {
-    // Generate mock data
     const mockData = [];
     for (let i = 1; i <= 50; i++) {
       const date = new Date();
@@ -47,6 +43,7 @@ const DataHistory = () => {
     setData(mockData);
   }, []);
 
+  // Filter data live on filter change
   useEffect(() => {
     let filtered = data;
 
@@ -103,14 +100,6 @@ const DataHistory = () => {
     URL.revokeObjectURL(url);
   };
 
-  const handleSearchClick = () => {
-    setFilters({
-      status: searchStatusInput,
-      date: searchDateInput.trim(),
-      text: searchTextInput.trim(),
-    });
-  };
-
   return (
     <div className="container">
       <Sidebar />
@@ -122,8 +111,10 @@ const DataHistory = () => {
             <label>
               Status:
               <select
-                value={searchStatusInput}
-                onChange={(e) => setSearchStatusInput(e.target.value)}
+                value={filters.status}
+                onChange={(e) =>
+                  setFilters((prev) => ({ ...prev, status: e.target.value }))
+                }
               >
                 <option value="all">All</option>
                 <option value="safe">Safe</option>
@@ -136,8 +127,10 @@ const DataHistory = () => {
               <input
                 type="text"
                 placeholder="e.g. 2025 or 2025-08-10"
-                value={searchDateInput}
-                onChange={(e) => setSearchDateInput(e.target.value)}
+                value={filters.date}
+                onChange={(e) =>
+                  setFilters((prev) => ({ ...prev, date: e.target.value.trim() }))
+                }
               />
             </label>
 
@@ -146,12 +139,13 @@ const DataHistory = () => {
               <input
                 type="text"
                 placeholder="Search timestamp..."
-                value={searchTextInput}
-                onChange={(e) => setSearchTextInput(e.target.value)}
+                value={filters.text}
+                onChange={(e) =>
+                  setFilters((prev) => ({ ...prev, text: e.target.value.trim() }))
+                }
               />
             </label>
 
-            <button onClick={handleSearchClick}>Search</button>
             <button onClick={handleDownload}>⬇ Download CSV</button>
           </div>
         </div>

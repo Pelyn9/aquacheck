@@ -5,14 +5,13 @@ import Dashboard from "./pages/Dashboard";
 import DataHistory from "./pages/DataHistory";
 import AdminLogin from "./pages/AdminLogin";
 import CreateAdmin from "./pages/CreateAdmin";
+import ForgotPassword from "./pages/forgotPassword";  // Import ForgotPassword component
 
-// Create context for admin login state
 export const AdminContext = createContext();
 
 function App() {
   const [isAdmin, setIsAdmin] = useState(false);
 
-  // On mount, check if admin logged in from localStorage
   useEffect(() => {
     const adminStatus = localStorage.getItem("isAdmin") === "true";
     setIsAdmin(adminStatus);
@@ -23,8 +22,7 @@ function App() {
       <Router>
         <Routes>
           {/* Public routes */}
-          <Route path="/dashboard" element={<Dashboard />} />  {/* Public dashboard */}
-
+          <Route path="/dashboard" element={<Dashboard />} />
           <Route
             path="/admin"
             element={!isAdmin ? <AdminLogin /> : <Navigate to="/dashboard" />}
@@ -33,6 +31,7 @@ function App() {
             path="/create-admin"
             element={!isAdmin ? <CreateAdmin /> : <Navigate to="/dashboard" />}
           />
+          <Route path="/forgot-password" element={<ForgotPassword />} /> {/* Add forgot password route */}
 
           {/* Admin protected routes */}
           <Route
