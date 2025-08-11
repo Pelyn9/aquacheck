@@ -5,7 +5,10 @@ import Dashboard from "./pages/Dashboard";
 import DataHistory from "./pages/DataHistory";
 import AdminLogin from "./pages/AdminLogin";
 import CreateAdmin from "./pages/CreateAdmin";
-import ForgotPassword from "./pages/forgotPassword";  // Import ForgotPassword component
+import ForgotPassword from "./pages/forgotPassword";
+import ResetPassword from "./pages/ResetPassword";
+import ChangePassword from "./pages/ChangePassword";
+import MasterAdmin from "./pages/MasterAdmin"; // Import MasterAdmin page
 
 export const AdminContext = createContext();
 
@@ -31,18 +34,24 @@ function App() {
             path="/create-admin"
             element={!isAdmin ? <CreateAdmin /> : <Navigate to="/dashboard" />}
           />
-          <Route path="/forgot-password" element={<ForgotPassword />} /> {/* Add forgot password route */}
+          <Route path="/forgot-password" element={<ForgotPassword />} />
+          <Route path="/reset-password" element={<ResetPassword />} />
+          <Route path="/change-password" element={<ChangePassword />} />
 
           {/* Admin protected routes */}
           <Route
             path="/datahistory"
             element={isAdmin ? <DataHistory /> : <Navigate to="/admin" />}
           />
+          <Route
+            path="/master-admin"
+            element={isAdmin ? <MasterAdmin /> : <Navigate to="/admin" />}
+          />
 
           {/* Default redirect */}
           <Route path="/" element={<Navigate to="/dashboard" />} />
 
-          {/* Catch all redirects */}
+          {/* Catch-all */}
           <Route path="*" element={<Navigate to="/" />} />
         </Routes>
       </Router>

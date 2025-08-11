@@ -1,4 +1,3 @@
-// src/pages/ResetPassword.jsx
 import { useState } from "react";
 import { sendPasswordResetEmail } from "firebase/auth";
 import { auth } from "../firebase";
@@ -16,7 +15,10 @@ const ResetPassword = () => {
     setLoading(true);
 
     try {
-      await sendPasswordResetEmail(auth, email.trim());
+      await sendPasswordResetEmail(auth, email.trim(), {
+        url: "http://localhost:3000/change-password", // ✅ your app’s page
+        handleCodeInApp: true
+      });
       setMessage("✅ Reset link sent! Please check your email.");
     } catch (error) {
       setMessage(`❌ ${error.message}`);
@@ -27,53 +29,32 @@ const ResetPassword = () => {
 
   return (
     <main className="login-wrapper modern">
-      <section className="login-card modern" role="main" aria-labelledby="resetTitle">
-        <h1 id="resetTitle" className="title" style={{ marginBottom: "8px" }}>
-          AquaCheck
-        </h1>
-        <p className="subtitle" style={{ marginBottom: "24px" }}>
-          Reset Password
-        </p>
-        <form onSubmit={handleReset} noValidate>
+      <section className="login-card modern">
+        <h1 className="title">AquaCheck</h1>
+        <p className="subtitle">Reset Password</p>
+        <form onSubmit={handleReset}>
           <div className="input-group modern">
-            <label htmlFor="email">Email</label>
+            <label>Email</label>
             <input
-              id="email"
               type="email"
               required
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               placeholder="your-email@example.com"
-              autoComplete="username"
-              className="input-modern"
             />
           </div>
-          <button
-            type="submit"
-            className="btn btn-primary"
-            disabled={loading}
-            aria-label="Send password reset link"
-          >
+          <button type="submit" disabled={loading}>
             {loading ? "Sending..." : "Send Reset Link"}
           </button>
           {message && (
-            <p
-              className={message.startsWith("✅") ? "highlight" : "error-message"}
-              role="alert"
-              aria-live="assertive"
-              style={{ marginTop: "15px" }}
-            >
+            <p className={message.startsWith("✅") ? "highlight" : "error-message"}>
               {message}
             </p>
           )}
         </form>
-
-        {/* Link back to login */}
         <p style={{ marginTop: "20px", textAlign: "center" }}>
           Remember your password?{" "}
-          <Link to="/admin" style={{ color: "#00b4d8", textDecoration: "underline" }}>
-            Login here
-          </Link>
+          <Link to="/admin" style={{ color: "#00b4d8" }}>Login here</Link>
         </p>
       </section>
     </main>

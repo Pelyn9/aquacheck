@@ -1,4 +1,4 @@
-import React, { useState, useContext } from "react";
+import React, { useState, useContext, useRef } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import {
@@ -15,9 +15,12 @@ import { AdminContext } from "../App";
 export default function Sidebar() {
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
-
   const { isAdmin, setIsAdmin } = useContext(AdminContext);
   const navigate = useNavigate();
+
+  // For 7-click detection
+  const clickCount = useRef(0);
+  const clickTimeout = useRef(null);
 
   const toggleSidebar = () => {
     setIsCollapsed(!isCollapsed);
@@ -38,6 +41,34 @@ export default function Sidebar() {
     setShowConfirm(false);
   };
 
+  const handleDashboardClick = (e) => {
+    e.preventDefault(); // Prevent immediate navigation to catch 7 clicks first
+
+    clickCount.current += 1;
+
+    if (clickCount.current === 7) {
+      clickCount.current = 0;
+      clearTimeout(clickTimeout.current);
+      // Trigger Master Admin action here:
+      // Example: navigate to /master-admin page (you can create this route)
+      navigate("/master-admin");
+      return;
+    }
+
+    // Reset counter after 5 seconds of inactivity
+    clearTimeout(clickTimeout.current);
+    clickTimeout.current = setTimeout(() => {
+      clickCount.current = 0;
+    }, 5000);
+
+    // For clicks < 7, navigate normally after a short delay to allow clicks
+    setTimeout(() => {
+      if (clickCount.current !== 0) {
+        navigate("/dashboard");
+      }
+    }, 200);
+  };
+
   return (
     <>
       <aside className={`sidebar ${isCollapsed ? "collapsed" : ""}`}>
@@ -55,10 +86,16 @@ export default function Sidebar() {
 
         <ul className="nav-links">
           <li>
-            <Link to="/dashboard" className="nav-link">
+            {/* Changed Link to button to control clicks better */}
+            <a
+              href="/dashboard"
+              className="nav-link"
+              onClick={handleDashboardClick}
+              style={{ cursor: "pointer", userSelect: "none" }}
+            >
               <FontAwesomeIcon icon={faTachometerAlt} />
               {!isCollapsed && <span> Dashboard</span>}
-            </Link>
+            </a>
           </li>
           {isAdmin && (
             <>

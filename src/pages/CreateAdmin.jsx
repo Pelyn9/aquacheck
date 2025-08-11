@@ -1,9 +1,12 @@
-import React, { useState, useEffect } from "react";
+// src/pages/CreateAdmin.jsx
+import React, { useState, useContext } from "react";
 import { createUserWithEmailAndPassword } from "firebase/auth";
 import { auth } from "../firebase";
 import { useNavigate, Link } from "react-router-dom";
+import { AdminContext } from "../App";
 import "../assets/createadmin.css";
 
+// ⚠️ SECURITY WARNING: For testing only (do NOT hardcode in production)
 const ADMIN_SECRET_KEY = "SuperSecretAdminKey123";
 
 const CreateAdmin = () => {
@@ -14,28 +17,22 @@ const CreateAdmin = () => {
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
   const [loading, setLoading] = useState(false);
-  const [showWelcome, setShowWelcome] = useState(false);
-  const navigate = useNavigate();
 
-  useEffect(() => {
-    let timer;
-    if (showWelcome) {
-      timer = setTimeout(() => {
-        navigate("/dashboard");
-      }, 5000);
-    }
-    return () => clearTimeout(timer);
-  }, [showWelcome, navigate]);
+  const { setIsAdmin } = useContext(AdminContext);
+  const navigate = useNavigate();
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError("");
     setSuccess("");
 
+    // Password match check
     if (password !== rePassword) {
       setError("❌ Passwords do not match.");
       return;
     }
+
+    // Admin key check
     if (adminKey !== ADMIN_SECRET_KEY) {
       setError("❌ Invalid Admin Key.");
       return;
@@ -43,28 +40,21 @@ const CreateAdmin = () => {
 
     setLoading(true);
     try {
+      // Create user in Firebase
       await createUserWithEmailAndPassword(auth, email, password);
-      setSuccess("✅ Admin account created successfully!");
-      setShowWelcome(true);
+
+      // Save admin status in local storage + context
       localStorage.setItem("isAdmin", "true");
+      setIsAdmin(true);
+
+      setSuccess("✅ Admin account created successfully!");
+      navigate("/dashboard"); // Redirect immediately to dashboard
     } catch (err) {
       setError("❌ " + err.message);
     } finally {
       setLoading(false);
     }
   };
-
-  if (showWelcome) {
-    return (
-      <div className="login-wrapper modern">
-        <div className="login-card modern">
-          <h1>Welcome, {email}!</h1>
-          <p>You will be redirected to the dashboard shortly...</p>
-          <p>(Redirecting in 5 seconds)</p>
-        </div>
-      </div>
-    );
-  }
 
   return (
     <div className="login-wrapper modern">
@@ -85,6 +75,7 @@ const CreateAdmin = () => {
               placeholder="Enter your email"
             />
           </div>
+
           <div className="input-group modern">
             <label htmlFor="password">Password</label>
             <input
@@ -98,6 +89,7 @@ const CreateAdmin = () => {
               placeholder="Create a password"
             />
           </div>
+
           <div className="input-group modern">
             <label htmlFor="rePassword">Re-enter Password</label>
             <input
@@ -111,6 +103,7 @@ const CreateAdmin = () => {
               placeholder="Confirm your password"
             />
           </div>
+
           <div className="input-group modern">
             <label htmlFor="adminKey">Admin Key</label>
             <input
@@ -123,6 +116,7 @@ const CreateAdmin = () => {
               className="input-modern"
             />
           </div>
+
           <button
             type="submit"
             disabled={loading}
@@ -131,15 +125,21 @@ const CreateAdmin = () => {
           >
             {loading ? "Creating..." : "Create Admin"}
           </button>
+
           {error && <p className="error-message">{error}</p>}
           {success && <p className="highlight">{success}</p>}
         </form>
+
         <p>
           Already have an account?{" "}
           <Link
             to="/admin"
             className="btn btn-secondary"
-            style={{ textDecoration: "none", display: "inline-block", textAlign: "center" }}
+            style={{
+              textDecoration: "none",
+              display: "inline-block",
+              textAlign: "center",
+            }}
           >
             Login here
           </Link>

@@ -1,7 +1,13 @@
 import React, { useState, useEffect, useContext } from "react";
 import { useNavigate } from "react-router-dom";
-import { AdminContext } from "../App"; // adjust path if needed
-import "../assets/login.css"; // ensure this has your CSS
+import { AdminContext } from "../App";
+import {
+  signInWithEmailAndPassword,
+  GoogleAuthProvider,
+  signInWithPopup,
+} from "firebase/auth";
+import { auth } from "../firebase";
+import "../assets/login.css";
 
 const AdminLogin = () => {
   const { setIsAdmin } = useContext(AdminContext);
@@ -13,9 +19,6 @@ const AdminLogin = () => {
   const [countdown, setCountdown] = useState(5);
   const navigate = useNavigate();
 
-  const TEST_ADMIN_EMAIL = "admin";
-  const TEST_ADMIN_PASSWORD = "admin123";
-
   useEffect(() => {
     let timer;
     if (showWelcome && countdown > 0) {
@@ -26,16 +29,33 @@ const AdminLogin = () => {
     return () => clearTimeout(timer);
   }, [showWelcome, countdown, navigate]);
 
-  const handleSubmit = (e) => {
+  const handleEmailLogin = async (e) => {
     e.preventDefault();
     setError("");
-    if (email.trim() === TEST_ADMIN_EMAIL && password.trim() === TEST_ADMIN_PASSWORD) {
-      localStorage.setItem("isAdmin", "true");
+
+    try {
+      await signInWithEmailAndPassword(auth, email, password);
+      localStorage.setItem("isAdmin", "true"); // If everyone is admin, just set this directly
       setIsAdmin(true);
       setShowWelcome(true);
       setCountdown(5);
-    } else {
-      setError("❌ Invalid admin email or password.");
+    } catch (err) {
+      setError("❌ " + err.message);
+    }
+  };
+
+  const handleGoogleLogin = async () => {
+    setError("");
+    try {
+      const provider = new GoogleAuthProvider();
+      const result = await signInWithPopup(auth, provider);
+      localStorage.setItem("isAdmin", "true");
+      setIsAdmin(true);
+      setEmail(result.user.email || "Google User");
+      setShowWelcome(true);
+      setCountdown(5);
+    } catch (err) {
+      setError("❌ Google login failed: " + err.message);
     }
   };
 
@@ -64,7 +84,8 @@ const AdminLogin = () => {
         <p className="subtitle" style={{ marginBottom: "24px" }}>
           Admin Login
         </p>
-        <form onSubmit={handleSubmit} noValidate>
+
+        <form onSubmit={handleEmailLogin} noValidate>
           <div className="input-group modern">
             <label htmlFor="email">Email</label>
             <input
@@ -86,7 +107,7 @@ const AdminLogin = () => {
               required
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              placeholder="admin123"
+              placeholder="••••••••"
               autoComplete="current-password"
               className="input-modern"
             />
@@ -100,13 +121,12 @@ const AdminLogin = () => {
             </button>
           </div>
 
-          {/* Forgot Password Link */}
           <div style={{ textAlign: "right", marginBottom: "20px" }}>
             <button
               type="button"
               className="btn btn-secondary"
               style={{ padding: "6px 12px", fontSize: "0.9rem", borderRadius: "8px" }}
-              onClick={() => navigate("/forgot-password")} // adjust route accordingly
+              onClick={() => navigate("/forgot-password")}
             >
               Forgot Password?
             </button>
@@ -119,13 +139,30 @@ const AdminLogin = () => {
           >
             Login
           </button>
-
-          {error && (
-            <p className="error-message" role="alert" aria-live="assertive">
-              {error}
-            </p>
-          )}
         </form>
+
+        <div style={{ margin: "20px 0", textAlign: "center" }}>
+          <span style={{ fontSize: "0.9rem", color: "#888" }}>OR</span>
+        </div>
+
+        <button
+          onClick={handleGoogleLogin}
+          className="btn btn-secondary"
+          style={{ backgroundColor: "#fff", color: "#000", border: "1px solid #ccc" }}
+        >
+          <img
+            src="https://developers.google.com/identity/images/g-logo.png"
+            alt="Google Logo"
+            style={{ width: "20px", height: "20px", marginRight: "8px", verticalAlign: "middle" }}
+          />
+          Sign in with Google
+        </button>
+
+        {error && (
+          <p className="error-message" role="alert" aria-live="assertive" style={{ marginTop: "10px" }}>
+            {error}
+          </p>
+        )}
       </section>
     </main>
   );
