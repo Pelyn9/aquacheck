@@ -105,7 +105,7 @@ const Dashboard = () => {
         style={{ marginLeft: isAdmin ? undefined : 0 }}
       >
         <header className="topbar">
-          <h1>Dashboard</h1>
+          <h1>AquaCheck</h1>
         </header>
 
         <section className="sensor-section" id="dashboard">
