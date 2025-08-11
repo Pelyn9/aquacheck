@@ -3,8 +3,8 @@ import { useNavigate } from "react-router-dom";
 import { AdminContext } from "../App";
 import {
   signInWithEmailAndPassword,
-  GoogleAuthProvider,
-  signInWithPopup,
+  // GoogleAuthProvider,
+  // signInWithPopup,
 } from "firebase/auth";
 import { auth } from "../firebase";
 import "../assets/login.css";
@@ -35,7 +35,7 @@ const AdminLogin = () => {
 
     try {
       await signInWithEmailAndPassword(auth, email, password);
-      localStorage.setItem("isAdmin", "true"); // If everyone is admin, just set this directly
+      localStorage.setItem("isAdmin", "true");
       setIsAdmin(true);
       setShowWelcome(true);
       setCountdown(5);
@@ -44,6 +44,8 @@ const AdminLogin = () => {
     }
   };
 
+  /*
+  // Google login temporarily disabled
   const handleGoogleLogin = async () => {
     setError("");
     try {
@@ -58,6 +60,7 @@ const AdminLogin = () => {
       setError("❌ Google login failed: " + err.message);
     }
   };
+  */
 
   if (showWelcome) {
     return (
@@ -77,8 +80,16 @@ const AdminLogin = () => {
 
   return (
     <main className="login-wrapper modern">
-      <section className="login-card modern" role="main" aria-labelledby="loginTitle">
-        <h1 id="loginTitle" className="title" style={{ marginBottom: "8px" }}>
+      <section
+        className="login-card modern"
+        role="main"
+        aria-labelledby="loginTitle"
+      >
+        <h1
+          id="loginTitle"
+          className="title"
+          style={{ marginBottom: "8px" }}
+        >
           AquaCheck
         </h1>
         <p className="subtitle" style={{ marginBottom: "24px" }}>
@@ -99,7 +110,10 @@ const AdminLogin = () => {
               className="input-modern"
             />
           </div>
-          <div className="input-group modern" style={{ position: "relative" }}>
+          <div
+            className="input-group modern"
+            style={{ position: "relative" }}
+          >
             <label htmlFor="password">Password</label>
             <input
               id="password"
@@ -121,7 +135,9 @@ const AdminLogin = () => {
             </button>
           </div>
 
-          <div style={{ textAlign: "right", marginBottom: "20px" }}>
+          <div
+            style={{ textAlign: "right", marginBottom: "20px" }}
+          >
             <button
               type="button"
               className="btn btn-secondary"
@@ -141,6 +157,7 @@ const AdminLogin = () => {
           </button>
         </form>
 
+        {/*
         <div style={{ margin: "20px 0", textAlign: "center" }}>
           <span style={{ fontSize: "0.9rem", color: "#888" }}>OR</span>
         </div>
@@ -157,9 +174,15 @@ const AdminLogin = () => {
           />
           Sign in with Google
         </button>
+        */}
 
         {error && (
-          <p className="error-message" role="alert" aria-live="assertive" style={{ marginTop: "10px" }}>
+          <p
+            className="error-message"
+            role="alert"
+            aria-live="assertive"
+            style={{ marginTop: "10px" }}
+          >
             {error}
           </p>
         )}
