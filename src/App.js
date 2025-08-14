@@ -8,7 +8,8 @@ import CreateAdmin from "./pages/CreateAdmin";
 import ForgotPassword from "./pages/forgotPassword";
 import ResetPassword from "./pages/ResetPassword";
 import ChangePassword from "./pages/ChangePassword";
-import MasterAdmin from "./pages/MasterAdmin"; // Import MasterAdmin page
+import MasterAdmin from "./pages/MasterAdmin";
+import ManualScan from "./pages/ManualScan"; // ✅ Import ManualScan
 
 export const AdminContext = createContext();
 
@@ -46,6 +47,10 @@ function App() {
           <Route
             path="/master-admin"
             element={isAdmin ? <MasterAdmin /> : <Navigate to="/admin" />}
+          />
+          <Route
+            path="/manual-scan"
+            element={isAdmin ? <ManualScan /> : <Navigate to="/admin" />} // ✅ New Route
           />
 
           {/* Default redirect */}

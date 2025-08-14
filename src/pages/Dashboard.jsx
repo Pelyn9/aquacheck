@@ -1,4 +1,6 @@
+// src/pages/Dashboard.jsx
 import React, { useState, useEffect, useContext } from "react";
+import { useNavigate } from "react-router-dom";
 import Sidebar from "../components/Sidebar";
 import "../assets/databoard.css";
 
@@ -8,6 +10,7 @@ import { AdminContext } from "../App";
 
 const Dashboard = () => {
   const { isAdmin } = useContext(AdminContext);
+  const navigate = useNavigate();
 
   const [sensorData, setSensorData] = useState({
     ph: "N/A",
@@ -16,11 +19,11 @@ const Dashboard = () => {
     tds: "N/A",
   });
 
-  const [intervalTime, setIntervalTime] = useState(1800000); // 30 minutes default
+  const [intervalTime, setIntervalTime] = useState(1800000); // 30 minutes
   const [status, setStatus] = useState("Awaiting sensor data...");
   const [autoScanRunning, setAutoScanRunning] = useState(false);
 
-  // Fetch sensor data from API
+  // Fetch sensor data
   const fetchSensorData = async () => {
     try {
       const response = await fetch("http://192.168.0.100:5000/sensor-data");
@@ -43,75 +46,76 @@ const Dashboard = () => {
     }
   };
 
-  // Auto scan effect: only if admin and running
+  // Auto scan for admins
   useEffect(() => {
     if (!isAdmin || !autoScanRunning) return;
-
-    fetchSensorData(); // fetch immediately
-
+    fetchSensorData();
     const interval = setInterval(fetchSensorData, intervalTime);
     return () => clearInterval(interval);
   }, [autoScanRunning, intervalTime, isAdmin]);
 
-  // Auto-save to Firebase every 24h (admin only)
+  // Auto-save to Firebase (admin only)
   useEffect(() => {
     if (!isAdmin) return;
-
     const dailySave = setInterval(() => {
       const historyRef = ref(database, "sensorHistory/");
-      const newEntry = {
-        ...sensorData,
-        timestamp: new Date().toISOString(),
-      };
+      const newEntry = { ...sensorData, timestamp: new Date().toISOString() };
 
       push(historyRef, newEntry)
-        .then(() => console.log("✅ Auto-saved to Firebase:", newEntry))
+        .then(() => console.log("✅ Auto-saved:", newEntry))
         .catch((err) => console.error("❌ Auto-save failed:", err));
     }, 86400000);
-
     return () => clearInterval(dailySave);
   }, [sensorData, isAdmin]);
 
-  // Manual save to Firebase (admin only)
+  // Manual save (admin only)
   const handleSave = () => {
     if (!isAdmin) return;
-
     const historyRef = ref(database, "sensorHistory/");
-    const newEntry = {
-      ...sensorData,
-      timestamp: new Date().toISOString(),
-    };
+    const newEntry = { ...sensorData, timestamp: new Date().toISOString() };
 
     push(historyRef, newEntry)
-      .then(() => {
-        console.log("✅ Manually saved to Firebase:", newEntry);
-        setStatus("✅ Data saved to history!");
-      })
-      .catch(() => {
-        setStatus("❌ Failed to save to history.");
-      });
+      .then(() => setStatus("✅ Data saved to history!"))
+      .catch(() => setStatus("❌ Failed to save to history."));
   };
 
-  // Toggle auto scan start/stop
   const toggleAutoScan = () => {
     setAutoScanRunning((prev) => !prev);
+  };
+
+  const handleManualScanClick = () => {
+    if (!autoScanRunning) {
+      navigate("/manual-scan", { state: { autoScanRunning } }); // ✅ send state
+    } else {
+      setStatus("⚠️ Stop Auto Scan before using Manual Scan.");
+    }
   };
 
   return (
     <div className="container">
       {isAdmin && <Sidebar />}
       <main
-        className="main-content"
+        className={`main-content ${!isAdmin ? "visitor-mode" : ""}`}
         style={{ marginLeft: isAdmin ? undefined : 0 }}
       >
-        <header className="topbar">
-          <h1>AquaCheck</h1>
-        </header>
+        {/* Header */}
+        {isAdmin ? (
+          <header className="topbar">
+            <h1>Dashboard</h1>
+          </header>
+        ) : (
+          <div className="wave-header">
+            AquaCheck – Real-Time Water Quality
+          </div>
+        )}
 
+        {/* Sensor Section */}
         <section className="sensor-section" id="dashboard">
-          <h2>Real-Time Water Sensor Data</h2>
+          {!isAdmin && (
+            <h2 className="visitor-subtitle">Live Sensor Readings</h2>
+          )}
 
-          {/* Show controls only if admin */}
+          {/* Admin controls */}
           {isAdmin && (
             <div className="scan-controls">
               <div className="interval-setting">
@@ -134,8 +138,8 @@ const Dashboard = () => {
               <div className="button-group">
                 <button
                   className="manual-scan-btn"
-                  onClick={fetchSensorData}
-                  disabled={autoScanRunning}
+                  onClick={handleManualScanClick}
+                  disabled={autoScanRunning} // ✅ disable button if running
                 >
                   Manual Scan
                 </button>
@@ -159,6 +163,7 @@ const Dashboard = () => {
             </div>
           )}
 
+          {/* Sensor Cards */}
           <div className="sensor-grid">
             <div className="sensor-card">
               <h3>pH Level</h3>
@@ -178,14 +183,18 @@ const Dashboard = () => {
             </div>
           </div>
 
+          {/* Status */}
           <div id="water-status" className="status-card">
             {status}
           </div>
         </section>
 
-        <footer>
-          <p>© 2025 AquaCheck System. All rights reserved.</p>
-        </footer>
+        {/* Footer */}
+        {!isAdmin && (
+          <footer>
+            <p>© 2025 AquaCheck System. All rights reserved.</p>
+          </footer>
+        )}
       </main>
     </div>
   );

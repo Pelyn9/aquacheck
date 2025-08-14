@@ -1,7 +1,13 @@
 import React, { useState, useEffect, useContext } from "react";
 import Sidebar from "../components/Sidebar";
-import { database } from "../firebase";
-import { ref, onValue, remove, update } from "firebase/database";
+import { db } from "../firebase"; // Firestore instance
+import {
+  collection,
+  onSnapshot,
+  doc,
+  deleteDoc,
+  updateDoc,
+} from "firebase/firestore";
 import { AdminContext } from "../App";
 import "../assets/masteradmin.css";
 
@@ -14,21 +20,20 @@ const MasterAdmin = () => {
   const [newPassword, setNewPassword] = useState("");
   const [passwordMessage, setPasswordMessage] = useState("");
 
-  // Fetch users from Firebase in real-time
+  // Fetch users from Firestore in real-time
   useEffect(() => {
     if (!isAdmin) return;
 
-    const usersRef = ref(database, "users");
-    const unsubscribe = onValue(
+    const usersRef = collection(db, "users");
+    const unsubscribe = onSnapshot(
       usersRef,
       (snapshot) => {
-        const data = snapshot.val() || {};
-        const userList = Object.entries(data).map(([id, user]) => ({
-          id,
-          ...user,
+        const userList = snapshot.docs.map((doc) => ({
+          id: doc.id,
+          ...doc.data(),
         }));
         setUsers(userList);
-        setError(""); // Clear previous errors on successful fetch
+        setError("");
       },
       (err) => setError(err.message)
     );
@@ -37,33 +42,35 @@ const MasterAdmin = () => {
   }, [isAdmin]);
 
   // Delete user with confirmation
-  const handleDelete = (userId) => {
-    if (
-      window.confirm(
-        "Delete this user? This action cannot be undone."
-      )
-    ) {
-      remove(ref(database, `users/${userId}`)).catch((err) =>
-        setError(err.message)
-      );
+  const handleDelete = async (userId) => {
+    if (window.confirm("Delete this user? This action cannot be undone.")) {
+      try {
+        await deleteDoc(doc(db, "users", userId));
+      } catch (err) {
+        setError(err.message);
+      }
     }
   };
 
   // Toggle user active/disabled status
-  const toggleUserStatus = (userId, currentStatus) => {
-    update(ref(database, `users/${userId}`), {
-      disabled: !currentStatus,
-    }).catch((err) => setError(err.message));
+  const toggleUserStatus = async (userId, currentStatus) => {
+    try {
+      await updateDoc(doc(db, "users", userId), {
+        disabled: !currentStatus,
+      });
+    } catch (err) {
+      setError(err.message);
+    }
   };
 
-  // Handle password change with simple validation and feedback
+  // Handle password change (placeholder)
   const handlePasswordChange = () => {
     if (!newPassword.trim()) {
       setPasswordMessage("Password cannot be empty.");
       return;
     }
-    // TODO: Connect this to your actual admin password update logic
 
+    // TODO: Implement actual password change logic
     setPasswordMessage("✅ Secret admin password changed successfully!");
     setNewPassword("");
 
@@ -137,7 +144,9 @@ const MasterAdmin = () => {
                         <input
                           type="checkbox"
                           checked={!user.disabled}
-                          onChange={() => toggleUserStatus(user.id, user.disabled || false)}
+                          onChange={() =>
+                            toggleUserStatus(user.id, user.disabled || false)
+                          }
                         />
                         <span className="slider"></span>
                       </label>
@@ -172,13 +181,17 @@ const MasterAdmin = () => {
                 onChange={(e) => setNewPassword(e.target.value)}
                 autoFocus
                 aria-describedby="password-help"
-                aria-invalid={passwordMessage && !passwordMessage.includes("successfully")}
+                aria-invalid={
+                  passwordMessage && !passwordMessage.includes("successfully")
+                }
               />
               {passwordMessage && (
                 <p
                   id="password-help"
                   style={{
-                    color: passwordMessage.includes("successfully") ? "green" : "red",
+                    color: passwordMessage.includes("successfully")
+                      ? "green"
+                      : "red",
                     marginTop: 8,
                     userSelect: "none",
                   }}
@@ -187,7 +200,10 @@ const MasterAdmin = () => {
                 </p>
               )}
               <div style={{ marginTop: 20 }}>
-                <button className="modal-btn confirm" onClick={handlePasswordChange}>
+                <button
+                  className="modal-btn confirm"
+                  onClick={handlePasswordChange}
+                >
                   Confirm
                 </button>
                 <button

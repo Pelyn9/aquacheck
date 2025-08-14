@@ -1,108 +1,136 @@
-/* Modern wrapper */
+/* ================================
+   PAGE WRAPPER (full screen layout)
+   ================================ */
 .login-wrapper.modern {
-  display: flex;
+  display: flex; /* Centers the content horizontally */
   justify-content: center;
-  align-items: center;
-  min-height: 94.2vh;
-  background: linear-gradient(180deg, #004e92, #000428);
+  align-items: center; /* Centers vertically */
+  min-height: 94.2vh; /* Almost full height */
+  background: linear-gradient(-45deg, #004e92, #000428, #001d3d, #003566); /* Background gradient */
+  background-size: 400% 400%;
+  animation: gradientFlow 12s ease infinite; /* Animated background */
   font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-  color: #1a202c;
   padding: 20px;
 }
 
-/* Center the card */
+/* Background gradient animation keyframes */
+@keyframes gradientFlow {
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+
+/* ================================
+   LOGIN CARD (form container)
+   ================================ */
 .login-card.modern {
-  background: white;
+  background: rgba(255, 255, 255, 0.15); /* Transparent white */
+  backdrop-filter: blur(18px); /* Glass effect */
   padding: 48px 60px;
-  border-radius: 24px;
+  border-radius: 20px;
   width: 100%;
-  max-width: 420px;
-  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.15);
+  max-width: 500px; /* Limit card width */
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.3);
   text-align: center;
   display: flex;
   flex-direction: column;
   align-items: center;
-  color: #1a202c;
-  transition: all 0.3s ease;
+  color: white;
+  animation: slideUpFade 0.7s ease forwards; /* Fade-in animation */
 }
 
-/* Subtitle */
+/* Fade-up animation for the card */
+@keyframes slideUpFade {
+  from { opacity: 0; transform: translateY(20px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* Subtitle styling */
 .subtitle.highlight {
   color: #94d2bd;
   font-weight: 700;
   margin-bottom: 32px;
   font-size: 1.25rem;
-  text-shadow: 0 0 5px #7bb298;
+  text-shadow: 0 0 8px #7bb298;
 }
 
-/* Input group styling */
+/* ================================
+   FORM LAYOUT (2-column grid)
+   ================================ */
+.grid-form {
+  display: grid;
+  grid-template-columns: 1fr 1fr; /* Two equal columns */
+  gap: 18px 24px; /* Row gap & column gap */
+  width: 100%;
+}
+
+/* Make certain elements span both columns */
+.grid-form .full-width {
+  grid-column: 1 / -1;
+}
+
+/* ================================
+   INPUT FIELD STYLING
+   ================================ */
 .input-group.modern {
   text-align: left;
-  margin-bottom: 28px;
   width: 100%;
-  max-width: 320px;
-  position: relative;
 }
 
-/* Label style */
 .input-group.modern label {
   display: block;
   font-weight: 700;
   margin-bottom: 10px;
-  color: #4a5568;
-  letter-spacing: 0.03em;
-  font-size: 1rem;
+  color: #d1e9ff;
 }
 
-/* Input field */
 .input-modern {
   width: 100%;
-  padding: 16px 20px;
+  padding: 14px 18px;
   border-radius: 10px;
-  border: 1.8px solid #cbd5e0;
+  border: 1.8px solid rgba(255, 255, 255, 0.3);
   font-size: 1.05rem;
-  background: white;
-  color: #1a202c;
+  background: rgba(255, 255, 255, 0.1);
+  color: white;
   outline: none;
-  box-sizing: border-box;
   transition: border-color 0.3s ease, box-shadow 0.3s ease;
-  box-shadow: none;
 }
 
+/* Placeholder text color */
 .input-modern::placeholder {
-  color: #a0aec0;
-  opacity: 1;
+  color: rgba(255, 255, 255, 0.6);
 }
 
+/* Input focus glow */
 .input-modern:focus {
-  border-color: #00b4d8;
-  box-shadow: 0 0 8px 2px rgba(0, 180, 216, 0.4);
+  border-color: #00f5d4;
+  box-shadow: 0 0 12px rgba(0, 245, 212, 0.6);
 }
 
-/* Button base style */
+/* ================================
+   BUTTON STYLING
+   ================================ */
 .btn {
   cursor: pointer;
   font-weight: 600;
   padding: 14px 0;
-  width: 100%;
-  max-width: 320px;
   border-radius: 12px;
   font-size: 1.1rem;
   border: none;
-  transition: background-color 0.3s ease;
-  box-shadow: 0 4px 15px rgba(0, 180, 216, 0.3);
-  margin: 10px auto;
-  display: block;
+  transition: all 0.3s ease;
 }
 
-/* Primary button */
+/* Primary action button */
 .btn-primary {
-  background-color: #00b4d8;
+  background: linear-gradient(90deg, #00b4d8, #0096c7);
   color: white;
+  box-shadow: 0 0 15px rgba(0, 180, 216, 0.6);
 }
 
 .btn-primary:hover:not(:disabled) {
-  background-color: #0096c7;
+  background: linear-gradient(90deg, #0096c7, #0077b6);
+  transform: scale(1.03);
 }
 
 .btn-primary:disabled {
@@ -111,45 +139,25 @@
   opacity: 0.7;
 }
 
-/* Secondary button (used for Login link) */
+/* Secondary button (outline style) */
 .btn-secondary {
   background-color: transparent;
-  border: 2px solid #00b4d8;
-  color: #00b4d8;
-  margin-top: 20px;
-  max-width: 320px;
-  width: 100%;
-  border-radius: 12px;
-  font-weight: 600;
-  text-align: center;
-  text-decoration: none;
-  display: block;
-  transition: background-color 0.3s ease, color 0.3s ease;
+  border: 2px solid #00f5d4;
+  color: #00f5d4;
 }
 
 .btn-secondary:hover {
-  background-color: #00b4d8;
-  color: white;
+  background-color: #00f5d4;
+  color: #001d3d;
 }
 
-/* Error message */
+/* ================================
+   ERROR MESSAGE
+   ================================ */
 .error-message {
   margin-top: 15px;
-  color: #e53e3e;
+  color: #ff4d6d;
   font-weight: 600;
   font-size: 0.95rem;
-  max-width: 320px;
-  margin-left: auto;
-  margin-right: auto;
   text-align: center;
-  text-shadow: 0 0 6px #ff7f7f;
-}
-
-/* Success/Highlight text */
-.highlight {
-  color: #94d2bd;
-  font-weight: 700;
-  text-shadow: 0 0 5px #7bb298;
-  margin-top: 15px;
-  font-size: 1rem;
 }

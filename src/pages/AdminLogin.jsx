@@ -155,6 +155,14 @@ const AdminLogin = () => {
           >
             Login
           </button>
+          {/* NEW Visitor Button */}
+        <button
+          type="button"
+          className="btn btn-visitor"
+          onClick={() => navigate("/visitor")}
+        >
+          Continue as Visitor
+        </button>
         </form>
 
         {/*

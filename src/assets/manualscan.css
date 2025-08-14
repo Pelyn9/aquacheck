@@ -1,0 +1,137 @@
+/* Layout Wrapper */
+.dashboard-layout {
+  display: flex;
+  min-height: 100vh;
+  background: #f8f9fa;
+}
+
+/* Sidebar takes fixed width (matches your Sidebar component) */
+.dashboard-layout .sidebar {
+  width: 250px;
+  flex-shrink: 0;
+  background: #1e2a38;
+}
+
+/* Main Content Area */
+.manualscan-container {
+  flex: 1;
+  padding: 30px;
+  font-family: 'Segoe UI', sans-serif;
+  background: linear-gradient(135deg, #e0f7fa, #ffffff);
+  animation: slideFadeIn 0.6s ease-out;
+  overflow-y: auto;
+}
+
+/* Entrance animation */
+@keyframes slideFadeIn {
+  from {
+    opacity: 0;
+    transform: translateX(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+/* Header */
+.manualscan-header {
+  text-align: center;
+  margin-bottom: 30px;
+}
+.manualscan-header h1 {
+  font-size: 32px;
+  color: #007acc;
+  font-weight: 700;
+}
+.manualscan-header p {
+  color: #555;
+  font-size: 16px;
+}
+
+/* Sensor Grid */
+.manualscan-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 20px;
+  max-width: 900px;
+  margin: 0 auto 30px;
+}
+
+/* Sensor Cards */
+.scan-card {
+  background: rgba(255, 255, 255, 0.9);
+  backdrop-filter: blur(12px);
+  border-radius: 15px;
+  padding: 20px;
+  text-align: center;
+  cursor: pointer;
+  transition: transform 0.25s ease, box-shadow 0.25s ease;
+  box-shadow: 0 4px 15px rgba(0,0,0,0.08);
+  font-weight: 600;
+}
+.scan-card:hover {
+  transform: translateY(-6px) scale(1.03);
+  box-shadow: 0 10px 20px rgba(0,0,0,0.15);
+}
+.scan-card span {
+  display: block;
+  font-size: 38px;
+  margin-top: 10px;
+}
+
+/* Card Borders by Type */
+.scan-card.ph { border-left: 6px solid #007acc; }
+.scan-card.turbidity { border-left: 6px solid #17a2b8; }
+.scan-card.temp { border-left: 6px solid #ff9800; }
+.scan-card.tds { border-left: 6px solid #28a745; }
+
+/* Scan All Button */
+.scan-all-btn {
+  display: block;
+  margin: 0 auto;
+  background: linear-gradient(135deg, #28a745, #007acc);
+  color: white;
+  padding: 12px 25px;
+  border-radius: 8px;
+  border: none;
+  font-weight: bold;
+  font-size: 16px;
+  cursor: pointer;
+  transition: 0.2s;
+}
+.scan-all-btn:hover {
+  opacity: 0.9;
+  transform: scale(1.05);
+}
+
+/* Status Box */
+.status-box {
+  margin: 20px auto;
+  padding: 12px;
+  background: #f0f8ff;
+  border-radius: 8px;
+  color: #004a80;
+  font-weight: 500;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.05);
+  text-align: center;
+  max-width: 400px;
+}
+
+/* Back Button */
+.back-btn {
+  display: block;
+  margin: 15px auto 0;
+  background: #dc3545;
+  color: white;
+  padding: 10px 18px;
+  border-radius: 6px;
+  border: none;
+  cursor: pointer;
+  font-weight: bold;
+  transition: background 0.2s ease, transform 0.2s ease;
+}
+.back-btn:hover {
+  background: #b52a37;
+  transform: scale(1.05);
+}

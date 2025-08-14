@@ -9,11 +9,13 @@
 
 /* === SIDEBAR === */
 .sidebar {
-  width: 400px; /* Wide sidebar */
+  width: 240px;
   height: 100vh;
-  background: linear-gradient(180deg, #004e92, #000428);
+  background: linear-gradient(-45deg, #004e92, #000428, #001d3d, #003566);
+  background-size: 400% 400%;
+  animation: gradientFlow 12s ease infinite;
   color: #e0f7fa;
-  padding: 20px 24px; /* equal left-right padding */
+  padding: 20px 18px;
   box-sizing: border-box;
   display: flex;
   flex-direction: column;
@@ -32,28 +34,31 @@
   padding-left: 12px;
   padding-right: 8px;
   overflow-x: hidden;
+  background: linear-gradient(-45deg, #004e92, #000428, #001d3d, #003566);
+  background-size: 400% 400%;
+  animation: gradientFlow 12s ease infinite;
 }
 
 /* === SIDEBAR HEADER === */
 .sidebar-header {
   display: flex;
   align-items: center;
-  gap: 8px; /* smaller gap to fit title better */
+  gap: 8px;
   margin-bottom: 32px;
-  padding-left: 0; /* remove left padding for max space */
+  padding-left: 0;
   flex-shrink: 0;
 }
 
 .sidebar-header h2 {
-  font-size: 24px; /* slightly smaller font */
+  font-size: 24px;
   font-weight: 700;
   color: #00e5ff;
   margin: 0;
-  white-space: nowrap;    /* prevent wrapping */
-  overflow: hidden;       /* hide overflow */
-  text-overflow: ellipsis;/* show ellipsis if too long */
-  flex-shrink: 1;         /* allow shrinking */
-  max-width: calc(100% - 40px); /* leave space for icon + gap */
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  flex-shrink: 1;
+  max-width: calc(100% - 40px);
   text-shadow: 0 0 6px #00e5ff88;
   user-select: none;
   transition: opacity 0.3s ease;
@@ -69,7 +74,6 @@
 
 .main-content {
   flex-grow: 1;
-  /* fill the rest of the screen */
 }
 
 /* === HAMBURGER BUTTON === */
@@ -282,4 +286,11 @@
 .nav-links::-webkit-scrollbar-thumb {
   background-color: rgba(0, 229, 255, 0.3);
   border-radius: 8px;
+}
+
+/* === Gradient Animation === */
+@keyframes gradientFlow {
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
 }
