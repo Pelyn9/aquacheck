@@ -106,7 +106,7 @@ const DataHistory = () => {
       <div className="history-content">
         {/* Header + Filters */}
         <div className="header-filters">
-          <h2>📊 Water Quality History</h2>
+          <h2>Water Quality History</h2>
           <div className="filter-controls">
             <label>
               Status:
