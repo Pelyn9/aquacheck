@@ -1,0 +1,251 @@
+/* =========================
+   Modern Wrapper
+   ========================= */
+.login-wrapper.modern {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 94.2vh;
+
+  /* Animated gradient background */
+  background: linear-gradient(-45deg, #004e92, #000428, #001d3d, #003566);
+  background-size: 400% 400%;
+  animation: gradientMove 12s ease infinite;
+
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  padding: 20px;
+}
+
+/* Background animation */
+@keyframes gradientMove {
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+
+/* =========================
+   Glassmorphism Login Card
+   ========================= */
+.login-card.modern {
+  background: rgba(255, 255, 255, 0.15);
+  backdrop-filter: blur(16px);
+  padding: 48px 60px;
+  border-radius: 20px;
+  width: 100%;
+  max-width: 420px;
+  border: 2px solid rgba(255, 255, 255, 0.2);
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.3);
+  text-align: center;
+  transition: transform 0.3s ease;
+  color: white;
+}
+
+.login-card.modern:hover {
+  transform: translateY(-4px);
+}
+
+.login-card.modern > h1.title {
+  width: 100%;
+  text-align: center;
+  margin-bottom: 20px;
+  font-size: 1.8rem;
+}
+
+/* =========================
+   Input Group
+   ========================= */
+.input-group.modern {
+  text-align: left;
+  margin-bottom: 28px;
+  width: 100%;
+  max-width: 320px;
+  position: relative;
+  margin-left: auto;
+  margin-right: auto; /* center inputs */
+}
+
+.input-group.modern label {
+  display: block;
+  font-weight: 700;
+  margin-bottom: 10px;
+  color: #d1e9ff;
+  letter-spacing: 0.03em;
+}
+
+/* Inputs with glow focus */
+.input-modern {
+  width: 100%;
+  padding: 16px 20px;
+  padding-right: 60px;
+  border-radius: 10px;
+  border: 1.8px solid rgba(255, 255, 255, 0.3);
+  font-size: 1.05rem;
+  background: rgba(255, 255, 255, 0.1);
+  color: white;
+  outline: none;
+  transition: border-color 0.3s ease, box-shadow 0.3s ease;
+  box-sizing: border-box;
+}
+
+.input-modern::placeholder {
+  color: #bcd;
+}
+
+.input-modern:focus {
+  border-color: #00f5d4;
+  box-shadow: 0 0 10px rgba(0, 245, 212, 0.5);
+}
+
+/* =========================
+   Password Toggle Button
+   ========================= */
+.toggle-password {
+  position: absolute;
+  top: 69%;
+  right: 15px;
+  transform: translateY(-50%);
+  background: none;
+  border: none;
+  color: #00f5d4;
+  font-weight: 700;
+  cursor: pointer;
+  font-size: 1.1rem;
+  padding: 4px 8px;
+  border-radius: 6px;
+  user-select: none;
+  transition: color 0.3s ease, background-color 0.3s ease;
+}
+
+.toggle-password:hover,
+.toggle-password:focus {
+  color: #02c39a;
+  background-color: rgba(0, 245, 212, 0.15);
+}
+
+/* =========================
+   Buttons
+   ========================= */
+form {
+  display: flex;
+  flex-direction: column;
+  align-items: center; /* ensures all buttons center */
+}
+
+.btn {
+  cursor: pointer;
+  font-weight: 600;
+  padding: 14px 0;
+  width: 100%;
+  max-width: 320px;
+  border-radius: 12px;
+  font-size: 1.1rem;
+  border: none;
+  transition: all 0.3s ease;
+  margin: 10px auto; /* center horizontally */
+  display: block;
+  text-align: center;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Primary Button - Blue Gradient */
+.btn-primary {
+  background: linear-gradient(90deg, #00b4d8, #0096c7);
+  color: white;
+  box-shadow: 0 4px 15px rgba(0, 180, 216, 0.3);
+}
+
+.btn-primary:hover:not(:disabled) {
+  background: linear-gradient(90deg, #0096c7, #0077b6);
+}
+
+.btn-primary:disabled {
+  background-color: #0077b6;
+  cursor: not-allowed;
+  opacity: 0.7;
+}
+
+/* Secondary Button - Outline */
+.btn-secondary {
+  background-color: transparent;
+  border: 2px solid #00f5d4;
+  color: #00f5d4;
+}
+
+.btn-secondary:hover {
+  background-color: #00f5d4;
+  color: #001d3d;
+}
+
+/* Visitor Button - Glowing Orange */
+.btn-visitor {
+  background: linear-gradient(90deg, #ffb703, #fb8500);
+  color: white;
+  border: none;
+  margin-top: 12px;
+  padding: 14px 0;
+  width: 100%;
+  max-width: 320px;
+  border-radius: 12px;
+  font-weight: 600;
+  font-size: 1.1rem;
+  box-shadow: 0 0 12px rgba(255, 183, 3, 0.7);
+}
+
+.btn-visitor:hover {
+  background: linear-gradient(90deg, #fb8500, #f77f00);
+  transform: scale(1.03);
+  box-shadow: 0 0 18px rgba(255, 183, 3, 1);
+}
+
+/* =========================
+   Error Messages
+   ========================= */
+.error-message {
+  margin-top: 15px;
+  color: #ff4d6d;
+  font-weight: 600;
+  font-size: 0.95rem;
+  max-width: 320px;
+  text-align: center;
+  text-shadow: 0 0 6px rgba(255, 77, 109, 0.7);
+}
+
+/* =========================
+   Highlighted Text
+   ========================= */
+.highlight {
+  color: #94d2bd;
+  font-weight: 700;
+  text-shadow: 0 0 5px #7bb298;
+}
+
+/* =========================
+   Progress Bar
+   ========================= */
+.progress-bar-container {
+  width: 100%;
+  max-width: 320px;
+  height: 10px;
+  background: rgba(255, 255, 255, 0.15);
+  border-radius: 10px;
+  margin: 20px auto 10px;
+  overflow: hidden;
+  box-shadow: inset 0 0 6px rgba(0, 0, 0, 0.2);
+}
+
+.progress-bar {
+  height: 100%;
+  background-color: #52b69a;
+  border-radius: 10px;
+  transition: width 1s linear;
+  box-shadow: 0 0 6px #52b69a;
+}
+
+.countdown-text {
+  font-weight: 500;
+  opacity: 0.85;
+  font-size: 1rem;
+  margin-bottom: 10px;
+  letter-spacing: 0.05em;
+}

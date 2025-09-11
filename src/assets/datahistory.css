@@ -1,0 +1,373 @@
+/* ---------------------------
+   General Container & Layout
+----------------------------*/
+.container {
+  display: flex;
+  min-height: 100vh;
+  background: linear-gradient(135deg, #e0f2ff, #f0f4f8);
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+}
+
+/* ---------------------------
+   History Content Area
+----------------------------*/
+.history-content {
+  flex: 1;
+  padding: 40px 50px;
+  max-width: 1200px;
+  margin: auto;
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  box-sizing: border-box;
+  animation: fadeIn 0.6s ease-in-out;
+}
+
+/* Fade-in animation for content */
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* ---------------------------
+   Title
+----------------------------*/
+.history-content h2 {
+  font-size: 30px;
+  color: #1a202c;
+  margin-bottom: 30px;
+  font-weight: 800;
+  background: linear-gradient(90deg, #2b6cb0, #3182ce, #63b3ed);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  letter-spacing: 0.5px;
+}
+
+/* ---------------------------
+   Filter Controls
+----------------------------*/
+.filter-controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 25px;
+  margin-bottom: 30px;
+  align-items: flex-end;
+}
+
+.filter-controls label {
+  display: flex;
+  flex-direction: column;
+  font-weight: 600;
+  color: #2d3748;
+  font-size: 14px;
+}
+
+.filter-controls input,
+.filter-controls select {
+  margin-top: 6px;
+  padding: 10px 14px;
+  border-radius: 10px;
+  border: 2px solid #cbd5e0;
+  background: #ffffff;
+  font-size: 15px;
+  width: 180px;
+  transition: all 0.3s ease;
+}
+
+.filter-controls input:focus,
+.filter-controls select:focus {
+  outline: none;
+  border-color: #4299e1;
+  box-shadow: 0 0 10px rgba(66, 153, 225, 0.5);
+  transform: scale(1.02);
+}
+
+.filter-controls button {
+  padding: 12px 28px;
+  background: linear-gradient(90deg, #3182ce, #63b3ed);
+  color: white;
+  border: none;
+  border-radius: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  font-size: 16px;
+  transition: all 0.3s ease;
+  height: 42px;
+  align-self: center;
+  box-shadow: 0 4px 8px rgba(49, 130, 206, 0.3);
+}
+
+.filter-controls button:hover {
+  background: linear-gradient(90deg, #2b6cb0, #4299e1);
+  transform: translateY(-2px);
+  box-shadow: 0 6px 14px rgba(43, 108, 176, 0.5);
+}
+
+/* ---------------------------
+   Table Container
+----------------------------*/
+.table-container {
+  flex-grow: 1;
+  overflow-y: auto;
+  border-radius: 12px;
+  box-shadow: 0 4px 25px rgba(45, 55, 72, 0.15);
+  margin-bottom: 20px;
+  background-color: white;
+  animation: fadeIn 0.6s ease-in-out;
+}
+
+/* ---------------------------
+   Table Styling
+----------------------------*/
+table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0 12px;
+  font-size: 15px;
+  color: #2d3748;
+  border-radius: 16px;
+  overflow: hidden;
+  table-layout: fixed;
+}
+
+thead tr {
+  position: sticky;
+  top: 0;
+  background: linear-gradient(90deg, #2b6cb0, #3182ce);
+  color: white;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  z-index: 10;
+}
+
+thead th {
+  padding: 16px 20px;
+  text-align: center;
+}
+
+tbody tr {
+  background-color: white;
+  box-shadow: 0 4px 10px rgba(45, 55, 72, 0.08);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  border-radius: 12px;
+  cursor: default;
+}
+
+tbody tr:hover {
+  transform: translateY(-4px) scale(1.01);
+  box-shadow: 0 10px 18px rgba(45, 55, 72, 0.15);
+}
+
+tbody td {
+  padding: 18px 20px;
+  text-align: center;
+  vertical-align: middle;
+  word-wrap: break-word;
+}
+
+/* ---------------------------
+   Status Indicators
+----------------------------*/
+tr.safe {
+  border-left: 5px solid #48bb78;
+}
+
+tr.unsafe {
+  border-left: 5px solid #f56565;
+}
+
+/* ---------------------------
+   No Data
+----------------------------*/
+.no-data {
+  padding: 40px 0;
+  color: #a0aec0;
+  font-size: 16px;
+  text-align: center;
+  font-style: italic;
+}
+
+/* ---------------------------
+   Pagination
+----------------------------*/
+.pagination {
+  display: flex;
+  justify-content: center;
+  gap: 20px;
+  align-items: center;
+  font-weight: 600;
+  color: #2d3748;
+  user-select: none;
+}
+
+.pagination button {
+  padding: 10px 24px;
+  background: linear-gradient(90deg, #3182ce, #63b3ed);
+  color: white;
+  border: none;
+  border-radius: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  font-size: 16px;
+  box-shadow: 0 4px 10px rgba(49, 130, 206, 0.3);
+  transition: all 0.3s ease;
+}
+
+.pagination button:hover:not(:disabled) {
+  background: linear-gradient(90deg, #2b6cb0, #4299e1);
+  transform: translateY(-2px);
+  box-shadow: 0 6px 15px rgba(43, 108, 176, 0.5);
+}
+
+.pagination button:disabled {
+  background-color: #a0aec0;
+  cursor: not-allowed;
+  box-shadow: none;
+}
+
+.pagination span {
+  font-size: 16px;
+}
+
+/* ---------------------------
+   Responsive
+----------------------------*/
+@media (max-width: 1024px) {
+  .history-content {
+    padding: 30px 30px;
+  }
+  .filter-controls input,
+  .filter-controls select {
+    width: 140px;
+  }
+}
+
+@media (max-width: 600px) {
+  .history-content {
+    padding: 20px 15px;
+  }
+  .filter-controls {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .filter-controls label {
+    width: 100%;
+  }
+  .filter-controls input,
+  .filter-controls select {
+    width: 100%;
+  }
+  .filter-controls button {
+    width: 100%;
+  }
+  table thead {
+    display: none;
+  }
+  table,
+  tbody,
+  tr,
+  td {
+    display: block;
+    width: 100%;
+  }
+  tbody tr {
+    margin-bottom: 20px;
+    box-shadow: 0 4px 20px rgba(45, 55, 72, 0.1);
+    border-radius: 16px;
+    padding: 20px;
+  }
+  tbody td {
+    text-align: right;
+    padding-left: 50%;
+    position: relative;
+  }
+  tbody td::before {
+    content: attr(data-label);
+    position: absolute;
+    left: 20px;
+    width: 45%;
+    padding-left: 10px;
+    font-weight: 700;
+    text-align: left;
+    color: #4a5568;
+  }
+}
+
+/* ---------------------------
+   Download Modal
+----------------------------*/
+.download-modal {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0,0,0,0.5);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 2000;
+}
+
+.modal-content {
+  background: #fff;
+  padding: 25px 30px;
+  border-radius: 14px;
+  width: 320px;
+  max-width: 90%;
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+  box-shadow: 0 8px 20px rgba(0,0,0,0.3);
+  animation: fadeIn 0.4s ease-in-out;
+}
+
+.modal-content h3 {
+  margin: 0 0 10px;
+  font-size: 20px;
+  font-weight: 700;
+  color: #2d3748;
+}
+
+.modal-content label {
+  display: flex;
+  flex-direction: column;
+  font-weight: 600;
+  font-size: 14px;
+  color: #2d3748;
+}
+
+.modal-content input,
+.modal-content select {
+  margin-top: 6px;
+  padding: 10px;
+  border: 2px solid #cbd5e0;
+  border-radius: 8px;
+  font-size: 14px;
+}
+
+.modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 10px;
+}
+
+.modal-actions button {
+  padding: 8px 18px;
+  border: none;
+  border-radius: 10px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.modal-actions button:first-child {
+  background: linear-gradient(90deg, #3182ce, #63b3ed);
+  color: white;
+}
+
+.modal-actions button.cancel {
+  background: #e2e8f0;
+  color: #2d3748;
+}

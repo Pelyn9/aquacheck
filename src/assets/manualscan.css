@@ -1,0 +1,212 @@
+/* Layout Wrapper */
+.dashboard-layout {
+  display: flex;
+  min-height: 100vh;
+  background: #f4f7fb;
+}
+
+/* Sidebar */
+.dashboard-layout .sidebar {
+  width: 250px;
+  flex-shrink: 0;
+  background: #1e2a38;
+}
+
+/* Main */
+.manualscan-container {
+  flex: 1;
+  padding: 30px;
+  font-family: "Segoe UI", sans-serif;
+  background: linear-gradient(135deg, #e0f7fa, #ffffff);
+  animation: slideFadeIn 0.6s ease-out;
+  overflow-y: auto;
+}
+
+/* Animation */
+@keyframes slideFadeIn {
+  from { opacity: 0; transform: translateX(20px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+
+/* Header */
+.manualscan-header {
+  text-align: center;
+  margin-bottom: 25px;
+}
+.manualscan-header h1 {
+  font-size: 34px;
+  color: #007acc;
+  font-weight: 700;
+}
+.manualscan-header p {
+  color: #444;
+  font-size: 16px;
+}
+
+/* Sensor Cards */
+.sensor-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 18px;
+  margin: 20px 0 30px;
+}
+.sensor-card {
+  padding: 20px;
+  background: #fff;
+  border-radius: 12px;
+  border: 2px solid #ddd;
+  cursor: pointer;
+  text-align: center;
+  font-weight: 600;
+  color: #333;
+  transition: all 0.3s ease;
+  box-shadow: 0 3px 8px rgba(0,0,0,0.05);
+}
+.sensor-card:hover {
+  border-color: #007acc;
+  transform: translateY(-3px);
+}
+.sensor-card.selected {
+  background: #28a745;
+  color: white;
+  border-color: #28a745;
+  box-shadow: 0 4px 12px rgba(40,167,69,0.3);
+}
+
+/* Buttons Row */
+.button-row {
+  display: flex;
+  justify-content: center;
+  gap: 12px;
+  margin-bottom: 20px;
+}
+.scan-btn,
+.scan-all-btn,
+.save-btn {
+  padding: 12px 22px;
+  border-radius: 8px;
+  border: none;
+  font-weight: 600;
+  font-size: 15px;
+  cursor: pointer;
+  transition: 0.25s ease;
+  box-shadow: 0 3px 10px rgba(0,0,0,0.1);
+}
+.scan-btn {
+  background: linear-gradient(135deg, #28a745, #66bb6a);
+  color: #fff;
+}
+.scan-all-btn {
+  background: linear-gradient(135deg, #007acc, #42a5f5);
+  color: #fff;
+}
+.save-btn {
+  background: linear-gradient(135deg, #ff9800, #f57c00);
+  color: #fff;
+}
+.scan-btn:hover:not(:disabled),
+.scan-all-btn:hover:not(:disabled),
+.save-btn:hover:not(:disabled) {
+  transform: scale(1.05);
+  opacity: 0.95;
+}
+.scan-btn:disabled,
+.scan-all-btn:disabled,
+.save-btn:disabled {
+  background: #ccc;
+  cursor: not-allowed;
+}
+
+/* Results */
+.results-box {
+  margin: 25px auto 15px;
+  background: #fff;
+  border: 1px solid #007acc33;
+  border-radius: 12px;
+  padding: 18px;
+  box-shadow: 0 6px 14px rgba(0,0,0,0.08);
+  max-width: 500px;
+  animation: fadeIn 0.4s ease-in;
+}
+.results-box h3 {
+  margin-bottom: 12px;
+  font-size: 18px;
+  color: #007acc;
+  text-align: center;
+}
+.results-box ul {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+.results-box li {
+  display: flex;
+  justify-content: space-between;
+  padding: 8px 0;
+  font-size: 15px;
+  border-bottom: 1px dashed #eee;
+}
+.results-box li:last-child {
+  border-bottom: none;
+}
+.sensor-label {
+  font-weight: 600;
+  color: #333;
+}
+.sensor-value {
+  font-weight: bold;
+  color: #28a745;
+}
+
+/* Fade animation */
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* Status */
+.status-box {
+  margin: 20px auto;
+  padding: 12px;
+  background: #f0f8ff;
+  border-radius: 8px;
+  color: #004a80;
+  font-weight: 500;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.05);
+  text-align: center;
+  max-width: 400px;
+}
+
+/* Back Button */
+.back-btn {
+  display: block;
+  margin: 15px auto 0;
+  background: #dc3545;
+  color: white;
+  padding: 10px 18px;
+  border-radius: 6px;
+  border: none;
+  cursor: pointer;
+  font-weight: bold;
+  transition: background 0.2s ease, transform 0.2s ease;
+}
+.back-btn:hover {
+  background: #b52a37;
+  transform: scale(1.05);
+}
+/* ✅ Status colors for sensor results */
+.sensor-value.safe {
+  color: #28a745; /* Green */
+}
+
+.sensor-value.caution {
+  color: #ff9800; /* Orange */
+}
+
+.sensor-value.unsafe {
+  color: #dc3545; /* Red */
+}
+
+.sensor-value.unknown {
+  color: #6c757d; /* Gray */
+}
