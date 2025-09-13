@@ -7,39 +7,64 @@ const router = express.Router();
 router.post("/create-user", async (req, res) => {
   const { email, password, key } = req.body;
 
-  // Validate input
+  // -----------------------------
+  // 0. Validate input
+  // -----------------------------
   if (!email || !password || !key) {
-    return res.status(400).json({ error: "Missing email, password, or admin key" });
+    return res
+      .status(400)
+      .json({ error: "Missing email, password, or admin key" });
   }
 
-  // Verify admin key
+  // -----------------------------
+  // 1. Verify admin key
+  // -----------------------------
   if (key !== process.env.ADMIN_SECRET) {
     return res.status(401).json({ error: "Invalid admin key" });
   }
 
   try {
     // -----------------------------
-    // 1. Check if user already exists
+    // 2. Check if user already exists
     // -----------------------------
-    const { data: allUsers, error: listError } = await supabaseAdmin.auth.admin.listUsers();
+    const { data: userList, error: listError } =
+      await supabaseAdmin.auth.admin.listUsers();
+
     if (listError) throw listError;
 
-    const existingUser = allUsers.users.find(u => u.email === email);
+    const existingUser = userList?.users?.find((u) => u.email === email);
 
     if (existingUser) {
-      // ✅ Update existing user: role = admin, confirm email
-      const { data, error } = await supabaseAdmin.auth.admin.updateUserById(existingUser.id, {
-        user_metadata: { role: "admin" },
-        email_confirmed: true,
+      // ✅ Update existing user: set role = admin, confirm email
+      const { data, error } = await supabaseAdmin.auth.admin.updateUserById(
+        existingUser.id,
+        {
+          user_metadata: { role: "admin" },
+          email_confirm: true,
+        }
+      );
+
+      if (error) {
+        return res.status(400).json({ error: error.message });
+      }
+
+      // 🔹 Ensure user exists in Admins table
+      await supabaseAdmin.from("Admins").upsert(
+        {
+          auth_id: existingUser.id,
+          email,
+        },
+        { onConflict: "auth_id" }
+      );
+
+      return res.json({
+        user: data,
+        message: "Existing user updated as admin and synced to Admins table",
       });
-
-      if (error) return res.status(400).json({ error: error.message });
-
-      return res.json({ user: data, message: "Existing user updated as admin" });
     }
 
     // -----------------------------
-    // 2. Create new admin user
+    // 3. Create new admin user
     // -----------------------------
     const { data, error } = await supabaseAdmin.auth.admin.createUser({
       email,
@@ -48,13 +73,27 @@ router.post("/create-user", async (req, res) => {
       user_metadata: { role: "admin" },
     });
 
-    if (error) return res.status(400).json({ error: error.message });
+    if (error) {
+      return res.status(400).json({ error: error.message });
+    }
 
-    res.json({ user: data, message: "New admin user created" });
+    // -----------------------------
+    // 4. Insert into Admins table
+    // -----------------------------
+    const newUser = data.user ?? data;
 
+    await supabaseAdmin.from("Admins").insert({
+      auth_id: newUser.id,
+      email,
+    });
+
+    return res.json({
+      user: newUser,
+      message: "New admin user created and added to Admins table",
+    });
   } catch (err) {
     console.error("❌ Create/update admin user error:", err);
-    res.status(500).json({ error: "Internal server error" });
+    return res.status(500).json({ error: "Internal server error" });
   }
 });
 

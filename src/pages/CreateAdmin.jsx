@@ -1,3 +1,4 @@
+// frontend/src/pages/CreateAdmin.jsx
 import React, { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import "../assets/createadmin.css";
@@ -20,9 +21,9 @@ const CreateAdmin = () => {
     setError("");
     setSuccess("");
 
-    // Basic validation
+    // ✅ Validation
     if (!email || !adminKey || !password || !rePassword) {
-      setError("❌ Please fill all fields.");
+      setError("❌ Please fill in all fields.");
       return;
     }
 
@@ -48,13 +49,16 @@ const CreateAdmin = () => {
       const result = await res.json();
 
       if (!res.ok) {
-        setError("❌ " + (result.error || "Failed to create admin"));
+        setError("❌ " + (result.error || "Failed to create admin user"));
         return;
       }
 
-      setSuccess(`✅ ${result.message} (${result.user?.email || email})`);
-      setTimeout(() => navigate("/admin"), 2000);
+      setSuccess(result.message);
 
+      // Redirect after success
+      setTimeout(() => {
+        navigate("/admin");
+      }, 2000);
     } catch (err) {
       console.error(err);
       setError("❌ " + err.message);
@@ -71,6 +75,7 @@ const CreateAdmin = () => {
 
         <form onSubmit={handleSubmit} noValidate>
           <div className="form-grid">
+            {/* Email */}
             <div className="input-group modern">
               <label>Email</label>
               <input
@@ -80,9 +85,11 @@ const CreateAdmin = () => {
                 placeholder="Enter your email"
                 required
                 className="input-modern"
+                disabled={loading}
               />
             </div>
 
+            {/* Admin Key */}
             <div className="input-group modern">
               <label>Admin Key</label>
               <input
@@ -92,52 +99,63 @@ const CreateAdmin = () => {
                 placeholder="Enter secret admin key"
                 required
                 className="input-modern"
+                disabled={loading}
               />
             </div>
 
+            {/* Password */}
             <div className="input-group modern">
               <label>Password</label>
-              <input
-                type={showPassword ? "text" : "password"}
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder="Create a password"
-                required
-                className="input-modern"
-              />
-              <button
-                type="button"
-                className="toggle-password"
-                onClick={() => setShowPassword(!showPassword)}
-              >
-                {showPassword ? "Hide" : "Show"}
-              </button>
+              <div className="password-wrapper">
+                <input
+                  type={showPassword ? "text" : "password"}
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder="Create a password"
+                  required
+                  className="input-modern"
+                  disabled={loading}
+                />
+                <button
+                  type="button"
+                  className="toggle-password"
+                  onClick={() => setShowPassword(!showPassword)}
+                >
+                  {showPassword ? "Hide" : "Show"}
+                </button>
+              </div>
             </div>
 
+            {/* Re-enter Password */}
             <div className="input-group modern">
               <label>Re-enter Password</label>
-              <input
-                type={showRePassword ? "text" : "password"}
-                value={rePassword}
-                onChange={(e) => setRePassword(e.target.value)}
-                placeholder="Confirm your password"
-                required
-                className="input-modern"
-              />
-              <button
-                type="button"
-                className="toggle-password"
-                onClick={() => setShowRePassword(!showRePassword)}
-              >
-                {showRePassword ? "Hide" : "Show"}
-              </button>
+              <div className="password-wrapper">
+                <input
+                  type={showRePassword ? "text" : "password"}
+                  value={rePassword}
+                  onChange={(e) => setRePassword(e.target.value)}
+                  placeholder="Confirm your password"
+                  required
+                  className="input-modern"
+                  disabled={loading}
+                />
+                <button
+                  type="button"
+                  className="toggle-password"
+                  onClick={() => setShowRePassword(!showRePassword)}
+                >
+                  {showRePassword ? "Hide" : "Show"}
+                </button>
+              </div>
             </div>
           </div>
 
+          {/* Submit */}
           <button type="submit" disabled={loading} className="btn btn-primary">
             {loading ? "Creating..." : "Create Admin"}
           </button>
 
+          {/* Messages */}
           {error && <p className="error-message">{error}</p>}
           {success && <p className="highlight">{success}</p>}
         </form>

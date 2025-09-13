@@ -3,7 +3,7 @@ import express from "express";
 import cors from "cors";
 import bodyParser from "body-parser";
 import dotenv from "dotenv";
-import { supabaseAdmin } from "./supabaseAdminClient.js"; // SERVICE ROLE key
+import { supabaseAdmin } from "./supabaseAdminClient.js";
 
 dotenv.config();
 
@@ -29,40 +29,13 @@ app.get("/api/admin/users", async (req, res) => {
 
     res.json({ users });
   } catch (err) {
-    console.error("❌ Failed to fetch users:", err);
-    res.status(500).json({ error: "Failed to fetch users" });
+    console.error("❌ Failed to fetch users:", err.message);
+    res.status(500).json({ error: err.message || "Failed to fetch users" });
   }
 });
 
 // -----------------------------
-// POST verify admin key
-// -----------------------------
-app.post("/api/admin/verify-key", async (req, res) => {
-  const { key } = req.body;
-  if (!key) return res.status(400).json({ message: "Missing admin key" });
-
-  try {
-    const { data: keys, error } = await supabaseAdmin
-      .from("admin_keys_v2")
-      .select("key_value")
-      .order("id", { ascending: false })
-      .limit(1);
-
-    if (error) throw error;
-    if (!keys.length) return res.status(400).json({ message: "No admin key found" });
-
-    const currentKey = keys[0].key_value;
-    if (key === currentKey) return res.json({ message: "Key valid" });
-
-    return res.status(401).json({ message: "Invalid admin key" });
-  } catch (err) {
-    console.error("❌ Verify key error:", err);
-    return res.status(500).json({ message: "Internal server error" });
-  }
-});
-
-// -----------------------------
-// POST create admin user
+// POST create/update admin user
 // -----------------------------
 app.post("/api/admin/create-user", async (req, res) => {
   const { email, password, key } = req.body;
@@ -70,29 +43,36 @@ app.post("/api/admin/create-user", async (req, res) => {
   if (!email || !password || !key) {
     return res.status(400).json({ error: "Missing email, password, or admin key" });
   }
-  if (password.length < 6) return res.status(400).json({ error: "Password must be at least 6 characters" });
+
+  if (key !== process.env.ADMIN_SECRET) {
+    return res.status(401).json({ error: "Invalid admin key" });
+  }
 
   try {
-    // Verify admin key
-    const { data: keys, error: keyError } = await supabaseAdmin
-      .from("admin_keys_v2")
-      .select("key_value")
-      .order("id", { ascending: false })
-      .limit(1);
-    if (keyError) throw keyError;
-    if (!keys.length) return res.status(400).json({ error: "No admin key found" });
-
-    const currentKey = keys[0].key_value;
-    if (key !== currentKey) return res.status(401).json({ error: "Invalid admin key" });
-
-    // Check if user already exists
-    const { data: existingUsers, error: listError } = await supabaseAdmin.auth.admin.listUsers();
+    // Check if user exists
+    const { data: userList, error: listError } = await supabaseAdmin.auth.admin.listUsers();
     if (listError) throw listError;
-    if (existingUsers.users.some((u) => u.email === email)) {
-      return res.status(400).json({ error: "User with this email already exists" });
+
+    const existingUser = userList?.users?.find((u) => u.email === email);
+
+    if (existingUser) {
+      // Update existing user
+      const { data, error } = await supabaseAdmin.auth.admin.updateUserById(existingUser.id, {
+        user_metadata: { role: "admin" },
+        email_confirm: true,
+      });
+
+      if (error) return res.status(400).json({ error: error.message });
+
+      await supabaseAdmin.from("Admins").upsert(
+        { auth_id: existingUser.id, email },
+        { onConflict: "auth_id" }
+      );
+
+      return res.json({ user: data, message: "✅ Existing user updated as admin" });
     }
 
-    // Create admin user
+    // Create new user
     const { data, error: createError } = await supabaseAdmin.auth.admin.createUser({
       email,
       password,
@@ -100,100 +80,19 @@ app.post("/api/admin/create-user", async (req, res) => {
       user_metadata: { role: "admin" },
     });
 
-    if (createError) throw createError;
+    if (createError) return res.status(400).json({ error: createError.message });
 
-    res.json({ user: data.user || data });
-  } catch (err) {
-    console.error("❌ Create user route error:", err);
-    res.status(500).json({ error: "Database error creating new user" });
-  }
-});
+    const newUser = data.user ?? data;
 
-// -----------------------------
-// POST toggle user status
-// -----------------------------
-app.post("/api/admin/toggle-user", async (req, res) => {
-  const { userId, isActive, key } = req.body;
-  if (!userId || typeof isActive !== "boolean" || !key)
-    return res.status(400).json({ error: "Missing userId, isActive, or admin key" });
-
-  try {
-    const { data: keys, error } = await supabaseAdmin
-      .from("admin_keys_v2")
-      .select("key_value")
-      .order("id", { ascending: false })
-      .limit(1);
-    if (error) throw error;
-    const currentKey = keys[0]?.key_value;
-    if (key !== currentKey) return res.status(401).json({ error: "Invalid admin key" });
-
-    const { data, error: updateError } = await supabaseAdmin.auth.admin.updateUserById(userId, {
-      disabled: !isActive,
+    await supabaseAdmin.from("Admins").insert({
+      auth_id: newUser.id,
+      email,
     });
-    if (updateError) throw updateError;
 
-    res.json({ user: data, message: `User ${userId} is now ${isActive ? "active" : "disabled"}` });
+    return res.json({ user: newUser, message: "✅ New admin user created" });
   } catch (err) {
-    console.error("❌ Error updating user status:", err);
-    res.status(500).json({ error: "Failed to update user status" });
-  }
-});
-
-// -----------------------------
-// POST delete user
-// -----------------------------
-app.post("/api/admin/delete-user", async (req, res) => {
-  const { userId, key } = req.body;
-  if (!userId || !key) return res.status(400).json({ error: "Missing userId or admin key" });
-
-  try {
-    const { data: keys, error } = await supabaseAdmin
-      .from("admin_keys_v2")
-      .select("key_value")
-      .order("id", { ascending: false })
-      .limit(1);
-    if (error) throw error;
-    const currentKey = keys[0]?.key_value;
-    if (key !== currentKey) return res.status(401).json({ error: "Invalid admin key" });
-
-    const { data, error: deleteError } = await supabaseAdmin.auth.admin.deleteUser(userId);
-    if (deleteError) throw deleteError;
-
-    res.json({ message: `User ${userId} deleted`, user: data });
-  } catch (err) {
-    console.error("❌ Error deleting user:", err);
-    res.status(500).json({ error: "Failed to delete user" });
-  }
-});
-
-// -----------------------------
-// POST change admin key
-// -----------------------------
-app.post("/api/admin/change-key", async (req, res) => {
-  const { oldKey, newKey } = req.body;
-  if (!oldKey || !newKey) return res.status(400).json({ error: "Missing fields" });
-
-  try {
-    const { data: keys, error } = await supabaseAdmin
-      .from("admin_keys_v2")
-      .select("key_value")
-      .order("id", { ascending: false })
-      .limit(1);
-    if (error) throw error;
-    if (!keys.length) return res.status(400).json({ error: "No admin key found" });
-
-    const currentKey = keys[0].key_value;
-    if (oldKey !== currentKey) return res.status(401).json({ error: "Old key is incorrect" });
-
-    const { error: insertError } = await supabaseAdmin
-      .from("admin_keys_v2")
-      .insert([{ key_value: newKey }]);
-    if (insertError) throw insertError;
-
-    res.json({ message: "Admin key successfully updated" });
-  } catch (err) {
-    console.error("❌ Change key error:", err);
-    res.status(500).json({ error: "Internal server error" });
+    console.error("❌ Create/update admin user error:", err);
+    return res.status(500).json({ error: "Internal server error" });
   }
 });
 
