@@ -6,7 +6,7 @@ import "../assets/manualscan.css";
 const ManualScan = () => {
   const [selectedSensors, setSelectedSensors] = useState([]);
   const [results, setResults] = useState({});
-  const [status, setStatus] = useState("✅ Select sensors and click Scan.");
+  const [status, setStatus] = useState("Select sensors and click Scan.");
   const [scanning, setScanning] = useState(false);
 
   const sensors = ["pH Level", "Turbidity", "Temperature", "TDS"];
@@ -50,7 +50,7 @@ const ManualScan = () => {
       });
 
       setResults({ time: now, ...newResults });
-      setStatus(`✅ Scan complete at ${now}`);
+      setStatus(`Scan complete at ${now}`);
       setScanning(false);
     }, 2000);
   };
@@ -58,7 +58,7 @@ const ManualScan = () => {
   // Scan all sensors
   const handleScanAll = () => {
     setScanning(true);
-    setStatus("🔍 Scanning all sensors...");
+    setStatus("Scanning all sensors...");
 
     setTimeout(() => {
       const now = new Date().toLocaleString();
@@ -69,7 +69,7 @@ const ManualScan = () => {
       });
 
       setResults({ time: now, ...allResults });
-      setStatus(`✅ Full scan complete at ${now}`);
+      setStatus(`Full scan complete at ${now}`);
       setScanning(false);
     }, 2500);
   };
@@ -83,7 +83,7 @@ const ManualScan = () => {
 
     const { data: { user }, error: userError } = await supabase.auth.getUser();
     if (userError || !user) {
-      setStatus("❌ User not authenticated. Please log in.");
+      setStatus("User not authenticated. Please log in.");
       return;
     }
 
@@ -94,7 +94,7 @@ const ManualScan = () => {
     };
 
     const data = {
-      user_id: user.id, // ✅ Include user_id for RLS
+      user_id: user.id, // Include user_id for RLS
       ph: toNum(results["pH Level"]),
       turbidity: toNum(results["Turbidity"]),
       temperature: toNum(results["Temperature"]),
@@ -102,7 +102,7 @@ const ManualScan = () => {
     };
 
     if ([data.ph, data.turbidity, data.temperature, data.tds].every(v => v === null)) {
-      setStatus("❌ No numeric values found. Please scan again.");
+      setStatus("No numeric values found. Please scan again.");
       return;
     }
 
@@ -110,9 +110,9 @@ const ManualScan = () => {
 
     if (error) {
       console.error("Error saving scan:", error.message);
-      setStatus("❌ Failed to save scan. Check RLS policy.");
+      setStatus("Failed to save scan. Check RLS policy.");
     } else {
-      setStatus("✅ Scan saved to history!");
+      setStatus("Scan saved to history!");
     }
   };
 
@@ -149,21 +149,21 @@ const ManualScan = () => {
         <div className="button-row">
           {selectedSensors.length > 0 && (
             <button className="scan-btn" onClick={handleScan} disabled={scanning}>
-              🔍 Scan Selected
+              Scan Selected
             </button>
           )}
           <button className="scan-all-btn" onClick={handleScanAll} disabled={scanning}>
-            🚀 Scan All
+            Scan All
           </button>
           <button className="save-btn" onClick={handleSave} disabled={!results.time}>
-            💾 Save Results
+            Save Results
           </button>
         </div>
 
         {/* Results */}
         {results.time && (
           <div className="results-box">
-            <h3>📊 Results (at {results.time})</h3>
+            <h3>Results (at {results.time})</h3>
             <ul>
               {Object.entries(results)
                 .filter(([key]) => key !== "time")

@@ -79,7 +79,7 @@ const AdminDashboard = () => {
     const dailySave = setInterval(async () => {
       const newEntry = { ...sensorData, timestamp: new Date().toISOString() };
       const { error } = await supabase.from("sensor_logs").insert([newEntry]);
-      if (error) console.error("❌ Auto-save failed:", error);
+      if (error) console.error("Auto-save failed:", error);
     }, 86400000);
     return () => clearInterval(dailySave);
   }, [sensorData]);
@@ -87,8 +87,8 @@ const AdminDashboard = () => {
   const handleSave = async () => {
     const newEntry = { ...sensorData, timestamp: new Date().toISOString() };
     const { error } = await supabase.from("sensor_logs").insert([newEntry]);
-    if (error) setStatus("❌ Failed to save data!");
-    else setStatus("✅ Data saved successfully!");
+    if (error) setStatus("Failed to save data!");
+    else setStatus("Data saved successfully!");
   };
 
   const toggleAutoScan = () => {
@@ -100,7 +100,7 @@ const AdminDashboard = () => {
     if (!autoScanRunning) {
       navigate("/manual-scan", { state: { autoScanRunning } });
     } else {
-      setStatus("⚠️ Stop Auto Scan before using Manual Scan.");
+      setStatus("Stop Auto Scan before using Manual Scan.");
     }
   };
 

@@ -137,7 +137,10 @@ const VisitorPage = () => {
         <div className="hero-content">
           <div className="hero-text">
             <h1>
-              Discover <span>Cuaco Beach</span>
+              Discover
+            </h1>
+            <h1>
+              <span>Cuaco Beach</span>
             </h1>
             <p>
               Crystal-clear waters, relaxing vibes, and safe monitoring with{" "}

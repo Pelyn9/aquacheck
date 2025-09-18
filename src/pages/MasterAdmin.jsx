@@ -82,10 +82,10 @@ const MasterAdmin = () => {
       const res = await fetch(`${API_BASE}/users/${userId}/toggle`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ enable: !currentlyDisabled }), // ✅ toggle properly
+        body: JSON.stringify({ enable: !currentlyDisabled }), // toggle properly
       });
       if (!res.ok) throw new Error(await res.text());
-      await fetchUsers(); // 🔄 refresh list
+      await fetchUsers(); // refresh list
     } catch (e) {
       console.error(e);
       setError("Failed to update user status.");
@@ -122,9 +122,9 @@ const MasterAdmin = () => {
       const result = await res.json();
 
       if (!res.ok) {
-        setPasswordMessage("❌ Failed to change password: " + (result.error || "Unknown error"));
+        setPasswordMessage("Failed to change password: " + (result.error || "Unknown error"));
       } else {
-        setPasswordMessage("✅ Secret admin password changed!");
+        setPasswordMessage("Secret admin password changed!");
         setNewPassword("");
         setTimeout(() => {
           setShowPasswordModal(false);
@@ -133,14 +133,14 @@ const MasterAdmin = () => {
       }
     } catch (err) {
       console.error(err);
-      setPasswordMessage("❌ Failed to change password.");
+      setPasswordMessage("Failed to change password.");
     }
   };
 
   // Save master admin password in localStorage
   const handleMasterUpdate = () => {
     if (!editedMasterPassword.trim()) {
-      alert("⚠️ Please enter a new master password before saving.");
+      alert("Please enter a new master password before saving.");
       return;
     }
     const newPass = editedMasterPassword.trim();
@@ -152,12 +152,12 @@ const MasterAdmin = () => {
         new CustomEvent("masterPasswordUpdated", { detail: { newPass } })
       );
 
-      alert("✅ Master Admin password updated!");
+      alert("Master Admin password updated!");
       setEditedMasterPassword("");
       setShowAccessModal(false);
     } catch (e) {
       console.error("Failed to save master password", e);
-      alert("❌ Failed to update master password.");
+      alert("Failed to update master password.");
     }
   };
 
@@ -175,14 +175,14 @@ const MasterAdmin = () => {
         {/* Controls */}
         <div className="card">
           <button className="btn-primary" onClick={() => setShowPasswordModal(true)}>
-            🔑 Change Secret Admin Password
+            Change Secret Admin Password
           </button>
           <button
             className="btn-primary"
             style={{ marginLeft: "10px" }}
             onClick={() => setShowAccessModal(true)}
           >
-            👑 Master Admin Access
+            Master Admin Access
           </button>
           <button className="btn" onClick={fetchUsers} disabled={loading}>
             {loading ? "Refreshing..." : "↻ Refresh"}
@@ -218,7 +218,7 @@ const MasterAdmin = () => {
                       <td>{u.id}</td>
                       <td>{u.email}</td>
                       <td>{safeDate(u.created_at)}</td>
-                      <td>{disabled ? "Disabled ❌" : "Active ✅"}</td>
+                      <td>{disabled ? "Disabled" : "Active"}</td>
                       <td>
                         <button
                           className="btn btn-danger"
@@ -289,7 +289,7 @@ const MasterAdmin = () => {
         {showAccessModal && (
           <div className="modal-backdrop">
             <div className="modal">
-              <h2>👑 Master Admin Access</h2>
+              <h2>Master Admin Access</h2>
               <p>
                 Current Master Password:{" "}
                 <strong>
