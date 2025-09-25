@@ -189,22 +189,22 @@ const VisitorPage = () => {
       {/* Developers Section */}
       <section id="developers" className="developers">
         <h2>Meet the Developers</h2>
-        <div className="developer-list">
-          <div className="developer-card">
+        <div className="developer-grid">
+          <div className="developer-item">
             <img src={peejayPhoto} alt="Peejay Marco A. Apale" className="dev-photo" />
-            <p><b>Peejay Marco A. Apale</b></p>
+            <div className="dev-name"><b>Peejay Marco A. Apale</b></div>
           </div>
-          <div className="developer-card">
+          <div className="developer-item">
             <img src="placeholder.jpg" alt="ALDRIC RHOLEN CALATRAVA" className="dev-photo" />
-            <p><b>ALDRIC RHOLEN CALATRAVA</b></p>
+            <div className="dev-name"><b>ALDRIC RHOLEN CALATRAVA</b></div>
           </div>
-          <div className="developer-card">
+          <div className="developer-item">
             <img src="placeholder.jpg" alt="Lawrence Jay Saludes" className="dev-photo" />
-            <p><b>Lawrence Jay Saludes</b></p>
+            <div className="dev-name"><b>Lawrence Jay Saludes</b></div>
           </div>
-          <div className="developer-card">
+          <div className="developer-item">
             <img src="placeholder.jpg" alt="WENCE DANTE DE VERA" className="dev-photo" />
-            <p><b>WENCE DANTE DE VERA</b></p>
+            <div className="dev-name"><b>WENCE DANTE DE VERA</b></div>
           </div>
         </div>
       </section>
