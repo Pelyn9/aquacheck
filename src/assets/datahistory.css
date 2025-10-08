@@ -39,6 +39,7 @@
   font-weight: 800;
   background: linear-gradient(90deg, #2b6cb0, #3182ce, #63b3ed);
   -webkit-background-clip: text;
+  background-clip: text;
   -webkit-text-fill-color: transparent;
   letter-spacing: 0.5px;
 }
@@ -173,7 +174,20 @@ tr.safe {
   border-left: 5px solid #48bb78;
 }
 
+/* ✅ NEW: Background colors for Safe, Caution, and Unsafe rows */
+tr.safe {
+  background-color: #d4edda;   /* light green */
+  color: #155724;              /* dark green text */
+}
+
+tr.caution {
+  background-color: #fff3cd;   /* light yellow */
+  color: #856404;              /* dark yellow text */
+}
+
 tr.unsafe {
+  background-color: #f8d7da;   /* light red */
+  color: #721c24;              /* dark red text */
   border-left: 5px solid #f56565;
 }
 

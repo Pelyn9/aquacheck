@@ -20,19 +20,19 @@ const ManualScan = () => {
     );
   };
 
-  // Generate realistic values
+  // Generate realistic numeric values (NO UNITS for DB)
   const generateSensorValue = (sensor) => {
     switch (sensor) {
       case "pH Level":
-        return (Math.random() * (8.5 - 6.5) + 6.5).toFixed(2);
+        return parseFloat((Math.random() * (8.5 - 6.5) + 6.5).toFixed(2));
       case "Turbidity":
-        return (Math.random() * 10).toFixed(2) + " NTU";
+        return parseFloat((Math.random() * 10).toFixed(2)); // NTU
       case "Temperature":
-        return (Math.random() * (35 - 20) + 20).toFixed(2) + " °C";
+        return parseFloat((Math.random() * (35 - 20) + 20).toFixed(2)); // °C
       case "TDS":
-        return (Math.random() * (600 - 100) + 100).toFixed(2) + " ppm";
+        return parseFloat((Math.random() * (600 - 100) + 100).toFixed(2)); // ppm
       default:
-        return "N/A";
+        return null;
     }
   };
 
@@ -87,32 +87,21 @@ const ManualScan = () => {
       return;
     }
 
-    const toNum = (v) => {
-      if (!v) return null;
-      const n = parseFloat(v);
-      return Number.isNaN(n) ? null : n;
-    };
-
     const data = {
-      user_id: user.id, // Include user_id for RLS
-      ph: toNum(results["pH Level"]),
-      turbidity: toNum(results["Turbidity"]),
-      temperature: toNum(results["Temperature"]),
-      tds: toNum(results["TDS"]),
+      user_id: user.id,
+      ph: results["pH Level"] ?? null,
+      turbidity: results["Turbidity"] ?? null,
+      temperature: results["Temperature"] ?? null,
+      tds: results["TDS"] ?? null,
     };
-
-    if ([data.ph, data.turbidity, data.temperature, data.tds].every(v => v === null)) {
-      setStatus("No numeric values found. Please scan again.");
-      return;
-    }
 
     const { error } = await supabase.from("dataset_history").insert([data]);
 
     if (error) {
       console.error("Error saving scan:", error.message);
-      setStatus("Failed to save scan. Check RLS policy.");
+      setStatus("❌ Failed to save scan. Check RLS policy or DB schema.");
     } else {
-      setStatus("Scan saved to history!");
+      setStatus("✅ Scan saved to history!");
     }
   };
 
@@ -170,7 +159,11 @@ const ManualScan = () => {
                 .map(([key, value]) => (
                   <li key={key}>
                     <span className="sensor-label">{key}:</span>{" "}
-                    <span className="sensor-value">{value}</span>
+                    <span className="sensor-value">
+                      {value} {key === "Turbidity" ? "NTU" : ""}
+                      {key === "Temperature" ? " °C" : ""}
+                      {key === "TDS" ? " ppm" : ""}
+                    </span>
                   </li>
                 ))}
             </ul>

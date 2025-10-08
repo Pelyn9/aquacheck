@@ -11,15 +11,15 @@ const app = express();
 app.use(cors());
 app.use(bodyParser.json());
 
-// -----------------------------
-// GET all users
-// -----------------------------
+/**
+ * GET all users
+ */
 app.get("/api/admin/users", async (req, res) => {
   try {
     const { data, error } = await supabaseAdmin.auth.admin.listUsers();
     if (error) throw error;
 
-    const users = data.users.map((user) => ({
+    const mappedUsers = data.users.map((user) => ({
       id: user.id,
       email: user.email,
       role: user.user_metadata?.role || "user",
@@ -27,21 +27,23 @@ app.get("/api/admin/users", async (req, res) => {
       disabled: user.disabled,
     }));
 
-    res.json({ users });
+    res.json({ users: mappedUsers });
   } catch (err) {
     console.error("❌ Failed to fetch users:", err.message);
     res.status(500).json({ error: err.message || "Failed to fetch users" });
   }
 });
 
-// -----------------------------
-// POST create/update admin user
-// -----------------------------
+/**
+ * POST create/update admin user
+ */
 app.post("/api/admin/create-user", async (req, res) => {
   const { email, password, key } = req.body;
 
   if (!email || !password || !key) {
-    return res.status(400).json({ error: "Missing email, password, or admin key" });
+    return res
+      .status(400)
+      .json({ error: "Missing email, password, or admin key" });
   }
 
   if (key !== process.env.ADMIN_SECRET) {
@@ -49,18 +51,17 @@ app.post("/api/admin/create-user", async (req, res) => {
   }
 
   try {
-    // Check if user exists
-    const { data: userList, error: listError } = await supabaseAdmin.auth.admin.listUsers();
+    const { data, error: listError } = await supabaseAdmin.auth.admin.listUsers();
     if (listError) throw listError;
 
-    const existingUser = userList?.users?.find((u) => u.email === email);
+    const existingUser = data.users?.find((u) => u.email === email);
 
     if (existingUser) {
-      // Update existing user
-      const { data, error } = await supabaseAdmin.auth.admin.updateUserById(existingUser.id, {
-        user_metadata: { role: "admin" },
-        email_confirm: true,
-      });
+      const { data: updatedUser, error } =
+        await supabaseAdmin.auth.admin.updateUserById(existingUser.id, {
+          user_metadata: { role: "admin" },
+          email_confirm: true,
+        });
 
       if (error) return res.status(400).json({ error: error.message });
 
@@ -69,35 +70,69 @@ app.post("/api/admin/create-user", async (req, res) => {
         { onConflict: "auth_id" }
       );
 
-      return res.json({ user: data, message: "✅ Existing user updated as admin" });
+      return res.json({
+        user: updatedUser,
+        message: "✅ Existing user updated as admin",
+      });
     }
 
-    // Create new user
-    const { data, error: createError } = await supabaseAdmin.auth.admin.createUser({
-      email,
-      password,
-      email_confirm: true,
-      user_metadata: { role: "admin" },
-    });
+    const { data: newUser, error: createError } =
+      await supabaseAdmin.auth.admin.createUser({
+        email,
+        password,
+        email_confirm: true,
+        user_metadata: { role: "admin" },
+      });
 
     if (createError) return res.status(400).json({ error: createError.message });
 
-    const newUser = data.user ?? data;
-
     await supabaseAdmin.from("Admins").insert({
-      auth_id: newUser.id,
+      auth_id: newUser.user.id,
       email,
     });
 
-    return res.json({ user: newUser, message: "✅ New admin user created" });
+    return res.json({ user: newUser.user, message: "✅ New admin user created" });
   } catch (err) {
     console.error("❌ Create/update admin user error:", err);
     return res.status(500).json({ error: "Internal server error" });
   }
 });
 
-// -----------------------------
-// Start server
-// -----------------------------
+/**
+ * POST water quality (from ESP32)
+ */
+app.post("/api/water-quality", async (req, res) => {
+  const { ph, turbidity, tds, temperature } = req.body;
+
+  if (
+    ph === undefined &&
+    turbidity === undefined &&
+    tds === undefined &&
+    temperature === undefined
+  ) {
+    return res.status(400).json({ error: "No water quality data provided" });
+  }
+
+  try {
+    const { data, error } = await supabaseAdmin
+      .from("water_quality")
+      .insert([{ ph, turbidity, tds, temperature }])
+      .select();
+
+    if (error) throw error;
+
+    console.log("✅ Water quality saved:", data);
+    res.json({ message: "✅ Water quality saved", data });
+  } catch (err) {
+    console.error("❌ Error saving water quality:", err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+/**
+ * Start server
+ */
 const PORT = process.env.PORT || 4000;
-app.listen(PORT, () => console.log(`🚀 Admin backend running at http://localhost:${PORT}`));
+app.listen(PORT, () =>
+  console.log(`🚀 Admin backend running at http://localhost:${PORT}`)
+);
