@@ -58,7 +58,7 @@ const DataHistory = () => {
   });
 
   const [showDownloadModal, setShowDownloadModal] = useState(false);
-  const [downloadMode, setDownloadMode] = useState("all"); // all, date, safe, caution, unsafe
+  const [downloadMode, setDownloadMode] = useState("all");
   const [downloadDate, setDownloadDate] = useState("");
 
   const tableContainerRef = useRef(null);
@@ -273,12 +273,16 @@ const DataHistory = () => {
                   const status = getOverallStatus(entry);
                   return (
                     <tr key={index} className={status.toLowerCase()}>
-                      <td>{new Date(entry.created_at).toLocaleString()}</td>
-                      <td>{entry.ph}</td>
-                      <td>{entry.turbidity}</td>
-                      <td>{entry.temperature}</td>
-                      <td>{entry.tds}</td>
-                      <td>{status}</td>
+                      <td data-label="Time">
+                        {new Date(entry.created_at).toLocaleString()}
+                      </td>
+                      <td data-label="pH">{entry.ph}</td>
+                      <td data-label="Turbidity">{entry.turbidity}</td>
+                      <td data-label="Temperature (°C)">
+                        {entry.temperature}
+                      </td>
+                      <td data-label="TDS (ppm)">{entry.tds}</td>
+                      <td data-label="Status">{status}</td>
                     </tr>
                   );
                 })
@@ -302,7 +306,7 @@ const DataHistory = () => {
           </div>
         )}
 
-        {/* Download Options Modal */}
+        {/* Download Modal */}
         {showDownloadModal && (
           <div className="download-modal">
             <div className="modal-content">
