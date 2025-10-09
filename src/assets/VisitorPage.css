@@ -481,12 +481,57 @@ html, body {
   transform: scale(1.15);
 }
 
-/* 📱 Mobile responsive */
-@media (max-width: 768px) {
-  .developer-grid {
-    grid-template-columns: 1fr; /* stack in 1 column */
-  }
+/* === Hamburger Menu === */
+.hamburger {
+  display: none;
+  flex-direction: column;
+  cursor: pointer;
+  gap: 5px;
 }
 
+.hamburger span {
+  width: 25px;
+  height: 3px;
+  background: var(--text-color);
+  border-radius: 2px;
+  transition: all 0.3s ease;
+}
 
-/* Keep all your previous styles as is for navbar, hero, live-card, etc. */
+.hamburger span.open:nth-child(1) {
+  transform: rotate(45deg) translateY(8px);
+}
+.hamburger span.open:nth-child(2) {
+  opacity: 0;
+}
+.hamburger span.open:nth-child(3) {
+  transform: rotate(-45deg) translateY(-8px);
+}
+
+/* Mobile Navbar */
+@media (max-width: 768px) {
+  .hamburger {
+    display: flex;
+  }
+
+  .navbar-links {
+    display: none;
+    flex-direction: column;
+    position: absolute;
+    top: 70px;
+    right: 15px;
+    background: var(--navbar-bg);
+    border-radius: 10px;
+    padding: 1rem;
+    box-shadow: 0 4px 20px var(--shadow-color);
+    gap: 1rem;
+  }
+
+  .navbar-links.active {
+    display: flex;
+  }
+
+  .navbar-links a {
+    font-size: 1rem;
+    padding: 0.3rem 0;
+  }
+}

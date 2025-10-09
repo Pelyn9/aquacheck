@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from "react";
 import "../assets/VisitorPage.css";
 import cuacoImage from "../assets/picture/cuaco.jpg";
-import peejayPhoto from "../assets/picture/peejay.jpg"; // ✅ Import Peejay's photo
+import peejayPhoto from "../assets/picture/peejay.jpg";
 
 const VisitorPage = () => {
   const [theme, setTheme] = useState("light");
   const [liveVisible, setLiveVisible] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
   const [sensorData, setSensorData] = useState({
     ph: "N/A",
     turbidity: "N/A",
@@ -17,8 +18,8 @@ const VisitorPage = () => {
     document.documentElement.setAttribute("data-theme", theme);
   }, [theme]);
 
-  const toggleTheme = () =>
-    setTheme((prev) => (prev === "light" ? "dark" : "light"));
+  const toggleTheme = () => setTheme((prev) => (prev === "light" ? "dark" : "light"));
+  const toggleMenu = () => setMenuOpen((prev) => !prev);
 
   const toggleLive = async () => {
     setLiveVisible((prev) => !prev);
@@ -92,12 +93,21 @@ const VisitorPage = () => {
         <a href="#home" className="navbar-logo">
           AquaCheck
         </a>
-        <div className="navbar-links">
-          <a href="#home">Home</a>
-          <a href="#features">Features</a>
-          <a href="#about">About</a>
-          <a href="#developers">Developers</a>
-          <a href="#contact">Contact</a>
+
+        {/* Hamburger icon (only visible on mobile) */}
+        <div className="hamburger" onClick={toggleMenu}>
+          <span className={menuOpen ? "open" : ""}></span>
+          <span className={menuOpen ? "open" : ""}></span>
+          <span className={menuOpen ? "open" : ""}></span>
+        </div>
+
+        {/* Navbar links (hidden on mobile unless menu is open) */}
+        <div className={`navbar-links ${menuOpen ? "active" : ""}`}>
+          <a href="#home" onClick={() => setMenuOpen(false)}>Home</a>
+          <a href="#features" onClick={() => setMenuOpen(false)}>Features</a>
+          <a href="#about" onClick={() => setMenuOpen(false)}>About</a>
+          <a href="#developers" onClick={() => setMenuOpen(false)}>Developers</a>
+          <a href="#contact" onClick={() => setMenuOpen(false)}>Contact</a>
           <button onClick={toggleTheme} className="theme-toggle-button">
             {theme === "light" ? "Dark" : "Light"}
           </button>
@@ -113,12 +123,8 @@ const VisitorPage = () => {
           <h4>Live Sensor Reading</h4>
           <ul>
             {Object.keys(sensorData).map((key) => (
-              <li
-                key={key}
-                style={{ color: getColor(getStatus(key, sensorData[key])) }}
-              >
-                {key.toUpperCase()}: {sensorData[key]} →{" "}
-                {getStatus(key, sensorData[key])}
+              <li key={key} style={{ color: getColor(getStatus(key, sensorData[key])) }}>
+                {key.toUpperCase()}: {sensorData[key]} → {getStatus(key, sensorData[key])}
               </li>
             ))}
           </ul>
@@ -136,9 +142,7 @@ const VisitorPage = () => {
       <section id="home" className="hero">
         <div className="hero-content">
           <div className="hero-text">
-            <h1>
-              Discover
-            </h1>
+            <h1>Discover</h1>
             <h1>
               <span>Cuaco Beach</span>
             </h1>
