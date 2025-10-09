@@ -3,6 +3,7 @@ import "../assets/VisitorPage.css";
 import cuacoImage from "../assets/picture/cuaco.jpg";
 import peejayPhoto from "../assets/picture/peejay.jpg";
 
+
 const VisitorPage = () => {
   const [theme, setTheme] = useState("light");
   const [liveVisible, setLiveVisible] = useState(false);
@@ -39,7 +40,7 @@ const VisitorPage = () => {
   };
 
   const getStatus = (type, value) => {
-    if (value === "N/A") return "unknown";
+    if (value === "N/A") return "Unknown";
     const val = parseFloat(value);
     switch (type) {
       case "ph":
@@ -88,20 +89,23 @@ const VisitorPage = () => {
 
   return (
     <div className="visitor-container">
-      {/* Navbar */}
+      {/* ================= Navbar ================= */}
       <nav className="navbar">
         <a href="#home" className="navbar-logo">
           AquaCheck
         </a>
 
-        {/* Hamburger icon (only visible on mobile) */}
-        <div className="hamburger" onClick={toggleMenu}>
-          <span className={menuOpen ? "open" : ""}></span>
-          <span className={menuOpen ? "open" : ""}></span>
-          <span className={menuOpen ? "open" : ""}></span>
+        {/* Hamburger icon */}
+        <div
+          className={`hamburger ${menuOpen ? "active" : ""}`}
+          onClick={toggleMenu}
+        >
+          <span></span>
+          <span></span>
+          <span></span>
         </div>
 
-        {/* Navbar links (hidden on mobile unless menu is open) */}
+        {/* Navbar links */}
         <div className={`navbar-links ${menuOpen ? "active" : ""}`}>
           <a href="#home" onClick={() => setMenuOpen(false)}>Home</a>
           <a href="#features" onClick={() => setMenuOpen(false)}>Features</a>
@@ -117,7 +121,7 @@ const VisitorPage = () => {
         </div>
       </nav>
 
-      {/* Live Hover Card */}
+      {/* ================= Live Card ================= */}
       {liveVisible && (
         <div className="live-card">
           <h4>Live Sensor Reading</h4>
@@ -138,7 +142,7 @@ const VisitorPage = () => {
         </div>
       )}
 
-      {/* Home Section */}
+      {/* ================= Hero Section ================= */}
       <section id="home" className="hero">
         <div className="hero-content">
           <div className="hero-text">
@@ -157,7 +161,7 @@ const VisitorPage = () => {
         </div>
       </section>
 
-      {/* Features Section */}
+      {/* ================= Features Section ================= */}
       <section id="features" className="features">
         <h2>Features</h2>
         <div className="features-grid-2x2">
@@ -180,7 +184,7 @@ const VisitorPage = () => {
         </div>
       </section>
 
-      {/* About Section */}
+      {/* ================= About Section ================= */}
       <section id="about" className="about">
         <h2>About AquaCheck</h2>
         <p>
@@ -190,7 +194,7 @@ const VisitorPage = () => {
         </p>
       </section>
 
-      {/* Developers Section */}
+      {/* ================= Developers Section ================= */}
       <section id="developers" className="developers">
         <h2>Meet the Developers</h2>
         <div className="developer-grid">
@@ -199,21 +203,21 @@ const VisitorPage = () => {
             <div className="dev-name"><b>Peejay Marco A. Apale</b></div>
           </div>
           <div className="developer-item">
-            <img src="placeholder.jpg" alt="ALDRIC RHOLEN CALATRAVA" className="dev-photo" />
-            <div className="dev-name"><b>ALDRIC RHOLEN CALATRAVA</b></div>
+            <img src="placeholder.jpg" alt="Aldric Rholen Calatrava" className="dev-photo" />
+            <div className="dev-name"><b>Aldric Rholen Calatrava</b></div>
           </div>
           <div className="developer-item">
             <img src="placeholder.jpg" alt="Lawrence Jay Saludes" className="dev-photo" />
             <div className="dev-name"><b>Lawrence Jay Saludes</b></div>
           </div>
           <div className="developer-item">
-            <img src="placeholder.jpg" alt="WENCE DANTE DE VERA" className="dev-photo" />
-            <div className="dev-name"><b>WENCE DANTE DE VERA</b></div>
+            <img src="placeholder.jpg" alt="Wence Dante De Vera" className="dev-photo" />
+            <div className="dev-name"><b>Wence Dante De Vera</b></div>
           </div>
         </div>
       </section>
 
-      {/* Contact Section */}
+      {/* ================= Contact Section ================= */}
       <section id="contact" className="contact">
         Email:{" "}
         <a href="mailto:contact@aquacheck.com" className="highlight">
@@ -222,7 +226,7 @@ const VisitorPage = () => {
         <p>Phone: <span className="highlight"></span>+63 912 345 6789</p>
       </section>
 
-      {/* Footer */}
+      {/* ================= Footer ================= */}
       <footer className="footer">
         &copy; {new Date().getFullYear()} AquaCheck. All rights reserved.
       </footer>

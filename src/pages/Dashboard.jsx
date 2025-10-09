@@ -2,7 +2,6 @@ import React, { useState, useEffect, useContext } from "react";
 import { useNavigate } from "react-router-dom";
 import Sidebar from "../components/Sidebar";
 import "../assets/databoard.css";
-
 import { AutoScanContext } from "../context/AutoScanContext";
 import { supabase } from "../supabaseClient";
 
@@ -40,14 +39,14 @@ const AdminDashboard = () => {
         temp: data.temp ? parseFloat(data.temp).toFixed(1) : "N/A",
         tds: data.tds ? parseFloat(data.tds).toFixed(0) : "N/A",
       });
-      setStatus("✅ Data fetched from sensor!");
+      setStatus("✅ Data fetched successfully!");
     } catch (error) {
       console.error("❌ Error fetching sensor data:", error);
-      setStatus("❌ Failed to fetch data. Check device connection.");
+      setStatus("❌ Failed to fetch data. Check your connection.");
     }
   };
 
-  // === Utility: Evaluate sensor status ===
+  // === Sensor Status Evaluation ===
   const getSensorStatus = (type, value) => {
     if (value === "N/A") return "unknown";
     const val = parseFloat(value);
@@ -74,21 +73,21 @@ const AdminDashboard = () => {
     }
   };
 
-  // === Auto-save once per day ===
+  // === Auto-Save Once a Day ===
   useEffect(() => {
     const dailySave = setInterval(async () => {
       const newEntry = { ...sensorData, timestamp: new Date().toISOString() };
       const { error } = await supabase.from("sensor_logs").insert([newEntry]);
       if (error) console.error("Auto-save failed:", error);
-    }, 86400000);
+    }, 86400000); // Every 24 hours
     return () => clearInterval(dailySave);
   }, [sensorData]);
 
   const handleSave = async () => {
     const newEntry = { ...sensorData, timestamp: new Date().toISOString() };
     const { error } = await supabase.from("sensor_logs").insert([newEntry]);
-    if (error) setStatus("Failed to save data!");
-    else setStatus("Data saved successfully!");
+    if (error) setStatus("❌ Failed to save data!");
+    else setStatus("✅ Data saved successfully!");
   };
 
   const toggleAutoScan = () => {
@@ -100,13 +99,14 @@ const AdminDashboard = () => {
     if (!autoScanRunning) {
       navigate("/manual-scan", { state: { autoScanRunning } });
     } else {
-      setStatus("Stop Auto Scan before using Manual Scan.");
+      setStatus("⚠️ Stop Auto Scan before using Manual Scan.");
     }
   };
 
   return (
-    <div className="container">
+    <div className="dashboard-container">
       <Sidebar />
+
       <main className="main-content">
         {/* Header */}
         <header className="topbar">
@@ -114,7 +114,7 @@ const AdminDashboard = () => {
         </header>
 
         {/* Scan Controls */}
-        <div className="scan-controls">
+        <section className="scan-controls">
           <div className="interval-setting">
             <label htmlFor="scanInterval">Set Auto Scan Interval:</label>
             <select
@@ -133,9 +133,8 @@ const AdminDashboard = () => {
           </div>
 
           <div className="button-group">
-            {/* Manual Scan button fades + disables if Auto Scan is running */}
             <button
-              className={`manual-scan-btn ${autoScanRunning ? "faded" : ""}`}
+              className={`manual-scan-btn ${autoScanRunning ? "disabled" : ""}`}
               onClick={handleManualScanClick}
               disabled={autoScanRunning}
             >
@@ -151,41 +150,29 @@ const AdminDashboard = () => {
               {autoScanRunning ? "Stop Auto Scan" : "Start Auto Scan"}
             </button>
           </div>
-        </div>
+        </section>
 
         {/* Sensor Grid */}
-        <div className="sensor-grid">
-          <div className={`sensor-card ${getSensorStatus("ph", sensorData.ph)}`}>
-            <h3>pH Level</h3>
-            <p>{sensorData.ph}</p>
-          </div>
-          <div
-            className={`sensor-card ${getSensorStatus(
-              "turbidity",
-              sensorData.turbidity
-            )}`}
-          >
-            <h3>Turbidity</h3>
-            <p>{sensorData.turbidity} NTU</p>
-          </div>
-          <div
-            className={`sensor-card ${getSensorStatus("temp", sensorData.temp)}`}
-          >
-            <h3>Temperature</h3>
-            <p>{sensorData.temp} °C</p>
-          </div>
-          <div
-            className={`sensor-card ${getSensorStatus("tds", sensorData.tds)}`}
-          >
-            <h3>TDS</h3>
-            <p>{sensorData.tds} ppm</p>
-          </div>
-        </div>
+        <section className="sensor-grid">
+          {["ph", "turbidity", "temp", "tds"].map((key) => (
+            <div key={key} className={`sensor-card ${getSensorStatus(key, sensorData[key])}`}>
+              <h3>{key.toUpperCase()}</h3>
+              <p>
+                {sensorData[key]}{" "}
+                {key === "turbidity"
+                  ? "NTU"
+                  : key === "temp"
+                  ? "°C"
+                  : key === "tds"
+                  ? "ppm"
+                  : ""}
+              </p>
+            </div>
+          ))}
+        </section>
 
         {/* Status */}
-        <div id="water-status" className="status-card">
-          {status}
-        </div>
+        <div className="status-card">{status}</div>
       </main>
     </div>
   );

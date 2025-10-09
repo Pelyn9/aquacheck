@@ -6,22 +6,19 @@ import {
   faTachometerAlt,
   faHistory,
   faSignOutAlt,
-  faBars,
   faTint,
   faLock,
 } from "@fortawesome/free-solid-svg-icons";
 import "../assets/Sidebar.css";
-
 import { AdminContext } from "../App";
 
 export default function Sidebar() {
-  const [isCollapsed, setIsCollapsed] = useState(() => {
-    return JSON.parse(localStorage.getItem("sidebarCollapsed")) || false;
-  });
+  const [isCollapsed, setIsCollapsed] = useState(window.innerWidth <= 768);
   const [showConfirm, setShowConfirm] = useState(false);
   const [showMasterLogin, setShowMasterLogin] = useState(false);
   const [masterPasswordInput, setMasterPasswordInput] = useState("");
   const [attempts, setAttempts] = useState(0);
+  const [isMobile, setIsMobile] = useState(window.innerWidth <= 768);
 
   const { isAdmin, setIsAdmin } = useContext(AdminContext);
   const navigate = useNavigate();
@@ -30,28 +27,28 @@ export default function Sidebar() {
   const clickTimeout = useRef(null);
   const passwordInputRef = useRef(null);
 
+  // Detect screen resize
   useEffect(() => {
-    localStorage.setItem("sidebarCollapsed", JSON.stringify(isCollapsed));
-  }, [isCollapsed]);
-
-  // When master password updates elsewhere, we can log/do something (optional)
-  useEffect(() => {
-    const onUpdate = (e) => {
-      console.log("masterPasswordUpdated event:", e?.detail?.newPass ? "updated" : "updated (no detail)");
-      // optionally auto-close modal or show message
+    const handleResize = () => {
+      setIsMobile(window.innerWidth <= 768);
+      if (window.innerWidth > 768) setIsCollapsed(false);
+      else setIsCollapsed(true);
     };
-    window.addEventListener("masterPasswordUpdated", onUpdate);
-    return () => window.removeEventListener("masterPasswordUpdated", onUpdate);
+    handleResize();
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
   }, []);
 
-  // Autofocus password input when modal opens
   useEffect(() => {
     if (showMasterLogin && passwordInputRef.current) {
       passwordInputRef.current.focus();
     }
   }, [showMasterLogin]);
 
-  const toggleSidebar = () => setIsCollapsed(!isCollapsed);
+  const toggleSidebar = () => {
+    setIsCollapsed(!isCollapsed);
+    document.body.classList.toggle("sidebar-open", !isCollapsed);
+  };
 
   const handleLogout = () => setShowConfirm(true);
 
@@ -91,12 +88,7 @@ export default function Sidebar() {
   };
 
   const handleMasterSubmit = () => {
-    // Read the latest stored password
     const savedPassword = localStorage.getItem("masterPassword");
-
-    // Helpful debug information
-    console.debug("Trying master submit. savedPassword exists:", !!savedPassword);
-
     if (!savedPassword) {
       alert("No master password is set. Please set it in Master Admin first.");
       setMasterPasswordInput("");
@@ -128,11 +120,21 @@ export default function Sidebar() {
 
   return (
     <>
-      <aside className={`sidebar ${isCollapsed ? "collapsed" : ""}`}>
+      {/* ✅ Hamburger Button Always Visible */}
+      {isMobile && (
+        <div
+          className={`hamburger ${isCollapsed ? "" : "active"}`}
+          onClick={toggleSidebar}
+        >
+          <span></span>
+          <span></span>
+          <span></span>
+        </div>
+      )}
+
+      {/* ✅ Sidebar */}
+      <aside className={`sidebar ${isCollapsed ? "" : "open"}`}>
         <div className="sidebar-header">
-          <button className="hamburger" onClick={toggleSidebar}>
-            <FontAwesomeIcon icon={faBars} />
-          </button>
           {!isCollapsed && (
             <h2>
               <FontAwesomeIcon icon={faTint} style={{ marginRight: "5px" }} />
@@ -153,6 +155,7 @@ export default function Sidebar() {
               {!isCollapsed && <span> Dashboard</span>}
             </a>
           </li>
+
           {isAdmin && (
             <>
               <li>
@@ -162,7 +165,11 @@ export default function Sidebar() {
                 </Link>
               </li>
               <li>
-                <button onClick={handleLogout} className="nav-link logout-button" type="button">
+                <button
+                  onClick={handleLogout}
+                  className="nav-link logout-button"
+                  type="button"
+                >
                   <FontAwesomeIcon icon={faSignOutAlt} />
                   {!isCollapsed && <span> Logout</span>}
                 </button>
@@ -172,14 +179,23 @@ export default function Sidebar() {
         </ul>
       </aside>
 
+      {/* ✅ Overlay for mobile */}
+      {!isCollapsed && isMobile && (
+        <div className="menu-overlay" onClick={toggleSidebar}></div>
+      )}
+
       {/* Logout Modal */}
       {showConfirm && (
         <div className="overlay">
           <div className="logout-modal">
             <p>Are you sure you want to logout?</p>
             <div className="confirm-buttons">
-              <button className="yes" onClick={confirmLogout}>Yes</button>
-              <button className="no" onClick={cancelLogout}>No</button>
+              <button className="yes" onClick={confirmLogout}>
+                Yes
+              </button>
+              <button className="no" onClick={cancelLogout}>
+                No
+              </button>
             </div>
           </div>
         </div>
@@ -200,8 +216,18 @@ export default function Sidebar() {
               onChange={(e) => setMasterPasswordInput(e.target.value)}
             />
             <div className="modal-actions">
-              <button className="btn primary" onClick={handleMasterSubmit}>Submit</button>
-              <button className="btn secondary" onClick={() => { setShowMasterLogin(false); setMasterPasswordInput(""); }}>Cancel</button>
+              <button className="btn primary" onClick={handleMasterSubmit}>
+                Submit
+              </button>
+              <button
+                className="btn secondary"
+                onClick={() => {
+                  setShowMasterLogin(false);
+                  setMasterPasswordInput("");
+                }}
+              >
+                Cancel
+              </button>
             </div>
           </div>
         </div>

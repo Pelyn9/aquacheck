@@ -481,57 +481,122 @@ html, body {
   transform: scale(1.15);
 }
 
-/* === Hamburger Menu === */
+/* === 🌟 Modern Hamburger Menu === */
 .hamburger {
   display: none;
   flex-direction: column;
+  justify-content: center;
+  align-items: center;
   cursor: pointer;
   gap: 5px;
+  width: 40px;
+  height: 40px;
+  z-index: 1100;
+  transition: transform 0.3s ease;
+}
+
+.hamburger:hover {
+  transform: scale(1.1);
 }
 
 .hamburger span {
-  width: 25px;
+  width: 26px;
   height: 3px;
   background: var(--text-color);
   border-radius: 2px;
-  transition: all 0.3s ease;
+  transition: all 0.4s cubic-bezier(0.68, -0.55, 0.27, 1.55);
+  box-shadow: 0 0 4px rgba(0, 0, 0, 0.2);
 }
 
-.hamburger span.open:nth-child(1) {
-  transform: rotate(45deg) translateY(8px);
+/* ✨ Animated "X" transformation */
+.hamburger.active span:nth-child(1) {
+  transform: translateY(8px) rotate(45deg);
 }
-.hamburger span.open:nth-child(2) {
+.hamburger.active span:nth-child(2) {
   opacity: 0;
+  transform: scale(0);
 }
-.hamburger span.open:nth-child(3) {
-  transform: rotate(-45deg) translateY(-8px);
+.hamburger.active span:nth-child(3) {
+  transform: translateY(-8px) rotate(-45deg);
 }
 
-/* Mobile Navbar */
+/* =============================== */
+/* 📱 Mobile View */
+/* =============================== */
 @media (max-width: 768px) {
   .hamburger {
     display: flex;
   }
 
   .navbar-links {
-    display: none;
+    display: flex;
     flex-direction: column;
     position: absolute;
     top: 70px;
-    right: 15px;
+    right: 20px;
     background: var(--navbar-bg);
-    border-radius: 10px;
-    padding: 1rem;
-    box-shadow: 0 4px 20px var(--shadow-color);
+    border: 1px solid var(--navbar-border);
+    border-radius: 12px;
+    padding: 1rem 1.2rem;
     gap: 1rem;
+    box-shadow: 0 6px 18px var(--shadow-color);
+    opacity: 0;
+    transform: translateY(-20px);
+    pointer-events: none;
+    transition: all 0.4s ease;
   }
 
+  /* 🎬 Slide + Fade Animation */
   .navbar-links.active {
-    display: flex;
+    opacity: 1;
+    transform: translateY(0);
+    pointer-events: auto;
   }
 
-  .navbar-links a {
+  .navbar-links a,
+  .navbar-links button {
     font-size: 1rem;
-    padding: 0.3rem 0;
+    padding: 0.4rem 0;
+    text-align: right;
+    width: 100%;
+    transition: color 0.3s ease, transform 0.2s ease;
+  }
+
+  .navbar-links a:hover,
+  .navbar-links button:hover {
+    color: var(--accent-color);
+    transform: translateX(-6px);
+  }
+}
+
+/* =============================== */
+/* 💻 Desktop View */
+/* =============================== */
+@media (min-width: 769px) {
+  .navbar-links {
+    display: flex !important;
+    position: static;
+    flex-direction: row;
+    background: none;
+    box-shadow: none;
+    padding: 0;
+    opacity: 1;
+    transform: none;
+  }
+
+  .hamburger {
+    display: none !important;
+  }
+}
+
+/* ✨ Optional: Menu Fade-In Animation Keyframes */
+@keyframes fadeInDown {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
   }
 }

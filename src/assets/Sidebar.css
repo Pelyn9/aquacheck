@@ -392,3 +392,177 @@
   }
 }
 
+/* === Hamburger Menu (Blue Water Theme) === */
+.hamburger {
+  display: none;
+  flex-direction: column;
+  cursor: pointer;
+  gap: 6px;
+  z-index: 2000;
+  position: fixed;
+  top: 18px;
+  left: 18px;
+  background: rgba(255, 255, 255, 0.8);
+  padding: 10px;
+  border-radius: 10px;
+  transition: all 0.3s ease;
+  box-shadow: 0 4px 12px rgba(0, 140, 255, 0.3);
+  backdrop-filter: blur(4px);
+}
+
+/* Hamburger bars */
+.hamburger span {
+  width: 28px;
+  height: 3px;
+  background: #00aaff; /* 💧 Blue like water */
+  border-radius: 2px;
+  transition: all 0.4s ease;
+}
+
+/* Hover effect — bright water glow */
+.hamburger:hover span {
+  box-shadow: 0 0 12px rgba(0, 170, 255, 0.9);
+}
+
+/* When active (turns into an X) */
+.hamburger.active span:nth-child(1) {
+  transform: translateY(9px) rotate(45deg);
+  background: #00aaff;
+  box-shadow: 0 0 10px rgba(0, 170, 255, 0.7);
+}
+.hamburger.active span:nth-child(2) {
+  opacity: 0;
+}
+.hamburger.active span:nth-child(3) {
+  transform: translateY(-9px) rotate(-45deg);
+  background: #00aaff;
+  box-shadow: 0 0 10px rgba(0, 170, 255, 0.7);
+}
+
+/* When active (container glow) */
+.hamburger.active {
+  background: rgba(0, 170, 255, 0.15);
+  box-shadow: 0 0 15px rgba(0, 170, 255, 0.6);
+}
+
+/* === Show only on mobile === */
+@media (max-width: 768px) {
+  .hamburger {
+    display: flex;
+  }
+}
+
+
+
+/* === MOBILE RESPONSIVE === */
+@media (max-width: 768px) {
+  .hamburger {
+    display: flex;
+  }
+
+  /* Hide sidebar by default on mobile */
+  .sidebar {
+    position: fixed;
+    left: -260px;
+    opacity: 0;
+    top: 0;
+    height: 100vh;
+    transition: left 0.4s ease, opacity 0.3s ease;
+    z-index: 1000;
+  }
+
+  /* Show sidebar when active */
+  .sidebar.open {
+    left: 0;
+    opacity: 1;
+  }
+}
+
+
+/* Show hamburger only on mobile */
+@media (max-width: 768px) {
+  .hamburger {
+    display: flex;
+  }
+
+  .sidebar {
+    position: fixed;
+    left: -260px;
+    opacity: 0;
+    top: 0;
+    height: 100vh;
+    transition: left 0.4s ease, opacity 0.3s ease;
+    z-index: 1000;
+  }
+
+  .sidebar.open {
+    left: 0;
+    opacity: 1;
+  }
+
+  .sidebar.collapsed {
+    left: -260px;
+    opacity: 0;
+  }
+}
+
+
+/* === FIXED MOBILE RESPONSIVE BEHAVIOR === */
+@media (max-width: 768px) {
+  .hamburger {
+    display: flex;
+    flex-direction: column;
+    cursor: pointer;
+    gap: 6px;
+    z-index: 2000;
+    position: fixed;
+    top: 18px;
+    left: 18px;
+    background: rgba(255, 255, 255, 0.95);
+    padding: 10px;
+    border-radius: 10px;
+    transition: all 0.3s ease;
+    box-shadow: 0 4px 12px rgba(0, 140, 255, 0.4);
+    backdrop-filter: blur(6px);
+  }
+
+  .hamburger span {
+    width: 28px;
+    height: 3px;
+    background: #00bfff; /* 💧 Bright water blue */
+    border-radius: 2px;
+    transition: all 0.4s ease;
+  }
+
+  .hamburger.active span:nth-child(1) {
+    transform: translateY(9px) rotate(45deg);
+  }
+
+  .hamburger.active span:nth-child(2) {
+    opacity: 0;
+  }
+
+  .hamburger.active span:nth-child(3) {
+    transform: translateY(-9px) rotate(-45deg);
+  }
+
+  .sidebar {
+    position: fixed;
+    left: -260px;
+    opacity: 0;
+    top: 0;
+    height: 100vh;
+    transition: left 0.4s ease, opacity 0.3s ease;
+    z-index: 1000;
+  }
+
+  .sidebar.open {
+    left: 0;
+    opacity: 1;
+  }
+
+  .sidebar.collapsed {
+    left: -260px;
+    opacity: 0;
+  }
+}

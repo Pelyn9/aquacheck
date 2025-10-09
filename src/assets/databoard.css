@@ -1,48 +1,47 @@
-/* === GENERAL LAYOUT === */
-.container {
+/* === Layout === */
+.dashboard-container {
   display: flex;
   min-height: 100vh;
-  background: linear-gradient(180deg, #f4f6f8, #eaf2f8);
-  font-family: 'Segoe UI', sans-serif;
+  background: linear-gradient(180deg, #f6f9fc, #e8f3fa);
+  font-family: "Poppins", sans-serif;
 }
 
 .main-content {
   flex: 1;
-  padding: 20px;
+  padding: 24px;
   transition: margin-left 0.3s ease;
 }
 
-/* === ANIMATIONS === */
+/* === Animations === */
 @keyframes fadeInUp {
-  from { opacity: 0; transform: translateY(20px); }
+  from { opacity: 0; transform: translateY(25px); }
   to { opacity: 1; transform: translateY(0); }
 }
 
-/* === ADMIN TOPBAR === */
+/* === Header === */
 .topbar {
-  background: linear-gradient(135deg, #007acc, #005fa3);
-  color: white;
-  padding: 16px 30px;
-  font-size: 20px;
-  font-weight: bold;
-  border-radius: 10px;
-  margin-bottom: 20px;
-  box-shadow: 0 6px 18px rgba(0, 122, 204, 0.3);
+  background: linear-gradient(135deg, #0078d7, #005fa3);
+  color: #fff;
+  padding: 18px 32px;
+  font-size: 1.4rem;
+  border-radius: 12px;
+  margin-bottom: 24px;
+  box-shadow: 0 6px 20px rgba(0, 120, 215, 0.3);
   animation: fadeInUp 0.6s ease both;
 }
 
-/* === SCAN CONTROLS === */
+/* === Controls === */
 .scan-controls {
-  background: white;
-  padding: 20px;
+  background: #fff;
   border-radius: 12px;
-  margin-bottom: 20px;
+  padding: 20px;
+  margin-bottom: 24px;
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   gap: 16px;
   box-shadow: 0 6px 16px rgba(0, 0, 0, 0.08);
-  animation: fadeInUp 0.6s ease both;
+  animation: fadeInUp 0.7s ease both;
 }
 
 .interval-setting label {
@@ -56,37 +55,36 @@ select {
   border: 1px solid #bbb;
   border-radius: 8px;
   background-color: #f8fbff;
+  transition: 0.3s ease;
 }
 select:focus {
   border-color: #007acc;
-  box-shadow: 0 0 6px rgba(0, 122, 204, 0.4);
-  outline: none;
+  box-shadow: 0 0 8px rgba(0, 122, 204, 0.4);
 }
 
-/* === BUTTONS === */
+/* === Buttons === */
 .button-group {
   display: flex;
+  flex-wrap: wrap;
   gap: 10px;
 }
 
-.manual-scan-btn,
-.save-btn,
-.start-stop-btn {
+button {
   border: none;
-  padding: 10px 16px;
+  padding: 10px 18px;
   border-radius: 8px;
-  cursor: pointer;
-  font-weight: 600;
   color: white;
+  font-weight: 600;
+  cursor: pointer;
   transition: all 0.25s ease;
-  box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.15);
 }
 
 .manual-scan-btn {
-  background: linear-gradient(135deg, #007acc, #005fa3);
+  background: linear-gradient(135deg, #0078d7, #005fa3);
 }
 .save-btn {
-  background: linear-gradient(135deg, #28a745, #1f8c38);
+  background: linear-gradient(135deg, #28a745, #1e7e34);
 }
 .start-stop-btn.start {
   background: linear-gradient(135deg, #17a2b8, #138496);
@@ -94,44 +92,48 @@ select:focus {
 .start-stop-btn.stop {
   background: linear-gradient(135deg, #dc3545, #b52a37);
 }
-.manual-scan-btn:hover,
-.save-btn:hover,
-.start-stop-btn:hover {
-  transform: translateY(-2px);
+
+button:hover {
+  transform: translateY(-3px);
+}
+.manual-scan-btn.disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  pointer-events: none;
 }
 
-/* === SENSOR GRID === */
+/* === Sensor Grid === */
 .sensor-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
   gap: 18px;
-  margin-bottom: 20px;
+  margin-bottom: 24px;
+  animation: fadeInUp 0.8s ease both;
 }
 
 .sensor-card {
-  background: white;
-  padding: 20px;
-  border-radius: 12px;
+  background: #fff;
+  padding: 24px;
+  border-radius: 14px;
   text-align: center;
-  box-shadow: 0 6px 16px rgba(0,0,0,0.08);
-  animation: fadeInUp 0.6s ease both;
+  box-shadow: 0 8px 18px rgba(0, 0, 0, 0.08);
   transition: transform 0.25s ease;
 }
 .sensor-card:hover {
-  transform: translateY(-6px) scale(1.02);
+  transform: translateY(-5px) scale(1.02);
 }
 .sensor-card h3 {
-  margin-bottom: 6px;
-  font-size: 17px;
+  margin-bottom: 8px;
+  font-size: 1.1rem;
   color: #333;
 }
 .sensor-card p {
-  font-size: 18px;
+  font-size: 1.2rem;
   font-weight: bold;
   color: #007acc;
 }
 
-/* Sensor status colors */
+/* === Status Colors === */
 .sensor-card.safe {
   border-left: 6px solid #28a745;
   background: #eafaf1;
@@ -149,18 +151,31 @@ select:focus {
   background: #f8f9fa;
 }
 
-/* === STATUS MESSAGE === */
+/* === Status Message === */
 .status-card {
-  padding: 14px;
-  border-radius: 8px;
   background: linear-gradient(135deg, #f0f8ff, #e6f4ff);
-  color: #004a80;
+  padding: 16px;
+  border-radius: 10px;
   font-weight: 500;
-  box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+  color: #004a80;
+  text-align: center;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+  animation: fadeInUp 1s ease both;
 }
 
-.manual-scan-btn.faded {
-  opacity: 0.5;
-  cursor: not-allowed;
-  pointer-events: none;
+/* === Responsive === */
+@media (max-width: 768px) {
+  .scan-controls {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .button-group {
+    justify-content: center;
+  }
+
+  .topbar {
+    text-align: center;
+    font-size: 1.2rem;
+  }
 }
