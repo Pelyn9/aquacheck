@@ -530,7 +530,7 @@ html, body {
     flex-direction: column;
     position: absolute;
     top: 70px;
-    right: 210px;
+    right: 210px; /* Adjusted to fit next to hamburger */
     background: var(--card-bg);
     border-radius: 0.8rem;
     padding: 1rem;

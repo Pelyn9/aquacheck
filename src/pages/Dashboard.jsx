@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useContext } from "react";
+import React, { useState, useContext } from "react";
 import { useNavigate } from "react-router-dom";
 import Sidebar from "../components/Sidebar";
 import "../assets/databoard.css";
@@ -21,36 +21,64 @@ const AdminDashboard = () => {
     temp: "N/A",
     tds: "N/A",
   });
-
   const [status, setStatus] = useState("Awaiting sensor data...");
 
-  // === Fetch Sensor Data ===
-  const fetchSensorData = async () => {
+  // Fetch and auto-save
+  const fetchAndSaveSensorData = async () => {
     try {
       const response = await fetch("http://192.168.0.100:5000/sensor-data");
       if (!response.ok) throw new Error("Network response was not ok");
 
       const data = await response.json();
-      setSensorData({
+      const newData = {
         ph: data.ph ? parseFloat(data.ph).toFixed(2) : "N/A",
-        turbidity: data.turbidity
-          ? parseFloat(data.turbidity).toFixed(1)
-          : "N/A",
+        turbidity: data.turbidity ? parseFloat(data.turbidity).toFixed(1) : "N/A",
         temp: data.temp ? parseFloat(data.temp).toFixed(1) : "N/A",
         tds: data.tds ? parseFloat(data.tds).toFixed(0) : "N/A",
-      });
-      setStatus("✅ Data fetched successfully!");
+      };
+      setSensorData(newData);
+
+      // Auto-save to Supabase
+      const { error } = await supabase.from("sensor_logs").insert([
+        { ...newData, timestamp: new Date().toISOString() },
+      ]);
+      if (error) throw error;
+
+      setStatus("✅ Data fetched and saved successfully!");
     } catch (error) {
-      console.error("❌ Error fetching sensor data:", error);
-      setStatus("❌ Failed to fetch data. Check your connection.");
+      console.error("❌ Error:", error);
+      setStatus("❌ Failed to fetch/save data. Check your connection.");
     }
   };
 
-  // === Sensor Status Evaluation ===
+  // Manual save
+  const handleSave = async () => {
+    try {
+      const { error } = await supabase.from("sensor_logs").insert([
+        { ...sensorData, timestamp: new Date().toISOString() },
+      ]);
+      if (error) throw error;
+      setStatus("✅ Data saved manually!");
+    } catch (error) {
+      console.error("❌ Manual save failed:", error);
+      setStatus("❌ Failed to save data manually!");
+    }
+  };
+
+  const toggleAutoScan = () => {
+    if (autoScanRunning) stopAutoScan();
+    else startAutoScan(fetchAndSaveSensorData); // auto-scan + auto-save
+  };
+
+  const handleManualScanClick = () => {
+    if (!autoScanRunning) navigate("/manual-scan");
+    else setStatus("⚠️ Stop Auto Scan before using Manual Scan.");
+  };
+
+  // === Sensor Status ===
   const getSensorStatus = (type, value) => {
     if (value === "N/A") return "unknown";
     const val = parseFloat(value);
-
     switch (type) {
       case "ph":
         if (val >= 6.5 && val <= 8.5) return "safe";
@@ -73,47 +101,14 @@ const AdminDashboard = () => {
     }
   };
 
-  // === Auto-Save Once a Day ===
-  useEffect(() => {
-    const dailySave = setInterval(async () => {
-      const newEntry = { ...sensorData, timestamp: new Date().toISOString() };
-      const { error } = await supabase.from("sensor_logs").insert([newEntry]);
-      if (error) console.error("Auto-save failed:", error);
-    }, 86400000); // Every 24 hours
-    return () => clearInterval(dailySave);
-  }, [sensorData]);
-
-  const handleSave = async () => {
-    const newEntry = { ...sensorData, timestamp: new Date().toISOString() };
-    const { error } = await supabase.from("sensor_logs").insert([newEntry]);
-    if (error) setStatus("❌ Failed to save data!");
-    else setStatus("✅ Data saved successfully!");
-  };
-
-  const toggleAutoScan = () => {
-    if (autoScanRunning) stopAutoScan();
-    else startAutoScan(fetchSensorData);
-  };
-
-  const handleManualScanClick = () => {
-    if (!autoScanRunning) {
-      navigate("/manual-scan", { state: { autoScanRunning } });
-    } else {
-      setStatus("⚠️ Stop Auto Scan before using Manual Scan.");
-    }
-  };
-
   return (
     <div className="dashboard-container">
       <Sidebar />
-
       <main className="main-content">
-        {/* Header */}
         <header className="topbar">
           <h1>Admin Dashboard</h1>
         </header>
 
-        {/* Scan Controls */}
         <section className="scan-controls">
           <div className="interval-setting">
             <label htmlFor="scanInterval">Set Auto Scan Interval:</label>
@@ -152,7 +147,6 @@ const AdminDashboard = () => {
           </div>
         </section>
 
-        {/* Sensor Grid */}
         <section className="sensor-grid">
           {["ph", "turbidity", "temp", "tds"].map((key) => (
             <div key={key} className={`sensor-card ${getSensorStatus(key, sensorData[key])}`}>
@@ -171,7 +165,6 @@ const AdminDashboard = () => {
           ))}
         </section>
 
-        {/* Status */}
         <div className="status-card">{status}</div>
       </main>
     </div>

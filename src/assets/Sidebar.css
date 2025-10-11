@@ -1,7 +1,7 @@
 /* === SIDEBAR CONTAINER === */
 .sidebar-container {
   display: flex;
-  height: 100vh;
+  height: 100h;
   background: #f0f4f8;
   overflow: hidden;
   font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
@@ -51,7 +51,7 @@
 
 .sidebar-header h2 {
   font-size: 24px;
-  font-weight: 700;
+  font-weight: 500;
   color: #00e5ff;
   margin: 0;
   white-space: nowrap;
@@ -62,6 +62,8 @@
   text-shadow: 0 0 6px #00e5ff88;
   user-select: none;
   transition: opacity 0.3s ease;
+  /* Move text up or down by adjusting top margin */
+  margin-top: 50px; /* Increase to move down, decrease or set negative to move up */
 }
 
 /* Hide header text on collapse */
@@ -401,7 +403,7 @@
   z-index: 2000;
   position: fixed;
   top: 18px;
-  left: 18px;
+  left: 18px; /* Default: left side for sidebar */
   background: rgba(255, 255, 255, 0.8);
   padding: 10px;
   border-radius: 10px;
@@ -414,7 +416,7 @@
 .hamburger span {
   width: 28px;
   height: 3px;
-  background: #00aaff; /* 💧 Blue like water */
+  background: #00aaff;
   border-radius: 2px;
   transition: all 0.4s ease;
 }
@@ -449,15 +451,7 @@
 @media (max-width: 768px) {
   .hamburger {
     display: flex;
-  }
-}
-
-
-
-/* === MOBILE RESPONSIVE === */
-@media (max-width: 768px) {
-  .hamburger {
-    display: flex;
+    left: -450px; /* Align hamburger to same side as sidebar */
   }
 
   /* Hide sidebar by default on mobile */
@@ -472,90 +466,6 @@
   }
 
   /* Show sidebar when active */
-  .sidebar.open {
-    left: 0;
-    opacity: 1;
-  }
-}
-
-
-/* Show hamburger only on mobile */
-@media (max-width: 768px) {
-  .hamburger {
-    display: flex;
-  }
-
-  .sidebar {
-    position: fixed;
-    left: -260px;
-    opacity: 0;
-    top: 0;
-    height: 100vh;
-    transition: left 0.4s ease, opacity 0.3s ease;
-    z-index: 1000;
-  }
-
-  .sidebar.open {
-    left: 0;
-    opacity: 1;
-  }
-
-  .sidebar.collapsed {
-    left: -260px;
-    opacity: 0;
-  }
-}
-
-
-/* === FIXED MOBILE RESPONSIVE BEHAVIOR === */
-@media (max-width: 768px) {
-  .hamburger {
-    display: flex;
-    flex-direction: column;
-    cursor: pointer;
-    gap: 6px;
-    z-index: 2000;
-    position: fixed;
-    top: 18px;
-    left: 18px;
-    background: rgba(255, 255, 255, 0.95);
-    padding: 10px;
-    border-radius: 10px;
-    transition: all 0.3s ease;
-    box-shadow: 0 4px 12px rgba(0, 140, 255, 0.4);
-    backdrop-filter: blur(6px);
-  }
-
-  .hamburger span {
-    width: 28px;
-    height: 3px;
-    background: #00bfff; /* 💧 Bright water blue */
-    border-radius: 2px;
-    transition: all 0.4s ease;
-  }
-
-  .hamburger.active span:nth-child(1) {
-    transform: translateY(9px) rotate(45deg);
-  }
-
-  .hamburger.active span:nth-child(2) {
-    opacity: 0;
-  }
-
-  .hamburger.active span:nth-child(3) {
-    transform: translateY(-9px) rotate(-45deg);
-  }
-
-  .sidebar {
-    position: fixed;
-    left: -260px;
-    opacity: 0;
-    top: 0;
-    height: 100vh;
-    transition: left 0.4s ease, opacity 0.3s ease;
-    z-index: 1000;
-  }
-
   .sidebar.open {
     left: 0;
     opacity: 1;
