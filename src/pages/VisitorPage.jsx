@@ -3,7 +3,6 @@ import "../assets/VisitorPage.css";
 import cuacoImage from "../assets/picture/cuaco.jpg";
 import peejayPhoto from "../assets/picture/peejay.jpg";
 
-
 const VisitorPage = () => {
   const [theme, setTheme] = useState("light");
   const [liveVisible, setLiveVisible] = useState(false);

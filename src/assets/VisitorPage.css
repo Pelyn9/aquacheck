@@ -49,14 +49,14 @@ html, body {
 /* ================= Navbar ================= */
 .navbar {
   display: flex;
-  justify-content: space-between;
   align-items: center;
-  padding: 1rem 3rem;
+  justify-content: space-between; /* ✅ Pushes logo left and hamburger right */
+  padding: 1rem 1.5rem;
+  position: sticky;
+  top: 0;
   background: var(--navbar-bg);
   backdrop-filter: blur(12px);
   border-bottom: 1px solid var(--navbar-border);
-  position: sticky;
-  top: 0;
   z-index: 1000;
 }
 
@@ -481,122 +481,74 @@ html, body {
   transform: scale(1.15);
 }
 
-/* === 🌟 Modern Hamburger Menu === */
+/* ================= Mobile Navbar with Hamburger ================= */
 .hamburger {
   display: none;
-  flex-direction: column;
-  justify-content: center;
-  align-items: center;
+  position: relative; /* ✅ keep inside nav flow */
+  margin-left: 640px; /* ✅ push it to the right side */
+  top: 0;
+  width: 28px;
+  height: 20px;
   cursor: pointer;
-  gap: 5px;
-  width: 40px;
-  height: 40px;
-  z-index: 1100;
-  transition: transform 0.3s ease;
-}
-
-.hamburger:hover {
-  transform: scale(1.1);
+  z-index: 1200;
+  flex-direction: column;
+  justify-content: space-between;
 }
 
 .hamburger span {
-  width: 26px;
+  display: block;
   height: 3px;
+  width: 100%;
   background: var(--text-color);
-  border-radius: 2px;
-  transition: all 0.4s cubic-bezier(0.68, -0.55, 0.27, 1.55);
-  box-shadow: 0 0 4px rgba(0, 0, 0, 0.2);
+  border-radius: 3px;
+  transition: all 0.3s ease;
 }
 
-/* ✨ Animated "X" transformation */
+/* Animation for the "X" when active */
 .hamburger.active span:nth-child(1) {
-  transform: translateY(8px) rotate(45deg);
+  transform: rotate(45deg) translate(5px, 5px);
 }
+
 .hamburger.active span:nth-child(2) {
   opacity: 0;
-  transform: scale(0);
 }
+
 .hamburger.active span:nth-child(3) {
-  transform: translateY(-8px) rotate(-45deg);
+  transform: rotate(-45deg) translate(6px, -6px);
 }
 
-/* =============================== */
-/* 📱 Mobile View */
-/* =============================== */
-@media (max-width: 768px) {
-  .hamburger {
-    display: flex;
-  }
+/* Hover effect */
+.hamburger:hover span {
+  background: var(--primary-color);
+}
 
+/* Hide links and show hamburger on mobile */
+@media (max-width: 768px) {
   .navbar-links {
-    display: flex;
+    display: none;
     flex-direction: column;
     position: absolute;
     top: 70px;
     right: 20px;
-    background: var(--navbar-bg);
-    border: 1px solid var(--navbar-border);
-    border-radius: 12px;
-    padding: 1rem 1.2rem;
-    gap: 1rem;
+    background: var(--card-bg);
+    border-radius: 0.8rem;
+    padding: 1rem;
     box-shadow: 0 6px 18px var(--shadow-color);
-    opacity: 0;
-    transform: translateY(-20px);
-    pointer-events: none;
-    transition: all 0.4s ease;
+    width: 180px;
+    animation: fadeIn 0.3s ease-in-out;
   }
 
-  /* 🎬 Slide + Fade Animation */
   .navbar-links.active {
-    opacity: 1;
-    transform: translateY(0);
-    pointer-events: auto;
-  }
-
-  .navbar-links a,
-  .navbar-links button {
-    font-size: 1rem;
-    padding: 0.4rem 0;
-    text-align: right;
-    width: 100%;
-    transition: color 0.3s ease, transform 0.2s ease;
-  }
-
-  .navbar-links a:hover,
-  .navbar-links button:hover {
-    color: var(--accent-color);
-    transform: translateX(-6px);
-  }
-}
-
-/* =============================== */
-/* 💻 Desktop View */
-/* =============================== */
-@media (min-width: 769px) {
-  .navbar-links {
-    display: flex !important;
-    position: static;
-    flex-direction: row;
-    background: none;
-    box-shadow: none;
-    padding: 0;
-    opacity: 1;
-    transform: none;
+    display: flex;
   }
 
   .hamburger {
-    display: none !important;
+    display: flex; /* ✅ visible on mobile */
   }
 }
 
-/* ✨ Optional: Menu Fade-In Animation Keyframes */
-@keyframes fadeInDown {
-  from {
-    opacity: 0;
-    transform: translateY(-10px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
+/* Simple fade animation */
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(-10px); }
+  to { opacity: 1; transform: translateY(0); }
 }
