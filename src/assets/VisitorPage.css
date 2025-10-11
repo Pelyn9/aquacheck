@@ -485,7 +485,8 @@ html, body {
 .hamburger {
   display: none;
   position: relative; /* ✅ keep inside nav flow */
-  margin-left: 640px; /* ✅ push it to the right side */
+  margin-left: 460px; /* ✅ push it to the right side */
+  margin-right: auto;
   top: 0;
   width: 28px;
   height: 20px;
@@ -529,7 +530,7 @@ html, body {
     flex-direction: column;
     position: absolute;
     top: 70px;
-    right: 20px;
+    right: 210px;
     background: var(--card-bg);
     border-radius: 0.8rem;
     padding: 1rem;
