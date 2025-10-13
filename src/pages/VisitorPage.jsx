@@ -213,9 +213,11 @@ const VisitorPage = () => {
       <section id="about" className="about">
         <h2>About AquaCheck</h2>
         <p>
-          AquaCheck is a modern water monitoring system designed to provide
-          accurate readings for pH, turbidity, temperature, and TDS. It helps
-          ensure safe water conditions for everyone.
+          AquaCheck is an advanced water quality monitoring system designed to deliver
+          precise, real-time readings of key parameters such as pH, turbidity, temperature,
+          and total dissolved solids (TDS). By providing accurate data and insights, AquaCheck
+          empowers users to maintain safe and healthy water conditions for communities,
+          industries, and the environment.
         </p>
       </section>
 
