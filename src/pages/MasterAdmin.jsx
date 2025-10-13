@@ -23,7 +23,7 @@ const MasterAdmin = () => {
   const [showSecretPassword, setShowSecretPassword] = useState(false);
 
   // Master admin access password (persisted in localStorage & Supabase)
-  const defaultMasterPassword = "watercheck123"; // default
+  const defaultMasterPassword = "watercheck123";
   const [showAccessModal, setShowAccessModal] = useState(false);
   const [currentMasterPassword, setCurrentMasterPassword] = useState(
     localStorage.getItem("masterPassword") || defaultMasterPassword
@@ -33,28 +33,21 @@ const MasterAdmin = () => {
 
   // ------------------- First deploy initialization -------------------
   const initializeMasterPassword = async () => {
-    // Set in localStorage if not present
     if (!localStorage.getItem("masterPassword")) {
       localStorage.setItem("masterPassword", defaultMasterPassword);
       setCurrentMasterPassword(defaultMasterPassword);
     }
 
-    // Check Supabase if password exists, else create it
     try {
       const res = await fetch(`${API_BASE}/master-password`, { cache: "no-store" });
       if (!res.ok) throw new Error("Failed to fetch master password");
       const data = await res.json();
 
-      if (!data.password) {
-        // No password in DB, create default
-        const createRes = await fetch(`${API_BASE}/master-password`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ password: defaultMasterPassword }),
-        });
-
-        if (!createRes.ok) throw new Error("Failed to set default master password");
-        console.log("Default Master Password initialized in Supabase ✅");
+      if (data.password) {
+        setCurrentMasterPassword(data.password);
+      } else {
+        // If missing, backend will auto-create default password
+        setCurrentMasterPassword(defaultMasterPassword);
       }
     } catch (err) {
       console.error("Error initializing Master Password:", err);
@@ -65,7 +58,7 @@ const MasterAdmin = () => {
     initializeMasterPassword();
   }, []);
 
-  // ------------------- Utility functions -------------------
+  // ------------------- Utility -------------------
   const safeDate = (d) => {
     if (!d) return "—";
     const t = new Date(d);
@@ -79,12 +72,15 @@ const MasterAdmin = () => {
     setError("");
     try {
       const res = await fetch(`${API_BASE}/users`, { cache: "no-store" });
-      if (!res.ok) throw new Error(await res.text());
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}));
+        throw new Error(errData.error || "Failed to fetch users");
+      }
       const data = await res.json();
       setUsers(Array.isArray(data.users) ? data.users : []);
     } catch (e) {
       console.error(e);
-      setError("Unexpected error fetching users.");
+      setError("Unexpected error fetching users: " + e.message);
     } finally {
       setLoading(false);
     }
@@ -100,11 +96,14 @@ const MasterAdmin = () => {
     setOpId(userId);
     try {
       const res = await fetch(`${API_BASE}/users/${userId}`, { method: "DELETE" });
-      if (!res.ok) throw new Error(await res.text());
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}));
+        throw new Error(errData.error || "Failed to delete user");
+      }
       setUsers((prev) => prev.filter((u) => u.id !== userId));
     } catch (e) {
       console.error(e);
-      setError("Unexpected error deleting user.");
+      setError("Unexpected error deleting user: " + e.message);
     } finally {
       setOpId(null);
     }
@@ -118,11 +117,14 @@ const MasterAdmin = () => {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ enable: !currentlyDisabled }),
       });
-      if (!res.ok) throw new Error(await res.text());
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}));
+        throw new Error(errData.error || "Failed to toggle user status");
+      }
       await fetchUsers();
     } catch (e) {
       console.error(e);
-      setError("Failed to update user status.");
+      setError("Failed to update user status: " + e.message);
     } finally {
       setOpId(null);
     }
@@ -145,10 +147,7 @@ const MasterAdmin = () => {
       const res = await fetch(`${API_BASE}/change-key`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          oldKey: currentKey,
-          newKey: newPassword.trim(),
-        }),
+        body: JSON.stringify({ oldKey: currentKey, newKey: newPassword.trim() }),
       });
 
       const result = await res.json();
@@ -179,7 +178,7 @@ const MasterAdmin = () => {
       localStorage.setItem("masterPassword", newPass);
       setCurrentMasterPassword(newPass);
 
-      // Update Supabase as well
+      // Update Supabase
       const res = await fetch(`${API_BASE}/master-password`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
@@ -187,9 +186,7 @@ const MasterAdmin = () => {
       });
       if (!res.ok) throw new Error("Failed to update master password in DB");
 
-      window.dispatchEvent(
-        new CustomEvent("masterPasswordUpdated", { detail: { newPass } })
-      );
+      window.dispatchEvent(new CustomEvent("masterPasswordUpdated", { detail: { newPass } }));
 
       alert("Master Admin password updated!");
       setEditedMasterPassword("");
@@ -252,7 +249,7 @@ const MasterAdmin = () => {
                 </tr>
               ) : (
                 users.map((u) => {
-                  const disabled = u.app_metadata?.disabled === true;
+                  const disabled = u.disabled;
                   return (
                     <tr key={u.id}>
                       <td>{u.id}</td>
