@@ -5,7 +5,8 @@
   display: flex;
   justify-content: center;
   align-items: center;
-  min-height: 94.2vh;
+  height: 94.90vh;
+  overflow: hidden;
 
   /* Animated gradient background */
   background: linear-gradient(-45deg, #004e92, #000428, #001d3d, #003566);
@@ -202,7 +203,11 @@ form {
    Error Messages
    ========================= */
 .error-message {
-  margin-top: 15px;
+  display: flex; /* ✅ Enables flexbox */
+  justify-content: center; /* ✅ Centers horizontally */
+  align-items: center; /* ✅ Centers vertically */
+  margin: 15px auto; /* ✅ Centers within parent horizontally */
+  
   color: #ff4d6d;
   font-weight: 600;
   font-size: 0.95rem;
@@ -210,7 +215,6 @@ form {
   text-align: center;
   text-shadow: 0 0 6px rgba(255, 77, 109, 0.7);
 }
-
 /* =========================
    Highlighted Text
    ========================= */
