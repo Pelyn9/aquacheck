@@ -451,7 +451,7 @@
 @media (max-width: 768px) {
   .hamburger {
     display: flex;
-    left: -450px; /* Align hamburger to same side as sidebar */
+    left: -880px; /* Align hamburger to same side as sidebar */
   }
 
   /* Hide sidebar by default on mobile */

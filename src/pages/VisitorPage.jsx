@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import "../assets/VisitorPage.css";
 import cuacoImage from "../assets/picture/cuaco.jpg";
 import peejayPhoto from "../assets/picture/peejay.jpg";
+import { FaSun, FaMoon } from "react-icons/fa"; // ✅ Added
 
 const VisitorPage = () => {
   const [theme, setTheme] = useState("light");
@@ -111,9 +112,12 @@ const VisitorPage = () => {
           <a href="#about" onClick={() => setMenuOpen(false)}>About</a>
           <a href="#developers" onClick={() => setMenuOpen(false)}>Developers</a>
           <a href="#contact" onClick={() => setMenuOpen(false)}>Contact</a>
+
+          {/* ✅ Updated Dark/Light Icon Toggle */}
           <button onClick={toggleTheme} className="theme-toggle-button">
-            {theme === "light" ? "Dark" : "Light"}
+            {theme === "light" ? <FaMoon size={18} /> : <FaSun size={18} />}
           </button>
+
           <button onClick={toggleLive} className="live-toggle-button">
             🔴 Live
           </button>
@@ -146,9 +150,7 @@ const VisitorPage = () => {
         <div className="hero-content">
           <div className="hero-text">
             <h1>Discover</h1>
-            <h1>
-              <span>Cuaco Beach</span>
-            </h1>
+            <h1><span>Cuaco Beach</span></h1>
             <p>
               Crystal-clear waters, relaxing vibes, and safe monitoring with{" "}
               <b>AquaCheck</b>.
