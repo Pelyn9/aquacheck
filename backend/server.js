@@ -136,3 +136,60 @@ const PORT = process.env.PORT || 4000;
 app.listen(PORT, () =>
   console.log(`🚀 Admin backend running at http://localhost:${PORT}`)
 );
+
+/**
+ * GET master password
+ */
+app.get("/api/admin/master-password", async (req, res) => {
+  try {
+    const { data, error } = await supabaseAdmin
+      .from("master_password") // make sure this table exists in Supabase
+      .select("*")
+      .limit(1)
+      .single();
+
+    if (error && error.code !== "PGRST116") throw error; // ignore empty table
+
+    if (!data) {
+      // Insert default password if not exists
+      const { data: inserted, error: insertErr } = await supabaseAdmin
+        .from("master_password")
+        .insert([{ password: "watercheck123" }])
+        .select()
+        .single();
+
+      if (insertErr) throw insertErr;
+
+      return res.json({ password: inserted.password });
+    }
+
+    res.json({ password: data.password });
+  } catch (err) {
+    console.error("❌ Failed to fetch master password:", err);
+    res.status(500).json({ error: "Failed to fetch master password" });
+  }
+});
+
+/**
+ * PUT update master password
+ */
+app.put("/api/admin/master-password", async (req, res) => {
+  const { password } = req.body;
+  if (!password) return res.status(400).json({ error: "Password is required" });
+
+  try {
+    const { data, error } = await supabaseAdmin
+      .from("master_password")
+      .upsert([{ id: 1, password }], { onConflict: "id" }) // assuming id=1 for single master
+      .select()
+      .single();
+
+    if (error) throw error;
+
+    res.json({ message: "Master password updated ✅", password: data.password });
+  } catch (err) {
+    console.error("❌ Failed to update master password:", err);
+    res.status(500).json({ error: "Failed to update master password" });
+  }
+});
+
