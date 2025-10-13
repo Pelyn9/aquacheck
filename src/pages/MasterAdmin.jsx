@@ -23,12 +23,20 @@ const MasterAdmin = () => {
   const [showSecretPassword, setShowSecretPassword] = useState(false);
 
   // Master admin access password (persisted in localStorage)
+  const defaultMasterPassword = "watercheck123"; // ✅ default password
   const [showAccessModal, setShowAccessModal] = useState(false);
   const [currentMasterPassword, setCurrentMasterPassword] = useState(
-    localStorage.getItem("masterPassword") || ""
+    localStorage.getItem("masterPassword") || defaultMasterPassword
   );
   const [editedMasterPassword, setEditedMasterPassword] = useState("");
   const [showMasterPassword, setShowMasterPassword] = useState(false);
+
+  // Auto-save default password to localStorage if not set
+  useEffect(() => {
+    if (!localStorage.getItem("masterPassword")) {
+      localStorage.setItem("masterPassword", defaultMasterPassword);
+    }
+  }, []);
 
   // Convert date safely
   const safeDate = (d) => {
@@ -82,10 +90,10 @@ const MasterAdmin = () => {
       const res = await fetch(`${API_BASE}/users/${userId}/toggle`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ enable: !currentlyDisabled }), // toggle properly
+        body: JSON.stringify({ enable: !currentlyDisabled }),
       });
       if (!res.ok) throw new Error(await res.text());
-      await fetchUsers(); // refresh list
+      await fetchUsers();
     } catch (e) {
       console.error(e);
       setError("Failed to update user status.");
@@ -96,13 +104,12 @@ const MasterAdmin = () => {
 
   // Change secret admin password
   const handlePasswordChange = async () => {
-  if (!newPassword.trim()) {
-    setPasswordMessage("Password cannot be empty.");
-    return;
-  }
+    if (!newPassword.trim()) {
+      setPasswordMessage("Password cannot be empty.");
+      return;
+    }
 
-  try {
-    // Get current key first (from wherever you store it, or ask admin to enter it)
+    try {
       const currentKey = prompt("Enter current secret admin key:");
 
       if (!currentKey) {
