@@ -79,7 +79,7 @@ html, body {
   display: flex;
   align-items: center;
   gap: 1.5rem;
-  overflow-x: hidden;
+  
 }
 
 .navbar-links a {
@@ -413,8 +413,56 @@ html, body {
   grid-template-columns: repeat(2, 1fr); /* 2 per row */
   gap: 2.5rem;
   align-items: stretch;
+
 }
 
+.developer-item {
+  background: var(--card-bg);
+  border-radius: 18px;
+  padding: 2rem 1.5rem;
+  text-align: center;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.08);
+  transition: transform 0.35s ease, box-shadow 0.35s ease;
+}
+
+.developer-item:hover {
+  transform: translateY(-10px) scale(1.02);
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.15);
+}
+
+/* 👥 Developers Section */
+.developers {
+  margin: 4rem auto;
+  padding: 3rem 2rem;
+  text-align: center;
+  max-width: 1100px;
+}
+
+.developers h2 {
+  font-size: 2.4rem;
+  font-weight: 700;
+  margin-bottom: 3rem;
+  color: var(--primary-color);
+  letter-spacing: -0.5px;
+}
+
+/* Modern grid */
+.developer-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr); /* 2 per row for large */
+  gap: 2.5rem;
+  align-items: stretch;
+}
+
+/* ✅ Make responsive for smaller screens */
+@media (max-width: 768px) {
+  .developer-grid {
+    grid-template-columns: 1fr; /* Single column for mobile */
+    gap: 1.8rem;
+  }
+}
+
+/* Developer card style */
 .developer-item {
   background: var(--card-bg);
   border-radius: 18px;
@@ -486,6 +534,14 @@ html, body {
 }
 
 /* ================= Mobile Navbar with Hamburger ================= */
+.navbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1rem 2rem;
+  position: relative;
+}
+
 .hamburger {
   display: flex;
   margin-left: 900px; /* ✅ push it to the right side */
@@ -520,18 +576,23 @@ html, body {
 
 /* Hide links and show hamburger on mobile */
 @media (max-width: 768px) {
+  .navbar {
+    position: relative; /* ✅ make this the parent reference for absolute positioning */
+  }
+
   .navbar-links {
     display: none;
     flex-direction: column;
     position: absolute;
     top: 70px;
-    right: 210px; /* Adjusted to fit next to hamburger */
+    right: 260; /* ✅ stays aligned with the hamburger */
     background: var(--card-bg);
     border-radius: 0.8rem;
     padding: 1rem;
     box-shadow: 0 6px 18px var(--shadow-color);
     width: 180px;
     animation: fadeIn 0.3s ease-in-out;
+    z-index: 100; /* ✅ keeps it above other elements */
   }
 
   .navbar-links.active {
@@ -540,6 +601,8 @@ html, body {
 
   .hamburger {
     display: flex; /* ✅ visible on mobile */
+    cursor: pointer;
+    z-index: 101; /* ✅ ensure it’s clickable even with dropdown open */
   }
 }
 

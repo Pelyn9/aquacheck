@@ -200,19 +200,19 @@ const VisitorPage = () => {
         <h2>Meet the Developers</h2>
         <div className="developer-grid">
           <div className="developer-item">
-            <img src={peejayPhoto} alt="Peejay Marco A. Apale" className="dev-photo" />
+            <img src={peejayPhoto} alt="" className="dev-photo" />
             <div className="dev-name"><b>Peejay Marco A. Apale</b></div>
           </div>
           <div className="developer-item">
-            <img src="placeholder.jpg" alt="Aldric Rholen Calatrava" className="dev-photo" />
+            <img src="placeholder.jpg" alt="" className="dev-photo" />
             <div className="dev-name"><b>Aldric Rholen Calatrava</b></div>
           </div>
           <div className="developer-item">
-            <img src="placeholder.jpg" alt="Lawrence Jay Saludes" className="dev-photo" />
+            <img src="placeholder.jpg" alt="" className="dev-photo" />
             <div className="dev-name"><b>Lawrence Jay Saludes</b></div>
           </div>
           <div className="developer-item">
-            <img src="placeholder.jpg" alt="Wence Dante De Vera" className="dev-photo" />
+            <img src="placeholder.jpg" alt="" className="dev-photo" />
             <div className="dev-name"><b>Wence Dante De Vera</b></div>
           </div>
         </div>
