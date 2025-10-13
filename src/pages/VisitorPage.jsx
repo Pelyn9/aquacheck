@@ -5,7 +5,11 @@ import peejayPhoto from "../assets/picture/peejay.jpg";
 import { FaSun, FaMoon } from "react-icons/fa"; // ✅ Added
 
 const VisitorPage = () => {
-  const [theme, setTheme] = useState("light");
+  // ✅ Load saved theme from localStorage (persistent)
+  const [theme, setTheme] = useState(() => {
+    return localStorage.getItem("theme") || "light";
+  });
+
   const [liveVisible, setLiveVisible] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [sensorData, setSensorData] = useState({
@@ -15,11 +19,15 @@ const VisitorPage = () => {
     tds: "N/A",
   });
 
+  // ✅ Apply and save theme whenever it changes
   useEffect(() => {
     document.documentElement.setAttribute("data-theme", theme);
+    localStorage.setItem("theme", theme);
   }, [theme]);
 
-  const toggleTheme = () => setTheme((prev) => (prev === "light" ? "dark" : "light"));
+  const toggleTheme = () =>
+    setTheme((prev) => (prev === "light" ? "dark" : "light"));
+
   const toggleMenu = () => setMenuOpen((prev) => !prev);
 
   const toggleLive = async () => {
@@ -107,13 +115,23 @@ const VisitorPage = () => {
 
         {/* Navbar links */}
         <div className={`navbar-links ${menuOpen ? "active" : ""}`}>
-          <a href="#home" onClick={() => setMenuOpen(false)}>Home</a>
-          <a href="#features" onClick={() => setMenuOpen(false)}>Features</a>
-          <a href="#about" onClick={() => setMenuOpen(false)}>About</a>
-          <a href="#developers" onClick={() => setMenuOpen(false)}>Developers</a>
-          <a href="#contact" onClick={() => setMenuOpen(false)}>Contact</a>
+          <a href="#home" onClick={() => setMenuOpen(false)}>
+            Home
+          </a>
+          <a href="#features" onClick={() => setMenuOpen(false)}>
+            Features
+          </a>
+          <a href="#about" onClick={() => setMenuOpen(false)}>
+            About
+          </a>
+          <a href="#developers" onClick={() => setMenuOpen(false)}>
+            Developers
+          </a>
+          <a href="#contact" onClick={() => setMenuOpen(false)}>
+            Contact
+          </a>
 
-          {/* ✅ Updated Dark/Light Icon Toggle */}
+          {/* ✅ Persistent Dark/Light Mode Toggle */}
           <button onClick={toggleTheme} className="theme-toggle-button">
             {theme === "light" ? <FaMoon size={18} /> : <FaSun size={18} />}
           </button>
@@ -130,8 +148,12 @@ const VisitorPage = () => {
           <h4>Live Sensor Reading</h4>
           <ul>
             {Object.keys(sensorData).map((key) => (
-              <li key={key} style={{ color: getColor(getStatus(key, sensorData[key])) }}>
-                {key.toUpperCase()}: {sensorData[key]} → {getStatus(key, sensorData[key])}
+              <li
+                key={key}
+                style={{ color: getColor(getStatus(key, sensorData[key])) }}
+              >
+                {key.toUpperCase()}: {sensorData[key]} →{" "}
+                {getStatus(key, sensorData[key])}
               </li>
             ))}
           </ul>
@@ -150,7 +172,9 @@ const VisitorPage = () => {
         <div className="hero-content">
           <div className="hero-text">
             <h1>Discover</h1>
-            <h1><span>Cuaco Beach</span></h1>
+            <h1>
+              <span>Cuaco Beach</span>
+            </h1>
             <p>
               Crystal-clear waters, relaxing vibes, and safe monitoring with{" "}
               <b>AquaCheck</b>.
@@ -201,19 +225,27 @@ const VisitorPage = () => {
         <div className="developer-grid">
           <div className="developer-item">
             <img src={peejayPhoto} alt="" className="dev-photo" />
-            <div className="dev-name"><b>Peejay Marco A. Apale</b></div>
+            <div className="dev-name">
+              <b>Peejay Marco A. Apale</b>
+            </div>
           </div>
           <div className="developer-item">
             <img src="placeholder.jpg" alt="" className="dev-photo" />
-            <div className="dev-name"><b>Aldric Rholen Calatrava</b></div>
+            <div className="dev-name">
+              <b>Aldric Rholen Calatrava</b>
+            </div>
           </div>
           <div className="developer-item">
             <img src="placeholder.jpg" alt="" className="dev-photo" />
-            <div className="dev-name"><b>Lawrence Jay Saludes</b></div>
+            <div className="dev-name">
+              <b>Lawrence Jay Saludes</b>
+            </div>
           </div>
           <div className="developer-item">
             <img src="placeholder.jpg" alt="" className="dev-photo" />
-            <div className="dev-name"><b>Wence Dante De Vera</b></div>
+            <div className="dev-name">
+              <b>Wence Dante De Vera</b>
+            </div>
           </div>
         </div>
       </section>
@@ -224,7 +256,9 @@ const VisitorPage = () => {
         <a href="mailto:contact@aquacheck.com" className="highlight">
           contact@aquacheck.com
         </a>
-        <p>Phone: <span className="highlight"></span>+63 912 345 6789</p>
+        <p>
+          Phone: <span className="highlight"></span>+63 912 345 6789
+        </p>
       </section>
 
       {/* ================= Footer ================= */}
