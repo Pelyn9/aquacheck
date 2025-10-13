@@ -123,7 +123,7 @@ html, body {
 
 /* ================= Hero Section ================= */
 .hero {
-  padding: 7rem 2rem;
+  padding: 5rem 2rem;
   background: linear-gradient(145deg, var(--section-bg), var(--section-bg));
   transition: background 0.4s;
 }
@@ -204,7 +204,7 @@ html, body {
 
 /* ================= Features Section ================= */
 .features {
-  padding: 6rem 2rem;
+  padding: 8rem 2rem;
   text-align: center;
   background: var(--section-bg);
   transition: background 0.4s;
@@ -245,7 +245,7 @@ html, body {
 
 /* ================= About Section ================= */
 .about {
-  padding: 6rem 2rem;
+  padding: 20rem 2rem;
   text-align: center;
   background: var(--bg-color);
   transition: background 0.4s;
