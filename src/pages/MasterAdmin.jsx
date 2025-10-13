@@ -22,8 +22,8 @@ const MasterAdmin = () => {
   const [passwordMessage, setPasswordMessage] = useState("");
   const [showSecretPassword, setShowSecretPassword] = useState(false);
 
-  // Master admin access password (persisted in localStorage)
-  const defaultMasterPassword = "watercheck123"; // ✅ default password
+  // Master admin access password (persisted in localStorage & Supabase)
+  const defaultMasterPassword = "watercheck123"; // default
   const [showAccessModal, setShowAccessModal] = useState(false);
   const [currentMasterPassword, setCurrentMasterPassword] = useState(
     localStorage.getItem("masterPassword") || defaultMasterPassword
@@ -31,21 +31,48 @@ const MasterAdmin = () => {
   const [editedMasterPassword, setEditedMasterPassword] = useState("");
   const [showMasterPassword, setShowMasterPassword] = useState(false);
 
-  // Auto-save default password to localStorage if not set
-  useEffect(() => {
+  // ------------------- First deploy initialization -------------------
+  const initializeMasterPassword = async () => {
+    // Set in localStorage if not present
     if (!localStorage.getItem("masterPassword")) {
       localStorage.setItem("masterPassword", defaultMasterPassword);
+      setCurrentMasterPassword(defaultMasterPassword);
     }
+
+    // Check Supabase if password exists, else create it
+    try {
+      const res = await fetch(`${API_BASE}/master-password`, { cache: "no-store" });
+      if (!res.ok) throw new Error("Failed to fetch master password");
+      const data = await res.json();
+
+      if (!data.password) {
+        // No password in DB, create default
+        const createRes = await fetch(`${API_BASE}/master-password`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ password: defaultMasterPassword }),
+        });
+
+        if (!createRes.ok) throw new Error("Failed to set default master password");
+        console.log("Default Master Password initialized in Supabase ✅");
+      }
+    } catch (err) {
+      console.error("Error initializing Master Password:", err);
+    }
+  };
+
+  useEffect(() => {
+    initializeMasterPassword();
   }, []);
 
-  // Convert date safely
+  // ------------------- Utility functions -------------------
   const safeDate = (d) => {
     if (!d) return "—";
     const t = new Date(d);
     return isNaN(t.getTime()) ? "—" : t.toLocaleString();
   };
 
-  // Fetch users
+  // ------------------- Fetch Users -------------------
   const fetchUsers = useCallback(async () => {
     if (!isAdmin) return;
     setLoading(true);
@@ -67,7 +94,7 @@ const MasterAdmin = () => {
     fetchUsers();
   }, [fetchUsers]);
 
-  // Delete user
+  // ------------------- User Actions -------------------
   const handleDelete = async (userId) => {
     if (!window.confirm("Delete this user? This cannot be undone.")) return;
     setOpId(userId);
@@ -83,7 +110,6 @@ const MasterAdmin = () => {
     }
   };
 
-  // Enable/Disable user
   const handleToggleUser = async (userId, currentlyDisabled) => {
     setOpId(userId);
     try {
@@ -102,7 +128,7 @@ const MasterAdmin = () => {
     }
   };
 
-  // Change secret admin password
+  // ------------------- Secret Admin Password -------------------
   const handlePasswordChange = async () => {
     if (!newPassword.trim()) {
       setPasswordMessage("Password cannot be empty.");
@@ -111,7 +137,6 @@ const MasterAdmin = () => {
 
     try {
       const currentKey = prompt("Enter current secret admin key:");
-
       if (!currentKey) {
         setPasswordMessage("Current key is required.");
         return;
@@ -127,7 +152,6 @@ const MasterAdmin = () => {
       });
 
       const result = await res.json();
-
       if (!res.ok) {
         setPasswordMessage("Failed to change password: " + (result.error || "Unknown error"));
       } else {
@@ -144,8 +168,8 @@ const MasterAdmin = () => {
     }
   };
 
-  // Save master admin password in localStorage
-  const handleMasterUpdate = () => {
+  // ------------------- Master Admin Password -------------------
+  const handleMasterUpdate = async () => {
     if (!editedMasterPassword.trim()) {
       alert("Please enter a new master password before saving.");
       return;
@@ -154,6 +178,14 @@ const MasterAdmin = () => {
     try {
       localStorage.setItem("masterPassword", newPass);
       setCurrentMasterPassword(newPass);
+
+      // Update Supabase as well
+      const res = await fetch(`${API_BASE}/master-password`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ password: newPass }),
+      });
+      if (!res.ok) throw new Error("Failed to update master password in DB");
 
       window.dispatchEvent(
         new CustomEvent("masterPasswordUpdated", { detail: { newPass } })
@@ -168,6 +200,7 @@ const MasterAdmin = () => {
     }
   };
 
+  // ------------------- Render -------------------
   if (!isAdmin) {
     return <p style={{ textAlign: "center", color: "red" }}>Access Denied</p>;
   }
@@ -257,7 +290,7 @@ const MasterAdmin = () => {
           </table>
         </div>
 
-        {/* Secret Admin Password Modal */}
+        {/* Secret Admin Modal */}
         {showPasswordModal && (
           <div className="modal-backdrop">
             <div className="modal">
@@ -292,16 +325,14 @@ const MasterAdmin = () => {
           </div>
         )}
 
-        {/* Master Admin Access Modal */}
+        {/* Master Admin Modal */}
         {showAccessModal && (
           <div className="modal-backdrop">
             <div className="modal">
               <h2>Master Admin Access</h2>
               <p>
                 Current Master Password:{" "}
-                <strong>
-                  {currentMasterPassword || "Not set"}
-                </strong>
+                <strong>{currentMasterPassword || "Not set"}</strong>
               </p>
 
               <input
