@@ -66,6 +66,8 @@ html, body {
   color: var(--primary-color);
   text-decoration: none;
   transition: color 0.3s;
+  margin-right: auto; /* keeps logo pinned left */
+  margin-left: 50px; /* adjust spacing from edge */
 }
 
 .navbar-logo:hover {
