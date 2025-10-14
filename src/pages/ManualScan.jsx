@@ -20,61 +20,95 @@ const ManualScan = () => {
     );
   };
 
-  // Generate realistic numeric values (NO UNITS for DB)
+  // =================== Demo Sensor Status ===================
+  const getStatus = (sensor, value) => {
+    if (value === null || value === undefined) return "Unknown";
+    switch (sensor) {
+      case "pH Level":
+        if (value >= 6.5 && value <= 8.5) return "Safe";
+        if ((value >= 6 && value < 6.5) || (value > 8.5 && value <= 9)) return "Moderate";
+        return "Unsafe";
+      case "Turbidity":
+        if (value <= 5) return "Safe";
+        if (value > 5 && value <= 10) return "Moderate";
+        return "Unsafe";
+      case "Temperature":
+        if (value >= 24 && value <= 32) return "Safe";
+        if ((value >= 20 && value < 24) || (value > 32 && value <= 35)) return "Moderate";
+        return "Unsafe";
+      case "TDS":
+        if (value <= 500) return "Safe";
+        if (value > 500 && value <= 1000) return "Moderate";
+        return "Unsafe";
+      default:
+        return "Unknown";
+    }
+  };
+
+  const getColor = (status) => {
+    switch (status) {
+      case "Safe":
+        return "green";
+      case "Moderate":
+        return "orange";
+      case "Unsafe":
+        return "red";
+      default:
+        return "gray";
+    }
+  };
+
+  // =================== Demo Value Generator ===================
   const generateSensorValue = (sensor) => {
     switch (sensor) {
       case "pH Level":
-        return parseFloat((Math.random() * (8.5 - 6.5) + 6.5).toFixed(2));
+        return parseFloat((6 + Math.random() * 3).toFixed(2)); // 6-9
       case "Turbidity":
-        return parseFloat((Math.random() * 10).toFixed(2)); // NTU
+        return parseFloat((Math.random() * 12).toFixed(1)); // 0-12
       case "Temperature":
-        return parseFloat((Math.random() * (35 - 20) + 20).toFixed(2)); // °C
+        return parseFloat((20 + Math.random() * 15).toFixed(1)); // 20-35°C
       case "TDS":
-        return parseFloat((Math.random() * (600 - 100) + 100).toFixed(2)); // ppm
+        return parseFloat((200 + Math.random() * 900).toFixed(0)); // 200-1100 ppm
       default:
         return null;
     }
   };
 
-  // Scan selected sensors
+  // =================== Scan Functions ===================
   const handleScan = () => {
+    if (selectedSensors.length === 0) return;
     setScanning(true);
     setStatus("🔍 Scanning selected sensors...");
 
     setTimeout(() => {
       const now = new Date().toLocaleString();
       const newResults = {};
-
       selectedSensors.forEach((sensor) => {
         newResults[sensor] = generateSensorValue(sensor);
       });
-
       setResults({ time: now, ...newResults });
       setStatus(`Scan complete at ${now}`);
       setScanning(false);
     }, 2000);
   };
 
-  // Scan all sensors
   const handleScanAll = () => {
     setScanning(true);
-    setStatus("Scanning all sensors...");
+    setStatus("🔍 Scanning all sensors...");
 
     setTimeout(() => {
       const now = new Date().toLocaleString();
       const allResults = {};
-
       sensors.forEach((sensor) => {
         allResults[sensor] = generateSensorValue(sensor);
       });
-
       setResults({ time: now, ...allResults });
       setStatus(`Full scan complete at ${now}`);
       setScanning(false);
     }, 2500);
   };
 
-  // Save scan results to Supabase
+  // =================== Save Function ===================
   const handleSave = async () => {
     if (!results.time) {
       setStatus("⚠ No results to save. Please scan first.");
@@ -108,25 +142,19 @@ const ManualScan = () => {
   return (
     <div className="dashboard-layout">
       <Sidebar />
-
       <div className="manualscan-container">
         <div className="manualscan-header">
           <h1>Manual Scan</h1>
-          <p>
-            Select which sensors you want to scan and save manually.
-            <br />
-            <strong>Auto Scan must be stopped</strong> to enable manual scanning.
-          </p>
+          <p>Select which sensors you want to scan and save manually.<br/>
+          <strong>Auto Scan must be stopped</strong> to enable manual scanning.</p>
         </div>
 
-        {/* Sensor cards */}
+        {/* Sensor Cards */}
         <div className="sensor-grid">
           {sensors.map((sensor) => (
             <div
               key={sensor}
-              className={`sensor-card ${
-                selectedSensors.includes(sensor) ? "selected" : ""
-              }`}
+              className={`sensor-card ${selectedSensors.includes(sensor) ? "selected" : ""}`}
               onClick={() => toggleSensor(sensor)}
             >
               {sensor}
@@ -157,12 +185,13 @@ const ManualScan = () => {
               {Object.entries(results)
                 .filter(([key]) => key !== "time")
                 .map(([key, value]) => (
-                  <li key={key}>
+                  <li key={key} style={{ color: getColor(getStatus(key, value)) }}>
                     <span className="sensor-label">{key}:</span>{" "}
                     <span className="sensor-value">
                       {value} {key === "Turbidity" ? "NTU" : ""}
                       {key === "Temperature" ? " °C" : ""}
                       {key === "TDS" ? " ppm" : ""}
+                      {" → "}{getStatus(key, value)}
                     </span>
                   </li>
                 ))}
@@ -171,7 +200,6 @@ const ManualScan = () => {
         )}
 
         <div className="status-box">{status}</div>
-
         <button className="back-btn" onClick={() => window.history.back()}>
           ⬅ Back to Dashboard
         </button>
