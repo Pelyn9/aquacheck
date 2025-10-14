@@ -3,15 +3,9 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <meta name="theme-color" content="#00b4d8" />
-    <meta
-      name="description"
-      content="AquaCheck - Real-time water monitoring system for safe water quality"
-    />
-    <link rel="icon" href="%PUBLIC_URL%/AquaCheck Logo.png" />
-    <link rel="apple-touch-icon" href="%PUBLIC_URL%/AquaCheck Logo.png" />
+    <meta name="description" content="AquaCheck - Real-time water monitoring system" />
 
-    <!-- ✅ Dynamic Manifest Loader -->
+    <!-- Dynamic manifest loader -->
     <script>
       const path = window.location.pathname;
       const manifest = document.createElement("link");
@@ -27,10 +21,11 @@
 
       document.head.appendChild(manifest);
     </script>
-  </head>
 
+    <link rel="icon" href="%PUBLIC_URL%/AquaCheck Logo.png" />
+    <link rel="apple-touch-icon" href="%PUBLIC_URL%/AquaCheck Logo.png" />
+  </head>
   <body>
-    <noscript>You need to enable JavaScript to run this app.</noscript>
     <div id="root"></div>
   </body>
 </html>

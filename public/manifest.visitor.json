@@ -2,16 +2,8 @@
   "short_name": "AquaCheck Visitor",
   "name": "AquaCheck Visitor",
   "icons": [
-    {
-      "src": "AquaCheck Logo.png",
-      "sizes": "192x192",
-      "type": "image/png"
-    },
-    {
-      "src": "AquaCheck Logo.png",
-      "sizes": "512x512",
-      "type": "image/png"
-    }
+    { "src": "AquaCheck Logo.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "AquaCheck Logo.png", "sizes": "512x512", "type": "image/png" }
   ],
   "start_url": "/visitor",
   "scope": "/visitor",
