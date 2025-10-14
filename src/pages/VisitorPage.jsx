@@ -1,7 +1,10 @@
 import React, { useState, useEffect } from "react";
 import "../assets/VisitorPage.css";
 import cuacoImage from "../assets/picture/cuaco.jpg";
-import peejayPhoto from "../assets/picture/peejay anime 2.png";
+import peejayPhoto from "../assets/picture/peejay1.png";
+import aldricPhoto from "../assets/picture/aldric.png";
+import lawrencePhoto from "../assets/picture/lawrence.png";
+import wencePhoto from "../assets/picture/wence.jpg";
 import { FaSun, FaMoon } from "react-icons/fa"; // ✅ Added
 
 const VisitorPage = () => {
@@ -232,19 +235,19 @@ const VisitorPage = () => {
             </div>
           </div>
           <div className="developer-item">
-            <img src="placeholder.jpg" alt="" className="dev-photo" />
+            <img src={aldricPhoto} alt="" className="dev-photo" />
             <div className="dev-name">
               <b>Aldric Rholen Calatrava</b>
             </div>
           </div>
           <div className="developer-item">
-            <img src="placeholder.jpg" alt="" className="dev-photo" />
+            <img src={lawrencePhoto} alt="" className="dev-photo" />
             <div className="dev-name">
               <b>Lawrence Jay Saludes</b>
             </div>
           </div>
           <div className="developer-item">
-            <img src="placeholder.jpg" alt="" className="dev-photo" />
+            <img src={wencePhoto} alt="" className="dev-photo" />
             <div className="dev-name">
               <b>Wence Dante De Vera</b>
             </div>
