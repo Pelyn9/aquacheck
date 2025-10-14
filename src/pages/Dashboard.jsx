@@ -1,9 +1,16 @@
-import React, { useState, useContext } from "react";
+// src/pages/AdminDashboard.jsx
+import React, { useState, useEffect, useContext } from "react";
 import { useNavigate } from "react-router-dom";
 import Sidebar from "../components/Sidebar";
 import "../assets/databoard.css";
 import { AutoScanContext } from "../context/AutoScanContext";
 import { supabase } from "../supabaseClient";
+
+// Detect backend URL
+const API_BASE =
+  process.env.REACT_APP_API_URL
+    ? `${process.env.REACT_APP_API_URL}/api/admin`
+    : "https://aquacheck-backend.vercel.app/api/admin"; // change if you deployed elsewhere
 
 const AdminDashboard = () => {
   const navigate = useNavigate();
@@ -22,6 +29,29 @@ const AdminDashboard = () => {
     tds: "N/A",
   });
   const [status, setStatus] = useState("Awaiting sensor data...");
+  const [masterPassword, setMasterPassword] = useState("");
+
+  // ✅ Load or initialize master password
+  useEffect(() => {
+    const storedPass = localStorage.getItem("masterPassword");
+    if (storedPass) {
+      setMasterPassword(storedPass);
+    } else {
+      // Auto-create default
+      const defaultPass = "watercheck123";
+      localStorage.setItem("masterPassword", defaultPass);
+      setMasterPassword(defaultPass);
+
+      // Optional: Sync to backend
+      fetch(`${API_BASE}/master-password`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ password: defaultPass }),
+      }).catch((err) =>
+        console.warn("⚠️ Failed to sync master password:", err.message)
+      );
+    }
+  }, []);
 
   // Fetch and auto-save
   const fetchAndSaveSensorData = async () => {
@@ -67,7 +97,7 @@ const AdminDashboard = () => {
 
   const toggleAutoScan = () => {
     if (autoScanRunning) stopAutoScan();
-    else startAutoScan(fetchAndSaveSensorData); // auto-scan + auto-save
+    else startAutoScan(fetchAndSaveSensorData);
   };
 
   const handleManualScanClick = () => {
@@ -107,6 +137,9 @@ const AdminDashboard = () => {
       <main className="main-content">
         <header className="topbar">
           <h1>Admin Dashboard</h1>
+          <p className="master-info">
+            Master Password: <strong>{masterPassword}</strong>
+          </p>
         </header>
 
         <section className="scan-controls">
