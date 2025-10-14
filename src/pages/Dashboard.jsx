@@ -29,7 +29,7 @@ const AdminDashboard = () => {
     tds: "N/A",
   });
   const [status, setStatus] = useState("Awaiting sensor data...");
-  const [masterPassword, setMasterPassword] = useState("");
+  const [, setMasterPassword] = useState("");
 
   // ✅ Load or initialize master password
   useEffect(() => {
@@ -137,9 +137,6 @@ const AdminDashboard = () => {
       <main className="main-content">
         <header className="topbar">
           <h1>Admin Dashboard</h1>
-          <p className="master-info">
-            Master Password: <strong>{masterPassword}</strong>
-          </p>
         </header>
 
         <section className="scan-controls">
