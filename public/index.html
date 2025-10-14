@@ -6,12 +6,27 @@
     <meta name="theme-color" content="#00b4d8" />
     <meta
       name="description"
-      content="AquaCheck - Real-time water monitoring dashboard"
+      content="AquaCheck - Real-time water monitoring system for safe water quality"
     />
     <link rel="icon" href="%PUBLIC_URL%/AquaCheck Logo.png" />
     <link rel="apple-touch-icon" href="%PUBLIC_URL%/AquaCheck Logo.png" />
-    <link rel="manifest" href="%PUBLIC_URL%/manifest.json" />
-    <title>AquaCheck Dashboard</title>
+
+    <!-- ✅ Dynamic Manifest Loader -->
+    <script>
+      const path = window.location.pathname;
+      const manifest = document.createElement("link");
+      manifest.rel = "manifest";
+
+      if (path.startsWith("/dashboard")) {
+        manifest.href = "%PUBLIC_URL%/manifest.dashboard.json";
+        document.title = "AquaCheck Dashboard";
+      } else {
+        manifest.href = "%PUBLIC_URL%/manifest.visitor.json";
+        document.title = "AquaCheck Visitor";
+      }
+
+      document.head.appendChild(manifest);
+    </script>
   </head>
 
   <body>
