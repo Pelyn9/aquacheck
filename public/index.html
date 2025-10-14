@@ -1,37 +1,40 @@
 <!DOCTYPE html>
 <html lang="en">
-  <head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <meta name="description" content="AquaCheck - Real-time water monitoring system" />
-    <meta name="theme-color" content="#00b4d8" />
 
-    <!-- Favicon & Apple Icon -->
-    <link rel="icon" href="%PUBLIC_URL%/AquaCheck Logo.png" />
-    <link rel="apple-touch-icon" href="%PUBLIC_URL%/AquaCheck Logo.png" />
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="description" content="AquaCheck - Real-time water monitoring system" />
+  <meta name="theme-color" content="#00b4d8" />
 
-    <!-- Dynamic Manifest Loader -->
-    <script>
-      (function() {
-        const path = window.location.pathname;
-        const manifest = document.createElement("link");
-        manifest.rel = "manifest";
+  <!-- Favicon & Apple Icon -->
+  <link rel="icon" href="%PUBLIC_URL%/AquaCheck Logo.png" />
+  <link rel="apple-touch-icon" href="%PUBLIC_URL%/AquaCheck Logo.png" />
 
-        if (path.startsWith("/dashboard")) {
-          manifest.href = "%PUBLIC_URL%/manifest.dashboard.json";
-          document.title = "AquaCheck Dashboard";
-        } else {
-          manifest.href = "%PUBLIC_URL%/manifest.visitor.json";
-          document.title = "AquaCheck Visitor";
-        }
+  <!-- Dynamic Manifest Loader -->
+  <script>
+    (function () {
+      const path = window.location.pathname;
+      const manifest = document.createElement("link");
+      manifest.rel = "manifest";
 
-        document.head.appendChild(manifest);
-      })();
-    </script>
-  </head>
+      if (path.startsWith("/dashboard")) {
+        manifest.href = process.env.PUBLIC_URL + "/manifest.dashboard.json";
+        document.title = "AquaCheck Dashboard";
+      } else {
+        manifest.href = process.env.PUBLIC_URL + "/manifest.visitor.json";
+        document.title = "AquaCheck Visitor";
+      }
 
-  <body>
-    <noscript>You need to enable JavaScript to run this app.</noscript>
-    <div id="root"></div>
-  </body>
+      document.head.appendChild(manifest);
+    })
+  </script>
+
+</head>
+
+<body>
+  <noscript>You need to enable JavaScript to run this app.</noscript>
+  <div id="root"></div>
+</body>
+
 </html>
