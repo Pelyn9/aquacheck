@@ -469,10 +469,11 @@
   .sidebar.open {
     left: 0;
     opacity: 1;
+    
   }
 
   .sidebar.collapsed {
-    left: -260px;
+    left: -280px;
     opacity: 0;
   }
 }
