@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import "../assets/VisitorPage.css";
 import cuacoImage from "../assets/picture/cuaco.jpg";
-import peejayPhoto from "../assets/picture/peejay1.png";
+import peejayPhoto from "../assets/picture/peejay1.jpg";
 import aldricPhoto from "../assets/picture/aldric.png";
 import lawrencePhoto from "../assets/picture/lawrence.png";
 import wencePhoto from "../assets/picture/wence.jpg";
