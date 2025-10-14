@@ -1,6 +1,6 @@
 {
   "short_name": "AquaCheck",
-  "name": "AquaCheck Dashboard",
+  "name": "AquaCheck Visitor",
   "icons": [
     {
       "src": "AquaCheck Logo.png",
@@ -18,10 +18,11 @@
       "type": "image/x-icon"
     }
   ],
-  "start_url": "/dashboard",
-  "scope": "/dashboard",
+  "start_url": "/visitor",
+  "scope": "/visitor",
   "display": "standalone",
   "theme_color": "#00b4d8",
   "background_color": "#ffffff",
-  "orientation": "portrait-primary"
+  "orientation": "portrait-primary",
+  "description": "AquaCheck Visitor - View real-time water monitoring"
 }
