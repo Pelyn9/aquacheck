@@ -34,7 +34,7 @@ const AdminDashboard = () => {
   // ✅ Load or initialize master password
   useEffect(() => {
     const storedPass = localStorage.getItem("masterPassword");
-    if (storedPass) {
+    if (storedPass) {    
       setMasterPassword(storedPass);
     } else {
       // Auto-create default
