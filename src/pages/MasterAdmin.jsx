@@ -16,13 +16,14 @@ const MasterAdmin = () => {
   const [loading, setLoading] = useState(false);
   const [opId, setOpId] = useState(null);
 
-  // Secret Admin password modal
+  // Secret Admin Password Modal
   const [showPasswordModal, setShowPasswordModal] = useState(false);
   const [newPassword, setNewPassword] = useState("");
+  const [currentKeyInput, setCurrentKeyInput] = useState("");
   const [passwordMessage, setPasswordMessage] = useState("");
   const [showSecretPassword, setShowSecretPassword] = useState(false);
 
-  // Master admin access password (persisted in localStorage & Supabase)
+  // Master Admin Access Modal
   const defaultMasterPassword = "watercheck123";
   const [showAccessModal, setShowAccessModal] = useState(false);
   const [currentMasterPassword, setCurrentMasterPassword] = useState(
@@ -30,27 +31,23 @@ const MasterAdmin = () => {
   );
   const [editedMasterPassword, setEditedMasterPassword] = useState("");
   const [showMasterPassword, setShowMasterPassword] = useState(false);
+  const [masterMessage, setMasterMessage] = useState("");
 
-  // ------------------- First deploy initialization -------------------
+  // Initialize Master Password
   const initializeMasterPassword = async () => {
-    if (!localStorage.getItem("masterPassword")) {
+    const localPass = localStorage.getItem("masterPassword");
+    if (!localPass) {
       localStorage.setItem("masterPassword", defaultMasterPassword);
       setCurrentMasterPassword(defaultMasterPassword);
     }
 
     try {
       const res = await fetch(`${API_BASE}/master-password`, { cache: "no-store" });
-      if (!res.ok) throw new Error("Failed to fetch master password");
+      if (!res.ok) return; // if backend fails, use default
       const data = await res.json();
-
-      if (data.password) {
-        setCurrentMasterPassword(data.password);
-      } else {
-        // If missing, backend will auto-create default password
-        setCurrentMasterPassword(defaultMasterPassword);
-      }
+      setCurrentMasterPassword(data.password || defaultMasterPassword);
     } catch (err) {
-      console.error("Error initializing Master Password:", err);
+      console.error("Error fetching Master Password:", err);
     }
   };
 
@@ -58,24 +55,21 @@ const MasterAdmin = () => {
     initializeMasterPassword();
   }, []);
 
-  // ------------------- Utility -------------------
+  // Utility
   const safeDate = (d) => {
     if (!d) return "—";
     const t = new Date(d);
     return isNaN(t.getTime()) ? "—" : t.toLocaleString();
   };
 
-  // ------------------- Fetch Users -------------------
+  // Fetch Users
   const fetchUsers = useCallback(async () => {
     if (!isAdmin) return;
     setLoading(true);
     setError("");
     try {
       const res = await fetch(`${API_BASE}/users`, { cache: "no-store" });
-      if (!res.ok) {
-        const errData = await res.json().catch(() => ({}));
-        throw new Error(errData.error || "Failed to fetch users");
-      }
+      if (!res.ok) throw new Error("Failed to fetch users");
       const data = await res.json();
       setUsers(Array.isArray(data.users) ? data.users : []);
     } catch (e) {
@@ -90,7 +84,7 @@ const MasterAdmin = () => {
     fetchUsers();
   }, [fetchUsers]);
 
-  // ------------------- User Actions -------------------
+  // User Actions
   const handleDelete = async (userId) => {
     if (!window.confirm("Delete this user? This cannot be undone.")) return;
     setOpId(userId);
@@ -130,32 +124,41 @@ const MasterAdmin = () => {
     }
   };
 
-  // ------------------- Secret Admin Password -------------------
+  // Secret Admin Password
   const handlePasswordChange = async () => {
     if (!newPassword.trim()) {
       setPasswordMessage("Password cannot be empty.");
       return;
     }
+    if (!currentKeyInput.trim()) {
+      setPasswordMessage("Current key is required.");
+      return;
+    }
 
     try {
-      const currentKey = prompt("Enter current secret admin key:");
-      if (!currentKey) {
-        setPasswordMessage("Current key is required.");
-        return;
-      }
-
       const res = await fetch(`${API_BASE}/change-key`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ oldKey: currentKey, newKey: newPassword.trim() }),
+        body: JSON.stringify({ oldKey: currentKeyInput, newKey: newPassword.trim() }),
       });
 
-      const result = await res.json();
+      let result;
+      const contentType = res.headers.get("content-type");
+      if (contentType && contentType.includes("application/json")) {
+        result = await res.json();
+      } else {
+        const text = await res.text();
+        console.error("Expected JSON but got:", text);
+        setPasswordMessage("Unexpected response from server.");
+        return;
+      }
+
       if (!res.ok) {
         setPasswordMessage("Failed to change password: " + (result.error || "Unknown error"));
       } else {
         setPasswordMessage("Secret admin password changed!");
         setNewPassword("");
+        setCurrentKeyInput("");
         setTimeout(() => {
           setShowPasswordModal(false);
           setPasswordMessage("");
@@ -167,10 +170,10 @@ const MasterAdmin = () => {
     }
   };
 
-  // ------------------- Master Admin Password -------------------
+  // Master Admin Password
   const handleMasterUpdate = async () => {
     if (!editedMasterPassword.trim()) {
-      alert("Please enter a new master password before saving.");
+      setMasterMessage("Please enter a new master password.");
       return;
     }
     const newPass = editedMasterPassword.trim();
@@ -178,26 +181,36 @@ const MasterAdmin = () => {
       localStorage.setItem("masterPassword", newPass);
       setCurrentMasterPassword(newPass);
 
-      // Update Supabase
       const res = await fetch(`${API_BASE}/master-password`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ password: newPass }),
       });
-      if (!res.ok) throw new Error("Failed to update master password in DB");
+
+      if (!res.ok) {
+        let result;
+        const contentType = res.headers.get("content-type");
+        if (contentType && contentType.includes("application/json")) {
+          result = await res.json();
+        } else {
+          const text = await res.text();
+          console.error("Expected JSON but got:", text);
+          throw new Error("Unexpected response from server");
+        }
+        throw new Error(result.error || "Failed to update master password in DB");
+      }
 
       window.dispatchEvent(new CustomEvent("masterPasswordUpdated", { detail: { newPass } }));
-
-      alert("Master Admin password updated!");
+      setMasterMessage("Master Admin password updated!");
       setEditedMasterPassword("");
-      setShowAccessModal(false);
+      setTimeout(() => setShowAccessModal(false), 1200);
     } catch (e) {
       console.error("Failed to save master password", e);
-      alert("Failed to update master password.");
+      setMasterMessage("Failed to update master password.");
     }
   };
 
-  // ------------------- Render -------------------
+  // Render
   if (!isAdmin) {
     return <p style={{ textAlign: "center", color: "red" }}>Access Denied</p>;
   }
@@ -241,11 +254,11 @@ const MasterAdmin = () => {
             <tbody>
               {loading ? (
                 <tr>
-                  <td colSpan="5">Loading…</td>
+                  <td colSpan={5}>Loading…</td>
                 </tr>
               ) : users.length === 0 ? (
                 <tr>
-                  <td colSpan="5">No users found 👀</td>
+                  <td colSpan={5}>No users found 👀</td>
                 </tr>
               ) : (
                 users.map((u) => {
@@ -294,9 +307,16 @@ const MasterAdmin = () => {
               <h2>Change Secret Admin Password</h2>
               <input
                 type={showSecretPassword ? "text" : "password"}
+                value={currentKeyInput}
+                onChange={(e) => setCurrentKeyInput(e.target.value)}
+                placeholder="Enter current secret key"
+              />
+              <input
+                type={showSecretPassword ? "text" : "password"}
                 value={newPassword}
                 onChange={(e) => setNewPassword(e.target.value)}
                 placeholder="Enter new password"
+                style={{ marginTop: "8px" }}
               />
               <label style={{ display: "block", marginTop: "6px" }}>
                 <input
@@ -311,10 +331,7 @@ const MasterAdmin = () => {
                 <button className="modal-btn confirm" onClick={handlePasswordChange}>
                   Confirm
                 </button>
-                <button
-                  className="modal-btn cancel"
-                  onClick={() => setShowPasswordModal(false)}
-                >
+                <button className="modal-btn cancel" onClick={() => setShowPasswordModal(false)}>
                   Cancel
                 </button>
               </div>
@@ -328,8 +345,7 @@ const MasterAdmin = () => {
             <div className="modal">
               <h2>Master Admin Access</h2>
               <p>
-                Current Master Password:{" "}
-                <strong>{currentMasterPassword || "Not set"}</strong>
+                Current Master Password: <strong>{currentMasterPassword || "Not set"}</strong>
               </p>
 
               <input
@@ -346,14 +362,12 @@ const MasterAdmin = () => {
                 />{" "}
                 Show password
               </label>
+              {masterMessage && <p>{masterMessage}</p>}
               <div style={{ marginTop: 12 }}>
                 <button className="modal-btn confirm" onClick={handleMasterUpdate}>
                   Save
                 </button>
-                <button
-                  className="modal-btn cancel"
-                  onClick={() => setShowAccessModal(false)}
-                >
+                <button className="modal-btn cancel" onClick={() => setShowAccessModal(false)}>
                   Cancel
                 </button>
               </div>
