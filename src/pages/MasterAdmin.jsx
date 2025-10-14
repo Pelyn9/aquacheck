@@ -258,7 +258,7 @@ const MasterAdmin = () => {
                 </tr>
               ) : users.length === 0 ? (
                 <tr>
-                  <td colSpan={5}>No users found 👀</td>
+                  <td colSpan={5}>No users found</td>
                 </tr>
               ) : (
                 users.map((u) => {
