@@ -11,25 +11,24 @@
   <link rel="icon" href="%PUBLIC_URL%/AquaCheck Logo.png" />
   <link rel="apple-touch-icon" href="%PUBLIC_URL%/AquaCheck Logo.png" />
 
-  <!-- Dynamic Manifest Loader -->
+  <!-- Single Manifest -->
+  <link rel="manifest" href="%PUBLIC_URL%/manifest.json" />
+
+  <title>AquaCheck</title>
+
+  <!-- Optional: Set title dynamically based on path -->
   <script>
     (function () {
       const path = window.location.pathname;
-      const manifest = document.createElement("link");
-      manifest.rel = "manifest";
-
       if (path.startsWith("/dashboard")) {
-        manifest.href = process.env.PUBLIC_URL + "/manifest.dashboard.json";
         document.title = "AquaCheck Dashboard";
-      } else {
-        manifest.href = process.env.PUBLIC_URL + "/manifest.visitor.json";
+      } else if (path.startsWith("/visitor")) {
         document.title = "AquaCheck Visitor";
+      } else {
+        document.title = "AquaCheck";
       }
-
-      document.head.appendChild(manifest);
-    })
+    })();
   </script>
-
 </head>
 
 <body>
