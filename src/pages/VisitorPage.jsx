@@ -8,6 +8,11 @@ import wencePhoto from "../assets/picture/wence.jpg";
 import { FaSun, FaMoon } from "react-icons/fa"; // ✅ Added
 
 const VisitorPage = () => {
+  // ✅ Set browser tab title for Visitor Page
+  useEffect(() => {
+    document.title = "AquaCheck Visitor";
+  }, []);
+
   // ✅ Load saved theme from localStorage (persistent)
   const [theme, setTheme] = useState(() => {
     return localStorage.getItem("theme") || "light";
