@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import "../assets/VisitorPage.css";
 import cuacoImage from "../assets/picture/cuaco.jpg";
-import peejayPhoto from "../assets/picture/peejay.jpg";
+import peejayPhoto from "../assets/picture/peejay anime 2.png";
 import { FaSun, FaMoon } from "react-icons/fa"; // ✅ Added
 
 const VisitorPage = () => {
