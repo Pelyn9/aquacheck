@@ -13,6 +13,8 @@
   ],
   "rewrites": [
     { "source": "/api/(.*)", "destination": "/src/server/$1.js" },
+    { "source": "/dashboard", "destination": "/dashboard.html" },
+    { "source": "/visitor", "destination": "/index.html" },
     { "source": "/(.*)", "destination": "/index.html" }
   ]
 }
