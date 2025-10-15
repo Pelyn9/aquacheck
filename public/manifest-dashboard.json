@@ -1,6 +1,6 @@
 {
   "short_name": "AquaCheck Dashboard",
-  "name": "AquaCheck Dashboard - Real-time Water Monitoring",
+  "name": "AquaCheck Dashboard",
   "icons": [
     { "src": "AquaCheck Logo.png", "sizes": "192x192", "type": "image/png" },
     { "src": "AquaCheck Logo.png", "sizes": "512x512", "type": "image/png" }

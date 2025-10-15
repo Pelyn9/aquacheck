@@ -1,6 +1,6 @@
 {
-  "short_name": "AquaCheck Visitor",
-  "name": "AquaCheck Visitor - Real-time Water Monitoring",
+  "short_name": "AquaCheck",
+  "name": "AquaCheck - Real-time Water Monitoring",
   "icons": [
     { "src": "AquaCheck Logo.png", "sizes": "192x192", "type": "image/png" },
     { "src": "AquaCheck Logo.png", "sizes": "512x512", "type": "image/png" }
