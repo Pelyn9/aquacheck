@@ -43,9 +43,9 @@ const MasterAdmin = () => {
 
     try {
       const res = await fetch(`${API_BASE}/master-password`, { cache: "no-store" });
-      if (!res.ok) return; // if backend fails, use default
-      const data = await res.json();
-      setCurrentMasterPassword(data.password || defaultMasterPassword);
+      if (!res.ok) return; // backend might not respond yet
+      const data = await res.json().catch(() => ({}));
+      if (data.password) setCurrentMasterPassword(data.password);
     } catch (err) {
       console.error("Error fetching Master Password:", err);
     }
@@ -62,27 +62,50 @@ const MasterAdmin = () => {
     return isNaN(t.getTime()) ? "—" : t.toLocaleString();
   };
 
-  // Fetch Users
+  // ✅ FIXED Fetch Users
   const fetchUsers = useCallback(async () => {
     if (!isAdmin) return;
     setLoading(true);
     setError("");
+
     try {
-      const res = await fetch(`${API_BASE}/users`, { cache: "no-store" });
-      if (!res.ok) throw new Error("Failed to fetch users");
-      const data = await res.json();
-      setUsers(Array.isArray(data.users) ? data.users : []);
+      const res = await fetch(`${API_BASE}/users`, {
+        method: "GET",
+        headers: { "Content-Type": "application/json" },
+        cache: "no-store",
+      });
+
+      if (!res.ok) {
+        const text = await res.text();
+        throw new Error(`Server error (${res.status}): ${text}`);
+      }
+
+      let data;
+      const contentType = res.headers.get("content-type");
+      if (contentType && contentType.includes("application/json")) {
+        data = await res.json();
+      } else {
+        throw new Error("Unexpected response format from server");
+      }
+
+      if (Array.isArray(data.users)) {
+        setUsers(data.users);
+      } else if (Array.isArray(data)) {
+        setUsers(data);
+      } else {
+        throw new Error("Invalid user data format");
+      }
     } catch (e) {
-      console.error(e);
-      setError("Unexpected error fetching users: " + e.message);
+      console.error("Error fetching users:", e);
+      setError("Failed to fetch users: " + e.message);
     } finally {
       setLoading(false);
     }
   }, [isAdmin]);
 
   useEffect(() => {
-    fetchUsers();
-  }, [fetchUsers]);
+    if (isAdmin) fetchUsers();
+  }, [isAdmin, fetchUsers]);
 
   // User Actions
   const handleDelete = async (userId) => {
@@ -126,14 +149,8 @@ const MasterAdmin = () => {
 
   // Secret Admin Password
   const handlePasswordChange = async () => {
-    if (!newPassword.trim()) {
-      setPasswordMessage("Password cannot be empty.");
-      return;
-    }
-    if (!currentKeyInput.trim()) {
-      setPasswordMessage("Current key is required.");
-      return;
-    }
+    if (!newPassword.trim()) return setPasswordMessage("Password cannot be empty.");
+    if (!currentKeyInput.trim()) return setPasswordMessage("Current key is required.");
 
     try {
       const res = await fetch(`${API_BASE}/change-key`, {
@@ -142,41 +159,33 @@ const MasterAdmin = () => {
         body: JSON.stringify({ oldKey: currentKeyInput, newKey: newPassword.trim() }),
       });
 
-      let result;
       const contentType = res.headers.get("content-type");
-      if (contentType && contentType.includes("application/json")) {
-        result = await res.json();
-      } else {
-        const text = await res.text();
-        console.error("Expected JSON but got:", text);
-        setPasswordMessage("Unexpected response from server.");
-        return;
-      }
+      let result = contentType && contentType.includes("application/json")
+        ? await res.json()
+        : {};
 
       if (!res.ok) {
-        setPasswordMessage("Failed to change password: " + (result.error || "Unknown error"));
-      } else {
-        setPasswordMessage("Secret admin password changed!");
-        setNewPassword("");
-        setCurrentKeyInput("");
-        setTimeout(() => {
-          setShowPasswordModal(false);
-          setPasswordMessage("");
-        }, 1200);
+        throw new Error(result.error || "Failed to change password");
       }
+
+      setPasswordMessage("Secret admin password changed!");
+      setNewPassword("");
+      setCurrentKeyInput("");
+      setTimeout(() => {
+        setShowPasswordModal(false);
+        setPasswordMessage("");
+      }, 1200);
     } catch (err) {
       console.error(err);
-      setPasswordMessage("Failed to change password.");
+      setPasswordMessage("Failed to change password: " + err.message);
     }
   };
 
   // Master Admin Password
   const handleMasterUpdate = async () => {
-    if (!editedMasterPassword.trim()) {
-      setMasterMessage("Please enter a new master password.");
-      return;
-    }
+    if (!editedMasterPassword.trim()) return setMasterMessage("Please enter a new master password.");
     const newPass = editedMasterPassword.trim();
+
     try {
       localStorage.setItem("masterPassword", newPass);
       setCurrentMasterPassword(newPass);
@@ -188,15 +197,7 @@ const MasterAdmin = () => {
       });
 
       if (!res.ok) {
-        let result;
-        const contentType = res.headers.get("content-type");
-        if (contentType && contentType.includes("application/json")) {
-          result = await res.json();
-        } else {
-          const text = await res.text();
-          console.error("Expected JSON but got:", text);
-          throw new Error("Unexpected response from server");
-        }
+        const result = await res.json().catch(() => ({}));
         throw new Error(result.error || "Failed to update master password in DB");
       }
 
@@ -206,14 +207,12 @@ const MasterAdmin = () => {
       setTimeout(() => setShowAccessModal(false), 1200);
     } catch (e) {
       console.error("Failed to save master password", e);
-      setMasterMessage("Failed to update master password.");
+      setMasterMessage("Failed to update master password: " + e.message);
     }
   };
 
   // Render
-  if (!isAdmin) {
-    return <p style={{ textAlign: "center", color: "red" }}>Access Denied</p>;
-  }
+  if (!isAdmin) return <p style={{ textAlign: "center", color: "red" }}>Access Denied</p>;
 
   return (
     <div className="container masteradmin-container">
