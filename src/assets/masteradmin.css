@@ -15,6 +15,10 @@
   padding: 40px 30px;
   margin-left: 50px;
   transition: all 0.3s ease;
+  overflow-y: auto;     /* allows vertical scrolling only inside main content */
+  max-height: 100vh;    /* prevent overflow past sidebar or screen height */
+  box-sizing: border-box;
+
 }
 
 /* Header */

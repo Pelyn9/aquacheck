@@ -4,10 +4,15 @@ import Sidebar from "../components/Sidebar";
 import { AdminContext } from "../App";
 import "../assets/masteradmin.css";
 
+// 🌐 Auto-detect environment or use .env config
 const API_BASE =
   process.env.REACT_APP_API_URL
-    ? `${process.env.REACT_APP_API_URL}/api/admin`
-    : "http://localhost:4000/api/admin";
+    ? `${process.env.REACT_APP_API_URL}/api/admin` // 👈 from .env if available
+    : window.location.hostname === "localhost"
+    ? "http://localhost:4000/api/admin" // 👈 Local backend (development)
+    : "https://aquachecklive.vercel.app/api/admin"; // 👈 Vercel backend (production)
+
+console.log("🔗 Connected to API:", API_BASE);
 
 const MasterAdmin = () => {
   const { isAdmin } = useContext(AdminContext);
