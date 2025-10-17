@@ -6,11 +6,11 @@ import "../assets/masteradmin.css";
 
 // 🌐 Auto-detect environment or use .env config
 const API_BASE =
-  process.env.REACT_APP_API_URL
-    ? `${process.env.REACT_APP_API_URL}/api/admin` // 👈 from .env if available
+  process.env.REACT_APP_API_URL && process.env.REACT_APP_API_URL.trim() !== ""
+    ? `${process.env.REACT_APP_API_URL}/api/admin` // ✅ from .env if available
     : window.location.hostname === "localhost"
-    ? "http://localhost:4000/api/admin" // 👈 Local backend (development)
-    : "https://aquachecklive.vercel.app/api/admin"; // 👈 Vercel backend (production)
+    ? "http://localhost:4000/api/admin"             // ✅ Local backend (development)
+    : "https://aquachecklive.vercel.app/api/admin"; // ✅ Vercel backend (production)
 
 console.log("🔗 Connected to API:", API_BASE);
 

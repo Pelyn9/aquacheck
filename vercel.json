@@ -7,12 +7,12 @@
       "config": { "distDir": "build" }
     },
     {
-      "src": "src/server/**/*.js",
+      "src": "src/pages/api/**/*.js",
       "use": "@vercel/node"
     }
   ],
   "rewrites": [
-    { "source": "/api/(.*)", "destination": "/src/server/$1.js" },
+    { "source": "/api/(.*)", "destination": "/src/pages/api/$1.js" },
     { "source": "/(.*)", "destination": "/index.html" }
   ]
 }
