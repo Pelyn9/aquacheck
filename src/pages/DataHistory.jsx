@@ -5,26 +5,31 @@ import "../assets/datahistory.css";
 
 // ✅ Sensor status check
 const getSensorStatus = (type, value) => {
-  if (value === null || value === undefined) return "unknown";
+  if (value === null || value === undefined || value === "N/A") return "unknown";
   const val = parseFloat(value);
+  if (isNaN(val)) return "unknown";
 
   switch (type) {
     case "ph":
       if (val >= 6.5 && val <= 8.5) return "safe";
       if ((val >= 6 && val < 6.5) || (val > 8.5 && val <= 9)) return "moderate";
       return "unsafe";
+
     case "turbidity":
       if (val <= 5) return "safe";
       if (val > 5 && val <= 10) return "moderate";
       return "unsafe";
+
     case "temperature":
       if (val >= 24 && val <= 32) return "safe";
       if ((val >= 20 && val < 24) || (val > 32 && val <= 35)) return "moderate";
       return "unsafe";
+
     case "tds":
       if (val <= 500) return "safe";
       if (val > 500 && val <= 1000) return "moderate";
       return "unsafe";
+
     default:
       return "unknown";
   }
@@ -39,6 +44,7 @@ const getOverallStatus = (entry) => {
     getSensorStatus("tds", entry.tds),
   ];
 
+  if (statuses.includes("unknown")) return "Unknown";
   if (statuses.includes("unsafe")) return "Unsafe";
   if (statuses.includes("moderate")) return "Moderate";
   if (statuses.every((s) => s === "safe")) return "Safe";
@@ -76,7 +82,10 @@ const DataHistory = () => {
     const deleteOldData = async () => {
       const limitDate = new Date();
       limitDate.setDate(limitDate.getDate() - 30);
-      await supabase.from("dataset_history").delete().lt("created_at", limitDate.toISOString());
+      await supabase
+        .from("dataset_history")
+        .delete()
+        .lt("created_at", limitDate.toISOString());
     };
     deleteOldData();
     const interval = setInterval(deleteOldData, 86400000);
@@ -91,16 +100,27 @@ const DataHistory = () => {
         (entry) => getOverallStatus(entry).toLowerCase() === filters.status
       );
     }
+
     if (filters.date.trim() !== "") {
       filtered = filtered.filter((entry) =>
         entry.created_at.startsWith(filters.date)
       );
     }
+
     if (filters.text.trim() !== "") {
-      filtered = filtered.filter((entry) =>
-        entry.created_at.toLowerCase().includes(filters.text.toLowerCase())
-      );
+      filtered = filtered.filter((entry) => {
+        const formatted = new Date(entry.created_at)
+          .toLocaleString("en-US", {
+            hour: "2-digit",
+            minute: "2-digit",
+            second: "2-digit",
+            hour12: true,
+          })
+          .toLowerCase();
+        return formatted.includes(filters.text.toLowerCase());
+      });
     }
+
     setFilteredData(filtered);
     setPage(1);
   }, [data, filters]);
@@ -119,7 +139,15 @@ const DataHistory = () => {
     return [
       ["Time", "pH", "Turbidity", "Temperature", "TDS", "Status"],
       ...rows.map((row) => [
-        row.created_at,
+        new Date(row.created_at).toLocaleString("en-US", {
+          year: "numeric",
+          month: "long",
+          day: "numeric",
+          hour: "2-digit",
+          minute: "2-digit",
+          second: "2-digit",
+          hour12: true,
+        }),
         row.ph,
         row.turbidity,
         row.temperature,
@@ -178,14 +206,14 @@ const DataHistory = () => {
                 <option value="safe">Safe</option>
                 <option value="moderate">Moderate</option>
                 <option value="unsafe">Unsafe</option>
+                <option value="unknown">Unknown</option>
               </select>
             </label>
 
             <label>
-              Date (YYYY-MM-DD):
+              Select Date:
               <input
-                type="text"
-                placeholder="e.g. 2025-10-17"
+                type="date"
                 value={filters.date}
                 onChange={(e) =>
                   setFilters({ ...filters, date: e.target.value })
@@ -197,7 +225,7 @@ const DataHistory = () => {
               Search Time:
               <input
                 type="text"
-                placeholder="Search timestamp..."
+                placeholder="e.g. 03:15 PM"
                 value={filters.text}
                 onChange={(e) =>
                   setFilters({ ...filters, text: e.target.value })
@@ -215,7 +243,7 @@ const DataHistory = () => {
           <table>
             <thead>
               <tr>
-                <th>Time</th>
+                <th>Date & Time</th>
                 <th>pH</th>
                 <th>Turbidity</th>
                 <th>Temperature (°C)</th>
@@ -235,11 +263,21 @@ const DataHistory = () => {
                   const status = getOverallStatus(entry);
                   return (
                     <tr key={i} className={status.toLowerCase()}>
-                      <td>{new Date(entry.created_at).toLocaleString()}</td>
-                      <td>{entry.ph}</td>
-                      <td>{entry.turbidity}</td>
-                      <td>{entry.temperature}</td>
-                      <td>{entry.tds}</td>
+                      <td>
+                        {new Date(entry.created_at).toLocaleString("en-US", {
+                          year: "numeric",
+                          month: "long",
+                          day: "numeric",
+                          hour: "2-digit",
+                          minute: "2-digit",
+                          second: "2-digit",
+                          hour12: true,
+                        })}
+                      </td>
+                      <td>{entry.ph || "N/A"}</td>
+                      <td>{entry.turbidity || "N/A"}</td>
+                      <td>{entry.temperature || "N/A"}</td>
+                      <td>{entry.tds || "N/A"}</td>
                       <td>{status}</td>
                     </tr>
                   );
@@ -278,6 +316,7 @@ const DataHistory = () => {
                   <option value="safe">Safe</option>
                   <option value="moderate">Moderate</option>
                   <option value="unsafe">Unsafe</option>
+                  <option value="unknown">Unknown</option>
                 </select>
               </label>
 

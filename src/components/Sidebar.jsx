@@ -1,6 +1,6 @@
 // src/components/Sidebar.jsx
 import React, { useState, useContext, useRef, useEffect } from "react";
-import { useNavigate, Link } from "react-router-dom";
+import { useNavigate, Link, useLocation } from "react-router-dom";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import {
   faTachometerAlt,
@@ -22,10 +22,45 @@ export default function Sidebar() {
 
   const { isAdmin, setIsAdmin } = useContext(AdminContext);
   const navigate = useNavigate();
+  const location = useLocation();
 
   const clickCount = useRef(0);
   const clickTimeout = useRef(null);
   const passwordInputRef = useRef(null);
+
+  // Save route to localStorage whenever location changes
+  useEffect(() => {
+    try {
+      localStorage.setItem("lastVisitedPage", location.pathname);
+    } catch (e) {
+      // ignore storage errors
+    }
+  }, [location]);
+
+  // On initial mount, if the app landed on a default route, redirect to saved page
+  useEffect(() => {
+    const lastPage = localStorage.getItem("lastVisitedPage");
+    const current = window.location.pathname;
+
+    // Default routes where app tends to reset to dashboard/login — if app is on one of these,
+    // and we have a lastPage different from current, navigate to it.
+    const defaultPaths = ["/", "/admin", "/dashboard"];
+
+    if (lastPage && current !== lastPage && defaultPaths.includes(current)) {
+      // small timeout to allow router initialize
+      setTimeout(() => {
+        navigate(lastPage, { replace: true });
+      }, 50);
+    }
+    // Also save before unload (user closes tab)
+    const handleBeforeUnload = () => {
+      try {
+        localStorage.setItem("lastVisitedPage", window.location.pathname);
+      } catch (e) {}
+    };
+    window.addEventListener("beforeunload", handleBeforeUnload);
+    return () => window.removeEventListener("beforeunload", handleBeforeUnload);
+  }, [navigate]);
 
   // Detect screen resize
   useEffect(() => {
@@ -53,13 +88,24 @@ export default function Sidebar() {
   const handleLogout = () => setShowConfirm(true);
 
   const confirmLogout = () => {
-    localStorage.removeItem("isAdmin");
+    try {
+      localStorage.removeItem("isAdmin");
+      localStorage.removeItem("lastVisitedPage");
+    } catch (e) {}
     setIsAdmin(false);
     setShowConfirm(false);
     navigate("/admin");
   };
 
   const cancelLogout = () => setShowConfirm(false);
+
+  // Save last page then navigate — used for immediate saving before navigation
+  const goTo = (path) => {
+    try {
+      localStorage.setItem("lastVisitedPage", path);
+    } catch (e) {}
+    navigate(path);
+  };
 
   const handleDashboardClick = (e) => {
     e.preventDefault();
@@ -80,7 +126,7 @@ export default function Sidebar() {
     if (clickCount.current === 1) {
       setTimeout(() => {
         if (clickCount.current === 1) {
-          navigate("/dashboard");
+          goTo("/dashboard");
           clickCount.current = 0;
         }
       }, 300);
@@ -100,7 +146,7 @@ export default function Sidebar() {
       setAttempts(0);
       setShowMasterLogin(false);
       setMasterPasswordInput("");
-      navigate("/master-admin");
+      goTo("/master-admin");
     } else {
       const newAttempts = attempts + 1;
       setAttempts(newAttempts);
@@ -120,7 +166,7 @@ export default function Sidebar() {
 
   return (
     <>
-      {/* ✅ Hamburger Button Always Visible */}
+      {/* Hamburger Button Always Visible */}
       {isMobile && (
         <div
           className={`hamburger ${isCollapsed ? "" : "active"}`}
@@ -132,7 +178,7 @@ export default function Sidebar() {
         </div>
       )}
 
-      {/* ✅ Sidebar */}
+      {/* Sidebar */}
       <aside className={`sidebar ${isCollapsed ? "" : "open"}`}>
         <div className="sidebar-header">
           {!isCollapsed && (
@@ -159,7 +205,11 @@ export default function Sidebar() {
           {isAdmin && (
             <>
               <li>
-                <Link to="/datahistory" className="nav-link">
+                <Link
+                  to="/datahistory"
+                  className="nav-link"
+                  onClick={() => goTo("/datahistory")}
+                >
                   <FontAwesomeIcon icon={faHistory} />
                   {!isCollapsed && <span> Dataset History</span>}
                 </Link>
@@ -179,7 +229,7 @@ export default function Sidebar() {
         </ul>
       </aside>
 
-      {/* ✅ Overlay for mobile */}
+      {/* Overlay for mobile */}
       {!isCollapsed && isMobile && (
         <div className="menu-overlay" onClick={toggleSidebar}></div>
       )}

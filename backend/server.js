@@ -70,7 +70,7 @@ app.delete("/api/admin/users/:id", async (req, res) => {
   try {
     const { error } = await supabaseAdmin.auth.admin.deleteUser(req.params.id);
     if (error) throw error;
-    res.json({ success: true, message: "User deleted successfully" });
+    res.json({ success: true, message:  "User deleted successfully" });
   } catch (err) {
     console.error("❌ Delete user failed:", err.message);
     res.status(500).json({ success: false, message: "Failed to delete user" });

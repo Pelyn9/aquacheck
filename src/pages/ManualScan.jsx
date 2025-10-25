@@ -11,7 +11,6 @@ const ManualScan = () => {
 
   const sensors = ["pH Level", "Turbidity", "Temperature", "TDS"];
 
-  // Toggle sensor selection
   const toggleSensor = (sensor) => {
     setSelectedSensors((prev) =>
       prev.includes(sensor)
@@ -20,9 +19,18 @@ const ManualScan = () => {
     );
   };
 
-  // =================== Demo Sensor Status ===================
   const getStatus = (sensor, value) => {
-    if (value === null || value === undefined) return "Unknown";
+    if (
+      value === null ||
+      value === undefined ||
+      (sensor === "pH Level" && value === 7) ||
+      (sensor === "Turbidity" && value === 0) ||
+      (sensor === "Temperature" && value === 0) ||
+      (sensor === "TDS" && value === 0)
+    ) {
+      return "Unknown";
+    }
+
     switch (sensor) {
       case "pH Level":
         if (value >= 6.5 && value <= 8.5) return "Safe";
@@ -47,68 +55,72 @@ const ManualScan = () => {
 
   const getColor = (status) => {
     switch (status) {
-      case "Safe":
-        return "green";
-      case "Moderate":
-        return "orange";
-      case "Unsafe":
-        return "red";
-      default:
-        return "gray";
+      case "Safe": return "green";
+      case "Moderate": return "orange";
+      case "Unsafe": return "red";
+      case "Unknown": return "gray";
+      default: return "gray";
     }
   };
 
-  // =================== Demo Value Generator ===================
-  const generateSensorValue = (sensor) => {
-    switch (sensor) {
-      case "pH Level":
-        return parseFloat((6 + Math.random() * 3).toFixed(2)); // 6-9
-      case "Turbidity":
-        return parseFloat((Math.random() * 12).toFixed(1)); // 0-12
-      case "Temperature":
-        return parseFloat((20 + Math.random() * 15).toFixed(1)); // 20-35°C
-      case "TDS":
-        return parseFloat((200 + Math.random() * 900).toFixed(0)); // 200-1100 ppm
-      default:
-        return null;
+  const fetchSensorData = async () => {
+    const API_URL = "http://aquacheck.local:5000/data";
+    const response = await fetch(API_URL);
+    if (!response.ok) throw new Error("Server unreachable");
+    return await response.json();
+  };
+
+  // Scan selected sensors with 5s delay
+  const handleScan = async () => {
+    if (selectedSensors.length === 0) {
+      setStatus("⚠ Please select at least one sensor.");
+      return;
     }
-  };
 
-  // =================== Scan Functions ===================
-  const handleScan = () => {
-    if (selectedSensors.length === 0) return;
     setScanning(true);
-    setStatus("🔍 Scanning selected sensors...");
+    setStatus("⏳ Fetching selected sensor data... Please wait 5 seconds.");
 
-    setTimeout(() => {
-      const now = new Date().toLocaleString();
-      const newResults = {};
-      selectedSensors.forEach((sensor) => {
-        newResults[sensor] = generateSensorValue(sensor);
-      });
-      setResults({ time: now, ...newResults });
-      setStatus(`Scan complete at ${now}`);
-      setScanning(false);
-    }, 2000);
+    // Wait 5 seconds before fetching real data
+    setTimeout(async () => {
+      try {
+        const data = await fetchSensorData();
+        const now = new Date().toLocaleString();
+        const newResults = {};
+
+        selectedSensors.forEach((sensor) => {
+          switch (sensor) {
+            case "pH Level": newResults[sensor] = data.ph ?? null; break;
+            case "Turbidity": newResults[sensor] = data.turbidity ?? null; break;
+            case "Temperature": newResults[sensor] = data.temperature ?? null; break;
+            case "TDS": newResults[sensor] = data.tds ?? null; break;
+            default: newResults[sensor] = null;
+          }
+        });
+
+        const overall = Object.entries(newResults).reduce((acc, [key, value]) => {
+          const s = getStatus(key, value);
+          if (s === "Unsafe") return "Unsafe";
+          if (s === "Moderate" && acc !== "Unsafe") return "Moderate";
+          if (s === "Unknown" && acc === "Safe") return "Unknown";
+          return acc;
+        }, "Safe");
+
+        setResults({ time: now, overall, ...newResults });
+        setStatus(`✅ Selected data fetched at ${now}`);
+      } catch (error) {
+        console.error(error);
+        setStatus("❌ Failed to fetch selected data. Check your backend.");
+      } finally {
+        setScanning(false);
+      }
+    }, 5000); // 5 seconds delay
   };
 
-  const handleScanAll = () => {
-    setScanning(true);
-    setStatus("🔍 Scanning all sensors...");
-
-    setTimeout(() => {
-      const now = new Date().toLocaleString();
-      const allResults = {};
-      sensors.forEach((sensor) => {
-        allResults[sensor] = generateSensorValue(sensor);
-      });
-      setResults({ time: now, ...allResults });
-      setStatus(`Full scan complete at ${now}`);
-      setScanning(false);
-    }, 2500);
+  const handleScanAll = async () => {
+    setSelectedSensors([...sensors]);
+    await handleScan();
   };
 
-  // =================== Save Function ===================
   const handleSave = async () => {
     if (!results.time) {
       setStatus("⚠ No results to save. Please scan first.");
@@ -117,7 +129,7 @@ const ManualScan = () => {
 
     const { data: { user }, error: userError } = await supabase.auth.getUser();
     if (userError || !user) {
-      setStatus("User not authenticated. Please log in.");
+      setStatus("⚠ User not authenticated. Please log in.");
       return;
     }
 
@@ -130,10 +142,9 @@ const ManualScan = () => {
     };
 
     const { error } = await supabase.from("dataset_history").insert([data]);
-
     if (error) {
-      console.error("Error saving scan:", error.message);
-      setStatus("❌ Failed to save scan. Check RLS policy or DB schema.");
+      console.error(error);
+      setStatus("❌ Failed to save scan.");
     } else {
       setStatus("✅ Scan saved to history!");
     }
@@ -145,11 +156,8 @@ const ManualScan = () => {
       <div className="manualscan-container">
         <div className="manualscan-header">
           <h1>Manual Scan</h1>
-          <p>Select which sensors you want to scan and save manually.<br/>
-          <strong>Auto Scan must be stopped</strong> to enable manual scanning.</p>
         </div>
 
-        {/* Sensor Cards */}
         <div className="sensor-grid">
           {sensors.map((sensor) => (
             <div
@@ -162,7 +170,6 @@ const ManualScan = () => {
           ))}
         </div>
 
-        {/* Buttons */}
         <div className="button-row">
           {selectedSensors.length > 0 && (
             <button className="scan-btn" onClick={handleScan} disabled={scanning}>
@@ -177,29 +184,35 @@ const ManualScan = () => {
           </button>
         </div>
 
-        {/* Results */}
         {results.time && (
           <div className="results-box">
             <h3>Results (at {results.time})</h3>
             <ul>
               {Object.entries(results)
-                .filter(([key]) => key !== "time")
+                .filter(([key]) => !["time", "overall"].includes(key))
                 .map(([key, value]) => (
                   <li key={key} style={{ color: getColor(getStatus(key, value)) }}>
                     <span className="sensor-label">{key}:</span>{" "}
                     <span className="sensor-value">
-                      {value} {key === "Turbidity" ? "NTU" : ""}
-                      {key === "Temperature" ? " °C" : ""}
-                      {key === "TDS" ? " ppm" : ""}
-                      {" → "}{getStatus(key, value)}
+                      {value !== null && value !== undefined ? value : "No Data"}{" "}
+                      {key === "Turbidity" ? "NTU" : ""}
+                      {key === "Temperature" ? "°C" : ""}
+                      {key === "TDS" ? "ppm" : ""}
+                      {" → "}
+                      {getStatus(key, value)}
                     </span>
                   </li>
                 ))}
             </ul>
+            <p>
+              <strong>Overall Result:</strong>{" "}
+              <span style={{ color: getColor(results.overall) }}>{results.overall}</span>
+            </p>
           </div>
         )}
 
         <div className="status-box">{status}</div>
+
         <button className="back-btn" onClick={() => window.history.back()}>
           ⬅ Back to Dashboard
         </button>
