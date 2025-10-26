@@ -9,41 +9,29 @@ const AdminDashboard = () => {
     autoScanRunning,
     startAutoScan,
     stopAutoScan,
-    intervalTime,
-    setIntervalTime,
   } = useContext(AutoScanContext);
 
+  const FIXED_INTERVAL = 900000; // 15 minutes in ms
+
   const [sensorData, setSensorData] = useState({
-    ph: localStorage.getItem("ph") || "N/A",
-    turbidity: localStorage.getItem("turbidity") || "N/A",
-    temp: localStorage.getItem("temp") || "N/A",
-    tds: localStorage.getItem("tds") || "N/A",
+    ph: "N/A",
+    turbidity: "N/A",
+    temp: "N/A",
+    tds: "N/A",
   });
 
   const [status, setStatus] = useState("Awaiting sensor data...");
-  const [, setMasterPassword] = useState("");
-  const [countdown, setCountdown] = useState(intervalTime / 1000);
+  const [countdown, setCountdown] = useState(FIXED_INTERVAL / 1000);
 
   const countdownRef = useRef(null);
   const liveIntervalRef = useRef(null);
   const isScanning = useRef(false);
   const hasSaved = useRef(false);
 
-  // 🧠 Master Password setup
-  useEffect(() => {
-    const storedPass = localStorage.getItem("masterPassword");
-    if (storedPass) setMasterPassword(storedPass);
-    else {
-      const defaultPass = "watercheck123";
-      localStorage.setItem("masterPassword", defaultPass);
-      setMasterPassword(defaultPass);
-    }
-  }, []);
-
-  // ✅ Fetch data from ESP32 (local) → fallback to Vercel
+  // ✅ Fetch data from ESP32 → fallback to Vercel
   const fetchSensorData = useCallback(async () => {
     try {
-      // --- Try Local ESP32 ---
+      // Try Local ESP32
       const localResponse = await fetch("http://aquacheck.local:5000/data");
       if (!localResponse.ok) throw new Error("ESP32 not reachable");
 
@@ -56,20 +44,15 @@ const AdminDashboard = () => {
       };
 
       setSensorData(newData);
-      Object.keys(newData).forEach((key) => localStorage.setItem(key, newData[key]));
-      setStatus("✅ Data fetched from local ESP32 successfully.");
-      console.log("✅ Local ESP32 data:", newData);
+      setStatus("✅ Data fetched from ESP32 successfully.");
       return newData;
 
-    } catch (localError) {
+    } catch {
       console.warn("⚠️ Local ESP32 not reachable, trying Vercel backup...");
-
       try {
-        // --- Try Vercel Backup ---
         const cloudResponse = await fetch("https://aquachecklive.vercel.app/api/data");
         const text = await cloudResponse.text();
 
-        // 🧩 Validate JSON response to avoid “Unexpected token '<'”
         let cloudData;
         try {
           cloudData = JSON.parse(text);
@@ -85,9 +68,7 @@ const AdminDashboard = () => {
         };
 
         setSensorData(newData);
-        Object.keys(newData).forEach((key) => localStorage.setItem(key, newData[key]));
         setStatus("🌐 Data fetched from Vercel backup successfully.");
-        console.log("🌐 Vercel backup data:", newData);
         return newData;
 
       } catch (cloudError) {
@@ -98,7 +79,7 @@ const AdminDashboard = () => {
     }
   }, []);
 
-  // 🧭 Manual Save
+  // 💾 Manual Save
   const handleSave = useCallback(async () => {
     try {
       if (Object.values(sensorData).every((v) => v === "N/A")) {
@@ -106,8 +87,8 @@ const AdminDashboard = () => {
         return;
       }
 
-      const { data: { user }, error: userError } = await supabase.auth.getUser();
-      if (userError || !user) {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
         setStatus("⚠ User not authenticated. Please log in.");
         return;
       }
@@ -130,7 +111,7 @@ const AdminDashboard = () => {
     }
   }, [sensorData]);
 
-  // 🧠 Auto Save (once per interval)
+  // 🤖 Auto Save (every 15 min)
   const handleAutoSave = useCallback(async () => {
     if (!isScanning.current || hasSaved.current) return;
     hasSaved.current = true;
@@ -142,8 +123,8 @@ const AdminDashboard = () => {
     }
 
     try {
-      const { data: { user }, error: userError } = await supabase.auth.getUser();
-      if (userError || !user) {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
         setStatus("⚠ User not authenticated. Auto-save skipped.");
         return;
       }
@@ -175,23 +156,30 @@ const AdminDashboard = () => {
     isScanning.current = false;
     hasSaved.current = false;
 
-    setCountdown(intervalTime / 1000);
-    setStatus("🛑 Auto Scan stopped. Countdown paused.");
-  }, [intervalTime]);
+    // Reset countdown and sensor values
+    setCountdown(FIXED_INTERVAL / 1000);
+    setSensorData({
+      ph: "N/A",
+      turbidity: "N/A",
+      temp: "N/A",
+      tds: "N/A",
+    });
+    setStatus("🛑 Auto Scan stopped. All sensors reset to N/A.");
+  }, []);
 
-  // 🔁 Start Auto Scan (15 minutes)
+  // 🔁 Start Auto Scan
   const startContinuousAutoScan = useCallback(() => {
     stopContinuousAutoScan();
     isScanning.current = true;
     hasSaved.current = false;
-    setCountdown(intervalTime / 1000);
+    setCountdown(FIXED_INTERVAL / 1000);
 
     countdownRef.current = setInterval(() => {
       setCountdown((prev) => {
         if (prev <= 1) {
-          if (!hasSaved.current) handleAutoSave();
+          handleAutoSave();
           setTimeout(() => { hasSaved.current = false; }, 1000);
-          return intervalTime / 1000;
+          return FIXED_INTERVAL / 1000;
         }
         return prev - 1;
       });
@@ -199,7 +187,7 @@ const AdminDashboard = () => {
 
     liveIntervalRef.current = setInterval(fetchSensorData, 1000);
     setStatus("🔄 Auto Scan started (every 15 minutes)...");
-  }, [fetchSensorData, handleAutoSave, intervalTime, stopContinuousAutoScan]);
+  }, [fetchSensorData, handleAutoSave, stopContinuousAutoScan]);
 
   const toggleAutoScan = useCallback(() => {
     if (autoScanRunning) {
@@ -211,29 +199,16 @@ const AdminDashboard = () => {
     }
   }, [autoScanRunning, stopAutoScan, stopContinuousAutoScan, startAutoScan, startContinuousAutoScan, handleAutoSave]);
 
-  // 🎨 Status color
+  // 🎨 Sensor status color
   const getSensorStatus = (type, value) => {
     if (value === "N/A") return "";
     const val = parseFloat(value);
     switch (type) {
-      case "ph":
-        if (val >= 6.5 && val <= 8.5) return "safe";
-        if ((val >= 6 && val < 6.5) || (val > 8.5 && val <= 9)) return "moderate";
-        return "unsafe";
-      case "turbidity":
-        if (val <= 5) return "safe";
-        if (val > 5 && val <= 10) return "moderate";
-        return "unsafe";
-      case "temp":
-        if (val >= 24 && val <= 32) return "safe";
-        if ((val >= 20 && val < 24) || (val > 32 && val <= 35)) return "moderate";
-        return "unsafe";
-      case "tds":
-        if (val <= 500) return "safe";
-        if (val > 500 && val <= 1000) return "moderate";
-        return "unsafe";
-      default:
-        return "";
+      case "ph": return val >= 6.5 && val <= 8.5 ? "safe" : val < 6.5 || val > 8.5 ? "unsafe" : "";
+      case "turbidity": return val <= 5 ? "safe" : val <= 10 ? "moderate" : "unsafe";
+      case "temp": return val >= 24 && val <= 32 ? "safe" : "unsafe";
+      case "tds": return val <= 500 ? "safe" : "unsafe";
+      default: return "";
     }
   };
 
@@ -252,20 +227,13 @@ const AdminDashboard = () => {
         <section className="scan-controls">
           <div className="interval-setting">
             <label htmlFor="scanInterval">Set Auto Scan Interval:</label>
-            <select
-              id="scanInterval"
-              value={intervalTime}
-              onChange={(e) => setIntervalTime(Number(e.target.value))}
-              disabled={autoScanRunning}
-            >
-              <option value={900000}>Every 15 Minutes</option>
+            <select id="scanInterval" value={FIXED_INTERVAL} disabled>
+              <option value={FIXED_INTERVAL}>Every 15 Minutes</option>
             </select>
           </div>
 
           <div className="button-group">
-            <button className="save-btn" onClick={handleSave}>
-              Save
-            </button>
+            <button className="save-btn" onClick={handleSave}>Save</button>
             <button
               className={`start-stop-btn ${autoScanRunning ? "stop" : "start"}`}
               onClick={toggleAutoScan}
