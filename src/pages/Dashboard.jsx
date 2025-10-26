@@ -50,7 +50,7 @@ const AdminDashboard = () => {
     } catch {
       console.warn("⚠️ Local ESP32 not reachable, trying Vercel backup...");
       try {
-        const cloudResponse = await fetch("https://aquachecklive.vercel.app/api/data");
+        const cloudResponse = await fetch("https://aquacheck-7wptyeexe-peejay-marcos-projects.vercel.app/api/data");
         const text = await cloudResponse.text();
 
         let cloudData;

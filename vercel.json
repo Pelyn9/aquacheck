@@ -5,14 +5,15 @@
       "src": "package.json",
       "use": "@vercel/static-build",
       "config": { "distDir": "build" }
-    },
-    {
-      "src": "src/pages/api/**/*.js",
-      "use": "@vercel/node"
     }
   ],
-  "rewrites": [
-    { "source": "/api/(.*)", "destination": "/src/pages/api/$1.js" },
-    { "source": "/(.*)", "destination": "/index.html" }
+  "routes": [
+    {
+      "handle": "filesystem"
+    },
+    {
+      "src": "/.*",
+      "dest": "/index.html"
+    }
   ]
 }
