@@ -1,6 +1,5 @@
 import React, { useState } from "react";
 import Sidebar from "../components/Sidebar";
-import { supabase } from "../supabaseClient";
 import "../assets/manualscan.css";
 
 const ManualScan = () => {
@@ -70,7 +69,6 @@ const ManualScan = () => {
     return await response.json();
   };
 
-  // Scan selected sensors with 5s delay
   const handleScan = async () => {
     if (selectedSensors.length === 0) {
       setStatus("⚠ Please select at least one sensor.");
@@ -80,7 +78,6 @@ const ManualScan = () => {
     setScanning(true);
     setStatus("⏳ Fetching selected sensor data... Please wait 5 seconds.");
 
-    // Wait 5 seconds before fetching real data
     setTimeout(async () => {
       try {
         const data = await fetchSensorData();
@@ -113,41 +110,12 @@ const ManualScan = () => {
       } finally {
         setScanning(false);
       }
-    }, 5000); // 5 seconds delay
+    }, 5000);
   };
 
   const handleScanAll = async () => {
     setSelectedSensors([...sensors]);
     await handleScan();
-  };
-
-  const handleSave = async () => {
-    if (!results.time) {
-      setStatus("⚠ No results to save. Please scan first.");
-      return;
-    }
-
-    const { data: { user }, error: userError } = await supabase.auth.getUser();
-    if (userError || !user) {
-      setStatus("⚠ User not authenticated. Please log in.");
-      return;
-    }
-
-    const data = {
-      user_id: user.id,
-      ph: results["pH Level"] ?? null,
-      turbidity: results["Turbidity"] ?? null,
-      temperature: results["Temperature"] ?? null,
-      tds: results["TDS"] ?? null,
-    };
-
-    const { error } = await supabase.from("dataset_history").insert([data]);
-    if (error) {
-      console.error(error);
-      setStatus("❌ Failed to save scan.");
-    } else {
-      setStatus("✅ Scan saved to history!");
-    }
   };
 
   return (
@@ -178,9 +146,6 @@ const ManualScan = () => {
           )}
           <button className="scan-all-btn" onClick={handleScanAll} disabled={scanning}>
             Scan All
-          </button>
-          <button className="save-btn" onClick={handleSave} disabled={!results.time}>
-            Save Results
           </button>
         </div>
 
@@ -214,7 +179,7 @@ const ManualScan = () => {
         <div className="status-box">{status}</div>
 
         <button className="back-btn" onClick={() => window.history.back()}>
-          ⬅ Back to Dashboard
+          ⬅ Back to Master Admin 
         </button>
       </div>
     </div>

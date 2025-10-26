@@ -1,12 +1,10 @@
 import React, { useState, useEffect, useContext, useRef, useCallback } from "react";
-import { useNavigate } from "react-router-dom";
 import Sidebar from "../components/Sidebar";
 import "../assets/databoard.css";
 import { AutoScanContext } from "../context/AutoScanContext";
 import { supabase } from "../supabaseClient";
 
 const AdminDashboard = () => {
-  const navigate = useNavigate();
   const {
     autoScanRunning,
     startAutoScan,
@@ -34,19 +32,23 @@ const AdminDashboard = () => {
   // Master Password setup
   useEffect(() => {
     const storedPass = localStorage.getItem("masterPassword");
-    if (storedPass) {
-      setMasterPassword(storedPass);
-    } else {
+    if (storedPass) setMasterPassword(storedPass);
+    else {
       const defaultPass = "watercheck123";
       localStorage.setItem("masterPassword", defaultPass);
       setMasterPassword(defaultPass);
     }
   }, []);
 
-  // Fetch data from ESP32
+  // ✅ Fetch data from ESP32 (local) or Vercel (online backup)
   const fetchSensorData = useCallback(async () => {
     try {
-      const response = await fetch("http://aquacheck.local:5000/data");
+      // --- Try Local ESP32 First ---
+      const response = await fetch("http://aquacheck.local:5000/data", {
+        method: "GET",
+        headers: { "Content-Type": "application/json" },
+      });
+
       if (!response.ok) throw new Error("ESP32 not reachable");
 
       const data = await response.json();
@@ -58,17 +60,47 @@ const AdminDashboard = () => {
       };
 
       setSensorData(newData);
-      Object.keys(newData).forEach((key) =>
-        localStorage.setItem(key, newData[key])
-      );
+      Object.keys(newData).forEach((key) => localStorage.setItem(key, newData[key]));
+      setStatus("✅ Data fetched from local ESP32 successfully.");
 
+      console.log("✅ Local ESP32 data:", newData);
       return newData;
-    } catch (error) {
-      console.error("❌ Error fetching sensor data:", error);
-      setStatus("❌ Failed to fetch data. Check ESP32 or Wi-Fi connection.");
-      return null;
+
+    } catch (localError) {
+      console.warn("⚠️ Local ESP32 not reachable, trying Vercel backup...");
+
+      try {
+        // --- Try Vercel Backup ---
+        const cloudResponse = await fetch("https://aquachecklive.vercel.app/api/data", {
+          method: "GET",
+          headers: { "Content-Type": "application/json" },
+        });
+
+        if (!cloudResponse.ok) throw new Error("Vercel server not reachable");
+
+        const cloudData = await cloudResponse.json();
+        const newData = {
+          ph: cloudData.ph ? parseFloat(cloudData.ph).toFixed(2) : "N/A",
+          turbidity: cloudData.turbidity ? parseFloat(cloudData.turbidity).toFixed(1) : "N/A",
+          temp: cloudData.temperature ? parseFloat(cloudData.temperature).toFixed(1) : "N/A",
+          tds: cloudData.tds ? parseFloat(cloudData.tds).toFixed(0) : "N/A",
+        };
+
+        setSensorData(newData);
+        Object.keys(newData).forEach((key) => localStorage.setItem(key, newData[key]));
+        setStatus("🌐 Data fetched from Vercel backup successfully.");
+
+        console.log("🌐 Vercel backup data:", newData);
+        return newData;
+
+      } catch (cloudError) {
+        console.error("❌ Both ESP32 and Vercel fetch failed:", cloudError);
+        setStatus("❌ Failed to fetch data from both sources.");
+        return null;
+      }
     }
   }, []);
+
 
   // Manual Save
   const handleSave = useCallback(async () => {
@@ -105,7 +137,7 @@ const AdminDashboard = () => {
   // Auto Save (once per interval)
   const handleAutoSave = useCallback(async () => {
     if (!isScanning.current || hasSaved.current) return;
-    hasSaved.current = true; // mark as saved once
+    hasSaved.current = true;
 
     const newData = await fetchSensorData();
     if (!newData || Object.values(newData).every((v) => v === "N/A")) {
@@ -160,33 +192,25 @@ const AdminDashboard = () => {
 
   // Start Auto Scan
   const startContinuousAutoScan = useCallback(() => {
-  stopContinuousAutoScan();
-  isScanning.current = true;
-  hasSaved.current = false;
-  setCountdown(intervalTime / 1000);
+    stopContinuousAutoScan();
+    isScanning.current = true;
+    hasSaved.current = false;
+    setCountdown(intervalTime / 1000);
 
-    // Countdown timer
     countdownRef.current = setInterval(() => {
-    setCountdown((prev) => {
-      if (prev <= 1) {
-        if (!hasSaved.current) {
-          handleAutoSave(); // ✅ save once
-          hasSaved.current = true; // prevent duplicate save
+      setCountdown((prev) => {
+        if (prev <= 1) {
+          if (!hasSaved.current) handleAutoSave();
+          setTimeout(() => { hasSaved.current = false; }, 1000);
+          return intervalTime / 1000;
         }
-        setTimeout(() => {
-          hasSaved.current = false; // reset flag *after* interval restarts
-        }, 1000); // small delay to avoid double trigger
-        return intervalTime / 1000; // reset countdown
-      }
-      return prev - 1;
-    });
-  }, 1000);
+        return prev - 1;
+      });
+    }, 1000);
 
-    // Live update every second
     liveIntervalRef.current = setInterval(fetchSensorData, 1000);
-
-     setStatus(`🔄 Auto Scan started (every ${intervalTime / 60000} mins)...`);
-}, [fetchSensorData, handleAutoSave, intervalTime, stopContinuousAutoScan]);
+    setStatus(`🔄 Auto Scan started (every ${intervalTime / 900000} mins)...`);
+  }, [fetchSensorData, handleAutoSave, intervalTime, stopContinuousAutoScan]);
 
   // Toggle Auto Scan
   const toggleAutoScan = useCallback(() => {
@@ -198,12 +222,6 @@ const AdminDashboard = () => {
       startContinuousAutoScan();
     }
   }, [autoScanRunning, stopAutoScan, stopContinuousAutoScan, startAutoScan, startContinuousAutoScan, handleAutoSave]);
-
-  // Manual Scan redirect
-  const handleManualScanClick = useCallback(() => {
-    if (!autoScanRunning) navigate("/manual-scan");
-    else setStatus("⚠️ Stop Auto Scan before using Manual Scan.");
-  }, [autoScanRunning, navigate]);
 
   // Status color logic
   const getSensorStatus = (type, value) => {
@@ -231,7 +249,6 @@ const AdminDashboard = () => {
     }
   };
 
-
   useEffect(() => {
     return () => stopContinuousAutoScan();
   }, [stopContinuousAutoScan]);
@@ -253,24 +270,11 @@ const AdminDashboard = () => {
               onChange={(e) => setIntervalTime(Number(e.target.value))}
               disabled={autoScanRunning}
             >
-              <option value={60000}>Every 1 Minute</option>
-              <option value={1800000}>Every 30 Minutes</option>
-              <option value={3600000}>Every 1 Hour</option>
-              <option value={7200000}>Every 2 Hours</option>
-              <option value={10800000}>Every 3 Hours</option>
-              <option value={14400000}>Every 4 Hours</option>
-              <option value={86400000}>Every 24 Hours</option>
+              <option value={900000}>Every 15 Minutes</option>
             </select>
           </div>
 
           <div className="button-group">
-            <button
-              className={`manual-scan-btn ${autoScanRunning ? "disabled" : ""}`}
-              onClick={handleManualScanClick}
-              disabled={autoScanRunning}
-            >
-              Manual Scan
-            </button>
             <button className="save-btn" onClick={handleSave}>
               Save
             </button>
@@ -295,17 +299,9 @@ const AdminDashboard = () => {
               <h3>{key.toUpperCase()}</h3>
               <p>
                 {sensorData[key]}{" "}
-                {key === "turbidity"
-                  ? "NTU"
-                  : key === "temp"
-                  ? "°C"
-                  : key === "tds"
-                  ? "ppm"
-                  : ""}
+                {key === "turbidity" ? "NTU" : key === "temp" ? "°C" : key === "tds" ? "ppm" : ""}
               </p>
-              <p className="status-label">
-                {getSensorStatus(key, sensorData[key]).toUpperCase()}
-              </p>
+              <p className="status-label">{getSensorStatus(key, sensorData[key]).toUpperCase()}</p>
             </div>
           ))}
         </section>

@@ -1,4 +1,5 @@
 #include <WiFi.h>
+#include <WiFiManager.h>   // ✅ Use this instead of AutoConnect
 #include <HTTPClient.h>
 #include <OneWire.h>
 #include <DallasTemperature.h>
@@ -12,10 +13,9 @@
 #define PH_PIN 34
 #define TURBIDITY_PIN 32
 
-// ---------------- WIFI CONFIG ----------------
-const char* ssid = "HONOR X9b 5G";
-const char* password = "charlynmae";
-const char* flaskServer = "http://aquacheck.local:5000/upload";
+// ---------------- SERVER CONFIG ----------------
+const char* localServer = "http://aquacheck.local:5000/upload";  // 🏠 Local Flask
+const char* cloudServer = "https://aquachecklive.vercel.app/api/upload";  // ☁️ Online version
 
 // ---------------- SENSOR OBJECTS ----------------
 OneWire oneWire(ONE_WIRE_BUS);
@@ -50,7 +50,6 @@ float readTDS(float temp) {
 }
 
 // ---------------- READ TURBIDITY FUNCTION ----------------
-// Accurate NTU formula for DFRobot SEN0189-type sensors
 float readTurbidity() {
   const int samples = 10;
   float sumVoltage = 0;
@@ -63,61 +62,48 @@ float readTurbidity() {
   }
 
   float avgVoltage = sumVoltage / samples;
-
-  // DFRobot calibration formula
   float turbidity = -1120.4 * sq(avgVoltage) + 5742.3 * avgVoltage - 4352.9;
-
-  if (turbidity < 0) turbidity = 0;  // prevent negative NTU
+  if (turbidity < 0) turbidity = 0;
   return turbidity;
 }
 
-// ---------------- UPLOAD TO FLASK SERVER ----------------
-void uploadToFlask() {
+// ---------------- UPLOAD TO BOTH SERVERS ----------------
+void uploadToServers() {
   if (WiFi.status() != WL_CONNECTED) {
     Serial.println("⚠️ Wi-Fi not connected, skipping upload...");
     return;
   }
 
   HTTPClient http;
-  http.begin(flaskServer);
-  http.addHeader("Content-Type", "application/json");
-
   String jsonData = "{\"ph\":" + String(phValue, 2) +
                     ",\"turbidity\":" + String(turbidityValue, 2) +
                     ",\"temperature\":" + String(temperature, 2) +
                     ",\"tds\":" + String(tdsValue, 2) + "}";
 
-  Serial.println("🌐 Sending JSON: " + jsonData);
-  int httpCode = http.POST(jsonData);
+  struct ServerTarget {
+    const char* name;
+    const char* url;
+  };
 
-  if (httpCode > 0) {
-    Serial.println("✅ Sent! HTTP code: " + String(httpCode));
-  } else {
-    Serial.println("❌ Upload failed: " + String(httpCode));
-  }
+  ServerTarget servers[] = {
+    {"Local Flask", localServer},
+    {"Cloud Vercel", cloudServer}
+  };
 
-  http.end();
-}
+  for (auto &target : servers) {
+    http.begin(target.url);
+    http.addHeader("Content-Type", "application/json");
 
-// ---------------- WIFI AUTO RECONNECT ----------------
-void ensureWiFiConnected() {
-  if (WiFi.status() != WL_CONNECTED) {
-    Serial.println("📡 Reconnecting Wi-Fi...");
-    WiFi.disconnect();
-    WiFi.begin(ssid, password);
+    Serial.println("🌐 Sending to " + String(target.name) + ": " + target.url);
+    int httpCode = http.POST(jsonData);
 
-    int attempts = 0;
-    while (WiFi.status() != WL_CONNECTED && attempts < 20) {
-      delay(500);
-      Serial.print(".");
-      attempts++;
-    }
-
-    if (WiFi.status() == WL_CONNECTED) {
-      Serial.println("\n✅ Reconnected to Wi-Fi!");
+    if (httpCode > 0) {
+      Serial.printf("✅ %s response: %d\n", target.name, httpCode);
     } else {
-      Serial.println("\n❌ Wi-Fi reconnect failed.");
+      Serial.printf("❌ %s failed (code: %d)\n", target.name, httpCode);
     }
+
+    http.end();
   }
 }
 
@@ -127,36 +113,29 @@ void setup() {
   delay(1000);
   Serial.println("🔧 AquaCheck System Booting...");
 
-  EEPROM.begin(32);     // Required for pH sensor calibration
+  EEPROM.begin(32);
   sensors.begin();
   ph.begin();
 
-  WiFi.mode(WIFI_STA);
-  WiFi.begin(ssid, password);
+  // ---------------- WIFI CONFIGURATION ----------------
+  WiFiManager wm;
+  wm.setConfigPortalTimeout(180);  // portal active for 3 mins if no connect
 
-  Serial.print("🔌 Connecting to Wi-Fi");
-  int retry = 0;
-  while (WiFi.status() != WL_CONNECTED && retry < 40) {
-    delay(500);
-    Serial.print(".");
-    retry++;
+  // Custom AP name and password
+  if (!wm.autoConnect("AquaCheck-Setup", "aquacheck4dmin")) {
+    Serial.println("⚠️ Failed to connect or timeout — restarting...");
+    delay(3000);
+    ESP.restart();
   }
 
-  if (WiFi.status() == WL_CONNECTED) {
-    Serial.println("\n✅ Wi-Fi Connected!");
-    Serial.print("📶 IP Address: ");
-    Serial.println(WiFi.localIP());
-  } else {
-    Serial.println("\n❌ Failed to connect to Wi-Fi.");
-  }
-
+  Serial.println("✅ Wi-Fi connected!");
+  Serial.print("📶 IP Address: ");
+  Serial.println(WiFi.localIP());
   Serial.println("✅ Initialization complete.\n");
 }
 
 // ---------------- MAIN LOOP ----------------
 void loop() {
-  ensureWiFiConnected();
-
   // --- TEMPERATURE ---
   sensors.requestTemperatures();
   temperature = sensors.getTempCByIndex(0);
@@ -184,8 +163,9 @@ void loop() {
   Serial.printf("🌫 Turbidity: %.2f NTU\n", turbidityValue);
   Serial.println("-------------------------------------------------\n");
 
-  // --- UPLOAD DATA ---
-  uploadToFlask();
+  // --- UPLOAD DATA (Local + Online) ---
+  uploadToServers();
 
-  delay(1000);
+  // --- AUTO SCAN INTERVAL ---
+  delay(1000); // 🕒 Set Auto Scan Interval (change this if needed)
 }

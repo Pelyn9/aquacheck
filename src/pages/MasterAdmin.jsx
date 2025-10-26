@@ -1,18 +1,17 @@
 // src/pages/MasterAdmin.jsx
 import React, { useState, useEffect, useContext, useCallback } from "react";
+import { useNavigate } from "react-router-dom";
 import Sidebar from "../components/Sidebar";
 import { AdminContext } from "../App";
 import "../assets/masteradmin.css";
+import { FaBars } from "react-icons/fa";
 
-// 🌐 Auto-detect environment or use .env config
 const API_BASE =
   process.env.REACT_APP_API_URL && process.env.REACT_APP_API_URL.trim() !== ""
-    ? `${process.env.REACT_APP_API_URL}/api/admin` // ✅ from .env if available
+    ? `${process.env.REACT_APP_API_URL}/api/admin`
     : window.location.hostname === "localhost"
-    ? "http://localhost:4000/api/admin"             // ✅ Local backend (development)
-    : "https://aquachecklive.vercel.app/api/admin"; // ✅ Vercel backend (production)
-
-console.log("🔗 Connected to API:", API_BASE);
+    ? "http://localhost:4000/api/admin"
+    : "https://aquachecklive.vercel.app/api/admin";
 
 const MasterAdmin = () => {
   const { isAdmin } = useContext(AdminContext);
@@ -21,14 +20,12 @@ const MasterAdmin = () => {
   const [loading, setLoading] = useState(false);
   const [opId, setOpId] = useState(null);
 
-  // Secret Admin Password Modal
   const [showPasswordModal, setShowPasswordModal] = useState(false);
   const [newPassword, setNewPassword] = useState("");
   const [currentKeyInput, setCurrentKeyInput] = useState("");
   const [passwordMessage, setPasswordMessage] = useState("");
   const [showSecretPassword, setShowSecretPassword] = useState(false);
 
-  // Master Admin Access Modal
   const defaultMasterPassword = "watercheck123";
   const [showAccessModal, setShowAccessModal] = useState(false);
   const [currentMasterPassword, setCurrentMasterPassword] = useState(
@@ -38,7 +35,15 @@ const MasterAdmin = () => {
   const [showMasterPassword, setShowMasterPassword] = useState(false);
   const [masterMessage, setMasterMessage] = useState("");
 
-  // Initialize Master Password
+  const [showMenu, setShowMenu] = useState(false);
+
+  const navigate = useNavigate();
+
+  const handleManualScanClick = () => {
+    navigate("/manual-scan");
+    setShowMenu(false);
+  };
+
   const initializeMasterPassword = async () => {
     const localPass = localStorage.getItem("masterPassword");
     if (!localPass) {
@@ -48,7 +53,7 @@ const MasterAdmin = () => {
 
     try {
       const res = await fetch(`${API_BASE}/master-password`, { cache: "no-store" });
-      if (!res.ok) return; // backend might not respond yet
+      if (!res.ok) return;
       const data = await res.json().catch(() => ({}));
       if (data.password) setCurrentMasterPassword(data.password);
     } catch (err) {
@@ -60,14 +65,12 @@ const MasterAdmin = () => {
     initializeMasterPassword();
   }, []);
 
-  // Utility
   const safeDate = (d) => {
     if (!d) return "—";
     const t = new Date(d);
     return isNaN(t.getTime()) ? "—" : t.toLocaleString();
   };
 
-  // ✅ FIXED Fetch Users
   const fetchUsers = useCallback(async () => {
     if (!isAdmin) return;
     setLoading(true);
@@ -80,26 +83,12 @@ const MasterAdmin = () => {
         cache: "no-store",
       });
 
-      if (!res.ok) {
-        const text = await res.text();
-        throw new Error(`Server error (${res.status}): ${text}`);
-      }
+      if (!res.ok) throw new Error(`Server error (${res.status})`);
 
-      let data;
-      const contentType = res.headers.get("content-type");
-      if (contentType && contentType.includes("application/json")) {
-        data = await res.json();
-      } else {
-        throw new Error("Unexpected response format from server");
-      }
-
-      if (Array.isArray(data.users)) {
-        setUsers(data.users);
-      } else if (Array.isArray(data)) {
-        setUsers(data);
-      } else {
-        throw new Error("Invalid user data format");
-      }
+      const data = await res.json();
+      if (Array.isArray(data.users)) setUsers(data.users);
+      else if (Array.isArray(data)) setUsers(data);
+      else throw new Error("Invalid user data format");
     } catch (e) {
       console.error("Error fetching users:", e);
       setError("Failed to fetch users: " + e.message);
@@ -112,20 +101,16 @@ const MasterAdmin = () => {
     if (isAdmin) fetchUsers();
   }, [isAdmin, fetchUsers]);
 
-  // User Actions
   const handleDelete = async (userId) => {
-    if (!window.confirm("Delete this user? This cannot be undone.")) return;
+    if (!window.confirm("Delete this user?")) return;
     setOpId(userId);
     try {
       const res = await fetch(`${API_BASE}/users/${userId}`, { method: "DELETE" });
-      if (!res.ok) {
-        const errData = await res.json().catch(() => ({}));
-        throw new Error(errData.error || "Failed to delete user");
-      }
+      if (!res.ok) throw new Error("Failed to delete user");
       setUsers((prev) => prev.filter((u) => u.id !== userId));
     } catch (e) {
       console.error(e);
-      setError("Unexpected error deleting user: " + e.message);
+      setError("Error deleting user: " + e.message);
     } finally {
       setOpId(null);
     }
@@ -139,10 +124,7 @@ const MasterAdmin = () => {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ enable: !currentlyDisabled }),
       });
-      if (!res.ok) {
-        const errData = await res.json().catch(() => ({}));
-        throw new Error(errData.error || "Failed to toggle user status");
-      }
+      if (!res.ok) throw new Error("Failed to update user status");
       await fetchUsers();
     } catch (e) {
       console.error(e);
@@ -152,7 +134,6 @@ const MasterAdmin = () => {
     }
   };
 
-  // Secret Admin Password
   const handlePasswordChange = async () => {
     if (!newPassword.trim()) return setPasswordMessage("Password cannot be empty.");
     if (!currentKeyInput.trim()) return setPasswordMessage("Current key is required.");
@@ -164,14 +145,7 @@ const MasterAdmin = () => {
         body: JSON.stringify({ oldKey: currentKeyInput, newKey: newPassword.trim() }),
       });
 
-      const contentType = res.headers.get("content-type");
-      let result = contentType && contentType.includes("application/json")
-        ? await res.json()
-        : {};
-
-      if (!res.ok) {
-        throw new Error(result.error || "Failed to change password");
-      }
+      if (!res.ok) throw new Error("Failed to change password");
 
       setPasswordMessage("Secret admin password changed!");
       setNewPassword("");
@@ -182,15 +156,15 @@ const MasterAdmin = () => {
       }, 1200);
     } catch (err) {
       console.error(err);
-      setPasswordMessage("Failed to change password: " + err.message);
+      setPasswordMessage("Error: " + err.message);
     }
   };
 
-  // Master Admin Password
   const handleMasterUpdate = async () => {
-    if (!editedMasterPassword.trim()) return setMasterMessage("Please enter a new master password.");
-    const newPass = editedMasterPassword.trim();
+    if (!editedMasterPassword.trim())
+      return setMasterMessage("Please enter a new master password.");
 
+    const newPass = editedMasterPassword.trim();
     try {
       localStorage.setItem("masterPassword", newPass);
       setCurrentMasterPassword(newPass);
@@ -201,10 +175,7 @@ const MasterAdmin = () => {
         body: JSON.stringify({ password: newPass }),
       });
 
-      if (!res.ok) {
-        const result = await res.json().catch(() => ({}));
-        throw new Error(result.error || "Failed to update master password in DB");
-      }
+      if (!res.ok) throw new Error("Failed to update master password");
 
       window.dispatchEvent(new CustomEvent("masterPasswordUpdated", { detail: { newPass } }));
       setMasterMessage("Master Admin password updated!");
@@ -212,12 +183,12 @@ const MasterAdmin = () => {
       setTimeout(() => setShowAccessModal(false), 1200);
     } catch (e) {
       console.error("Failed to save master password", e);
-      setMasterMessage("Failed to update master password: " + e.message);
+      setMasterMessage("Error: " + e.message);
     }
   };
 
-  // Render
-  if (!isAdmin) return <p style={{ textAlign: "center", color: "red" }}>Access Denied</p>;
+  if (!isAdmin)
+    return <p style={{ textAlign: "center", color: "red" }}>Access Denied</p>;
 
   return (
     <div className="container masteradmin-container">
@@ -226,22 +197,31 @@ const MasterAdmin = () => {
         <h1>Master Admin - Auth Users</h1>
         {error && <p className="masteradmin-error">{error}</p>}
 
-        {/* Controls */}
-        <div className="card">
+        <div className="card" style={{ display: "flex", alignItems: "center", gap: "100px" }}>
+          <FaBars
+            style={{ fontSize: "22px", cursor: "pointer" }}
+            onClick={() => setShowMenu(!showMenu)}
+            title="Menu"
+          />
           <button className="btn-primary" onClick={() => setShowPasswordModal(true)}>
             Change Secret Admin Password
           </button>
-          <button
-            className="btn-primary"
-            style={{ marginLeft: "10px" }}
-            onClick={() => setShowAccessModal(true)}
-          >
+          <button className="btn-primary" onClick={() => setShowAccessModal(true)}>
             Master Admin Access
           </button>
           <button className="btn" onClick={fetchUsers} disabled={loading}>
             {loading ? "Refreshing..." : "↻ Refresh"}
           </button>
         </div>
+
+        {showMenu && (
+          <div className="card" style={{ marginTop: "10px" }}>
+            {/* Manual Scan button styled like Master Admin Access */}
+            <button className="btn-primary" onClick={handleManualScanClick}>
+              🛠 Manual Scan
+            </button>
+          </div>
+        )}
 
         {/* Users Table */}
         <div className="card">
@@ -304,7 +284,7 @@ const MasterAdmin = () => {
           </table>
         </div>
 
-        {/* Secret Admin Modal */}
+        {/* Modals */}
         {showPasswordModal && (
           <div className="modal-backdrop">
             <div className="modal">
@@ -343,7 +323,6 @@ const MasterAdmin = () => {
           </div>
         )}
 
-        {/* Master Admin Modal */}
         {showAccessModal && (
           <div className="modal-backdrop">
             <div className="modal">
@@ -351,7 +330,6 @@ const MasterAdmin = () => {
               <p>
                 Current Master Password: <strong>{currentMasterPassword || "Not set"}</strong>
               </p>
-
               <input
                 type={showMasterPassword ? "text" : "password"}
                 placeholder="Enter new master password"
