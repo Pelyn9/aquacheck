@@ -1,22 +1,18 @@
 export default async function handler(req, res) {
-  if (req.method === "POST") {
-    try {
-      const { ph, turbidity, temperature, tds } = req.body;
+  // ✅ Only allow POST requests
+  if (req.method !== "POST") {
+    return res.status(405).json({ error: "Method Not Allowed" });
+  }
 
-      console.log("📩 Data received from ESP32:", req.body);
+  try {
+    const data = req.body;
+    console.log("📥 Received data from ESP32:", data);
 
-      // You can later add Supabase insert logic here if needed
+    // Optional: Save to Supabase or your database here
 
-      return res.status(200).json({
-        message: "✅ Data received successfully!",
-        data: { ph, turbidity, temperature, tds },
-      });
-    } catch (error) {
-      console.error("❌ Error processing request:", error);
-      return res.status(500).json({ error: "Server error" });
-    }
-  } else {
-    res.setHeader("Allow", ["POST"]);
-    return res.status(405).end(`Method ${req.method} Not Allowed`);
+    return res.status(200).json({ message: "✅ Data received successfully!" });
+  } catch (err) {
+    console.error("❌ Error handling upload:", err);
+    return res.status(500).json({ error: "Internal Server Error" });
   }
 }
