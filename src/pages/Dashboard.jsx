@@ -27,9 +27,9 @@ const AdminDashboard = () => {
   const countdownRef = useRef(null);
   const liveIntervalRef = useRef(null);
   const isScanning = useRef(false);
-  const hasSaved = useRef(false); // prevents saving multiple times per interval
+  const hasSaved = useRef(false);
 
-  // Master Password setup
+  // 🧠 Master Password setup
   useEffect(() => {
     const storedPass = localStorage.getItem("masterPassword");
     if (storedPass) setMasterPassword(storedPass);
@@ -40,29 +40,24 @@ const AdminDashboard = () => {
     }
   }, []);
 
-  // ✅ Fetch data from ESP32 (local) or Vercel (online backup)
+  // ✅ Fetch data from ESP32 (local) → fallback to Vercel
   const fetchSensorData = useCallback(async () => {
     try {
-      // --- Try Local ESP32 First ---
-      const response = await fetch("http://aquacheck.local:5000/data", {
-        method: "GET",
-        headers: { "Content-Type": "application/json" },
-      });
+      // --- Try Local ESP32 ---
+      const localResponse = await fetch("http://aquacheck.local:5000/data");
+      if (!localResponse.ok) throw new Error("ESP32 not reachable");
 
-      if (!response.ok) throw new Error("ESP32 not reachable");
-
-      const data = await response.json();
+      const localData = await localResponse.json();
       const newData = {
-        ph: data.ph ? parseFloat(data.ph).toFixed(2) : "N/A",
-        turbidity: data.turbidity ? parseFloat(data.turbidity).toFixed(1) : "N/A",
-        temp: data.temperature ? parseFloat(data.temperature).toFixed(1) : "N/A",
-        tds: data.tds ? parseFloat(data.tds).toFixed(0) : "N/A",
+        ph: localData.ph ? parseFloat(localData.ph).toFixed(2) : "N/A",
+        turbidity: localData.turbidity ? parseFloat(localData.turbidity).toFixed(1) : "N/A",
+        temp: localData.temperature ? parseFloat(localData.temperature).toFixed(1) : "N/A",
+        tds: localData.tds ? parseFloat(localData.tds).toFixed(0) : "N/A",
       };
 
       setSensorData(newData);
       Object.keys(newData).forEach((key) => localStorage.setItem(key, newData[key]));
       setStatus("✅ Data fetched from local ESP32 successfully.");
-
       console.log("✅ Local ESP32 data:", newData);
       return newData;
 
@@ -71,14 +66,17 @@ const AdminDashboard = () => {
 
       try {
         // --- Try Vercel Backup ---
-        const cloudResponse = await fetch("https://aquachecklive.vercel.app/api/data", {
-          method: "GET",
-          headers: { "Content-Type": "application/json" },
-        });
+        const cloudResponse = await fetch("https://aquachecklive.vercel.app/api/data");
+        const text = await cloudResponse.text();
 
-        if (!cloudResponse.ok) throw new Error("Vercel server not reachable");
+        // 🧩 Validate JSON response to avoid “Unexpected token '<'”
+        let cloudData;
+        try {
+          cloudData = JSON.parse(text);
+        } catch {
+          throw new Error("Vercel returned non-JSON (HTML) data");
+        }
 
-        const cloudData = await cloudResponse.json();
         const newData = {
           ph: cloudData.ph ? parseFloat(cloudData.ph).toFixed(2) : "N/A",
           turbidity: cloudData.turbidity ? parseFloat(cloudData.turbidity).toFixed(1) : "N/A",
@@ -89,7 +87,6 @@ const AdminDashboard = () => {
         setSensorData(newData);
         Object.keys(newData).forEach((key) => localStorage.setItem(key, newData[key]));
         setStatus("🌐 Data fetched from Vercel backup successfully.");
-
         console.log("🌐 Vercel backup data:", newData);
         return newData;
 
@@ -101,8 +98,7 @@ const AdminDashboard = () => {
     }
   }, []);
 
-
-  // Manual Save
+  // 🧭 Manual Save
   const handleSave = useCallback(async () => {
     try {
       if (Object.values(sensorData).every((v) => v === "N/A")) {
@@ -116,7 +112,7 @@ const AdminDashboard = () => {
         return;
       }
 
-      const data = {
+      const saveData = {
         user_id: user.id,
         ph: parseFloat(sensorData.ph) || null,
         turbidity: parseFloat(sensorData.turbidity) || null,
@@ -124,7 +120,7 @@ const AdminDashboard = () => {
         tds: parseFloat(sensorData.tds) || null,
       };
 
-      const { error } = await supabase.from("dataset_history").insert([data]);
+      const { error } = await supabase.from("dataset_history").insert([saveData]);
       if (error) throw error;
 
       setStatus("✅ Sensor data saved successfully to history!");
@@ -134,7 +130,7 @@ const AdminDashboard = () => {
     }
   }, [sensorData]);
 
-  // Auto Save (once per interval)
+  // 🧠 Auto Save (once per interval)
   const handleAutoSave = useCallback(async () => {
     if (!isScanning.current || hasSaved.current) return;
     hasSaved.current = true;
@@ -170,7 +166,7 @@ const AdminDashboard = () => {
     }
   }, [fetchSensorData]);
 
-  // Stop Auto Scan
+  // 🛑 Stop Auto Scan
   const stopContinuousAutoScan = useCallback(() => {
     clearInterval(countdownRef.current);
     clearInterval(liveIntervalRef.current);
@@ -179,18 +175,11 @@ const AdminDashboard = () => {
     isScanning.current = false;
     hasSaved.current = false;
 
-    setSensorData({
-      ph: "N/A",
-      turbidity: "N/A",
-      temp: "N/A",
-      tds: "N/A",
-    });
-
     setCountdown(intervalTime / 1000);
     setStatus("🛑 Auto Scan stopped. Countdown paused.");
   }, [intervalTime]);
 
-  // Start Auto Scan
+  // 🔁 Start Auto Scan (15 minutes)
   const startContinuousAutoScan = useCallback(() => {
     stopContinuousAutoScan();
     isScanning.current = true;
@@ -209,10 +198,9 @@ const AdminDashboard = () => {
     }, 1000);
 
     liveIntervalRef.current = setInterval(fetchSensorData, 1000);
-    setStatus(`🔄 Auto Scan started (every ${intervalTime / 900000} mins)...`);
+    setStatus("🔄 Auto Scan started (every 15 minutes)...");
   }, [fetchSensorData, handleAutoSave, intervalTime, stopContinuousAutoScan]);
 
-  // Toggle Auto Scan
   const toggleAutoScan = useCallback(() => {
     if (autoScanRunning) {
       stopAutoScan();
@@ -223,7 +211,7 @@ const AdminDashboard = () => {
     }
   }, [autoScanRunning, stopAutoScan, stopContinuousAutoScan, startAutoScan, startContinuousAutoScan, handleAutoSave]);
 
-  // Status color logic
+  // 🎨 Status color
   const getSensorStatus = (type, value) => {
     if (value === "N/A") return "";
     const val = parseFloat(value);
@@ -299,9 +287,17 @@ const AdminDashboard = () => {
               <h3>{key.toUpperCase()}</h3>
               <p>
                 {sensorData[key]}{" "}
-                {key === "turbidity" ? "NTU" : key === "temp" ? "°C" : key === "tds" ? "ppm" : ""}
+                {key === "turbidity"
+                  ? "NTU"
+                  : key === "temp"
+                  ? "°C"
+                  : key === "tds"
+                  ? "ppm"
+                  : ""}
               </p>
-              <p className="status-label">{getSensorStatus(key, sensorData[key]).toUpperCase()}</p>
+              <p className="status-label">
+                {getSensorStatus(key, sensorData[key]).toUpperCase()}
+              </p>
             </div>
           ))}
         </section>
