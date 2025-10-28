@@ -1,150 +1,164 @@
 import React, { useState, useEffect } from "react";
 import "../assets/VisitorPage.css";
-import cuacoImage from "../assets/picture/cuaco.jpg";
 import peejayPhoto from "../assets/picture/peejay1.jpg";
 import aldricPhoto from "../assets/picture/aldric.png";
 import lawrencePhoto from "../assets/picture/lawrence.png";
 import wencePhoto from "../assets/picture/wence.jpg";
 import { FaSun, FaMoon } from "react-icons/fa";
+import { supabase } from "../supabaseClient";
+import {
+  LineChart,
+  Line,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  Legend,
+  ResponsiveContainer,
+} from "recharts";
 
 const VisitorPage = () => {
-  useEffect(() => {
-    document.title = "AquaCheck";
-  }, []);
+  useEffect(() => { document.title = "AquaCheck"; }, []);
 
   const [theme, setTheme] = useState(() => localStorage.getItem("theme") || "light");
-  const [liveVisible, setLiveVisible] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
-  const [sensorData, setSensorData] = useState({
-    ph: "N/A",
-    turbidity: "N/A",
-    temp: "N/A",
-    tds: "N/A",
-  });
+  const [liveVisible, setLiveVisible] = useState(false);
+  const [sensorData, setSensorData] = useState({ ph: "N/A", turbidity: "N/A", temperature: "N/A", tds: "N/A" });
 
+  const [availableDates, setAvailableDates] = useState([]);
+  const [selectedDate, setSelectedDate] = useState("");
+  const [dailyData, setDailyData] = useState([]);
+  const [loadingDaily, setLoadingDaily] = useState(true);
+
+  // Theme toggle
   useEffect(() => {
     document.documentElement.setAttribute("data-theme", theme);
     localStorage.setItem("theme", theme);
   }, [theme]);
-
-  const toggleTheme = () => setTheme(prev => (prev === "light" ? "dark" : "light"));
+  const toggleTheme = () => setTheme(prev => prev === "light" ? "dark" : "light");
   const toggleMenu = () => setMenuOpen(prev => !prev);
 
+  // Get water safety status
   const getStatus = (type, value) => {
     if (value === "N/A") return "Unknown";
     const val = parseFloat(value);
     switch (type) {
-      case "ph":
-        if (val >= 6.5 && val <= 8.5) return "Safe";
-        if ((val >= 6 && val < 6.5) || (val > 8.5 && val <= 9)) return "Caution";
-        return "Unsafe";
-      case "turbidity":
-        if (val <= 5) return "Safe";
-        if (val > 5 && val <= 10) return "Caution";
-        return "Unsafe";
-      case "temp":
-        if (val >= 24 && val <= 32) return "Safe";
-        if ((val >= 20 && val < 24) || (val > 32 && val <= 35)) return "Caution";
-        return "Unsafe";
-      case "tds":
-        if (val <= 500) return "Safe";
-        if (val > 500 && val <= 1000) return "Caution";
-        return "Unsafe";
-      default:
-        return "Unknown";
+      case "ph": return val >= 6.5 && val <= 8.5 ? "Safe" : (val >= 6 && val < 6.5) || (val > 8.5 && val <= 9) ? "Moderate" : "Unsafe";
+      case "turbidity": return val <= 5 ? "Safe" : val <= 10 ? "Moderate" : "Unsafe";
+      case "temperature": return val >= 20 && val <= 32 ? "Safe" : (val >= 15 && val < 20) || (val > 32 && val <= 35) ? "Moderate" : "Unsafe";
+      case "tds": return val <= 500 ? "Safe" : val <= 1000 ? "Moderate" : "Unsafe";
+      default: return "Unknown";
     }
   };
-
-  const getColor = status => {
-    switch (status) {
-      case "Safe": return "white";
-      case "Caution": return "orange";
-      case "Unsafe": return "red";
-      default: return "gray";
-    }
-  };
-
+  const getColor = status => ({ Safe: "green", Moderate: "orange", Unsafe: "red", Unknown: "gray" }[status]);
   const computeOverallStatus = (data = sensorData) => {
     const statuses = Object.keys(data).map(type => getStatus(type, data[type]));
     if (statuses.includes("Unsafe")) return "Unsafe";
-    if (statuses.includes("Caution")) return "Caution";
+    if (statuses.includes("Moderate")) return "Moderate";
     if (statuses.every(s => s === "Safe")) return "Safe";
     return "Unknown";
   };
 
+  // Fetch live sensor data
   const fetchSensorData = async () => {
-    const API_URL = "http://aquacheck.local:5000/data";
     try {
-      const response = await fetch(API_URL);
+      const response = await fetch("http://aquacheck.local:5000/data");
       if (!response.ok) throw new Error("Server unreachable");
       const data = await response.json();
-      const formattedData = {
+      setSensorData({
         ph: data.ph !== undefined ? parseFloat(data.ph).toFixed(2) : "N/A",
         turbidity: data.turbidity !== undefined ? parseFloat(data.turbidity).toFixed(1) : "N/A",
-        temp: data.temperature !== undefined ? parseFloat(data.temperature).toFixed(1) : "N/A",
+        temperature: data.temperature !== undefined ? parseFloat(data.temperature).toFixed(1) : "N/A",
         tds: data.tds !== undefined ? parseFloat(data.tds).toFixed(0) : "N/A",
-      };
-      setSensorData(formattedData);
-      console.log("=== Live Sensor Data ===", formattedData);
-    } catch (error) {
-      console.error("Error fetching live data:", error);
-      // Fallback: set Unknown values
-      setSensorData({
-        ph: "N/A",
-        turbidity: "N/A",
-        temp: "N/A",
-        tds: "N/A",
       });
+    } catch {
+      setSensorData({ ph: "N/A", turbidity: "N/A", temperature: "N/A", tds: "N/A" });
     }
   };
-
-  // Auto-fetch live data every 5 seconds when liveVisible is true
   useEffect(() => {
     if (!liveVisible) return;
-    fetchSensorData(); // fetch immediately
-    const interval = setInterval(fetchSensorData, 1000);
+    fetchSensorData();
+    const interval = setInterval(fetchSensorData, 2000);
     return () => clearInterval(interval);
   }, [liveVisible]);
-
   const handleLiveClick = () => {
     setLiveVisible(prev => {
-      if (prev) {
-        // Reset readings when hiding live card
-        setSensorData({
-          ph: "N/A",
-          turbidity: "N/A",
-          temp: "N/A",
-          tds: "N/A",
-        });
-      }
+      if (prev) setSensorData({ ph: "N/A", turbidity: "N/A", temperature: "N/A", tds: "N/A" });
       return !prev;
     });
   };
 
+  // Fetch available dates from Supabase
+  useEffect(() => {
+    const fetchDates = async () => {
+      const { data: rows, error } = await supabase
+        .from("dataset_history")
+        .select("created_at")
+        .order("created_at", { ascending: false });
+
+      if (!error && rows.length > 0) {
+        const uniqueDates = [...new Set(rows.map(r => r.created_at.split("T")[0]))];
+        setAvailableDates(uniqueDates);
+        setSelectedDate(uniqueDates[0]);
+      }
+    };
+    fetchDates();
+  }, []);
+
+  // Fetch daily chart data
+  useEffect(() => {
+    if (!selectedDate) return;
+    setLoadingDaily(true);
+
+    const fetchDailyData = async () => {
+      const { data: rows, error } = await supabase
+        .from("dataset_history")
+        .select("*")
+        .gte("created_at", `${selectedDate}T00:00:00`)
+        .lte("created_at", `${selectedDate}T23:59:59`)
+        .order("created_at", { ascending: true });
+
+      if (!error && rows) {
+        const chartData = rows.map(item => ({
+          time: new Date(item.created_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+          ph: parseFloat(item.ph?.toFixed(2)) || 0,
+          turbidity: parseFloat(item.turbidity?.toFixed(2)) || 0,
+          temperature: parseFloat(item.temperature?.toFixed(2)) || 0,
+          tds: parseFloat(item.tds?.toFixed(2)) || 0,
+        }));
+        setDailyData(chartData);
+      } else {
+        setDailyData([]);
+      }
+
+      setLoadingDaily(false);
+    };
+
+    fetchDailyData();
+  }, [selectedDate]);
+
   return (
     <div className="visitor-container">
-      {/* Navbar */}
+      {/* NAVBAR */}
       <nav className="navbar">
         <a href="#home" className="navbar-logo">AquaCheck</a>
         <div className={`hamburger ${menuOpen ? "active" : ""}`} onClick={toggleMenu}>
-          <span></span>
-          <span></span>
-          <span></span>
+          <span></span><span></span><span></span>
         </div>
         <div className={`navbar-links ${menuOpen ? "active" : ""}`}>
-          {["home", "features", "about", "developers", "contact"].map(section => (
+          {["features","about","developers","contact"].map(section => (
             <a key={section} href={`#${section}`} onClick={() => setMenuOpen(false)}>
               {section.charAt(0).toUpperCase() + section.slice(1)}
             </a>
           ))}
           <button onClick={toggleTheme} className="theme-toggle-button">
-            {theme === "light" ? <FaMoon size={18} /> : <FaSun size={18} />}
+            {theme === "light" ? <FaMoon size={18}/> : <FaSun size={18}/>}
           </button>
           <button onClick={handleLiveClick} className="live-toggle-button">🔴 Live</button>
         </div>
       </nav>
 
-      {/* Live Sensor Card */}
+      {/* LIVE SENSOR CARD */}
       {liveVisible && (
         <div className="live-card">
           <h4>Live Sensor Reading</h4>
@@ -156,28 +170,44 @@ const VisitorPage = () => {
             ))}
           </ul>
           <hr />
-          <p>
-            <b>Overall Status:</b>{" "}
-            <span style={{ color: getColor(computeOverallStatus()) }}>
-              {computeOverallStatus()}
-            </span>
-          </p>
+          <p><b>Overall Status:</b> <span style={{ color: getColor(computeOverallStatus()) }}>{computeOverallStatus()}</span></p>
+          <p><i>Based on WHO & EPA water quality standards</i></p>
         </div>
       )}
 
-      {/* Hero Section */}
-      <section id="home" className="hero">
-        <div className="hero-content">
-          <div className="hero-text">
-            <h1>Discover</h1>
-            <h1><span>Cuaco Beach</span></h1>
-            <p>Crystal-clear waters, relaxing vibes, and safe monitoring with <b>AquaCheck</b>.</p>
-          </div>
-          <div className="hero-image"><img src={cuacoImage} alt="Cuaco Beach" /></div>
+      {/* WATER QUALITY CHART */}
+      <section id="weekly-analysis" className="features">
+        <h2>Water Quality Over Time</h2>
+        <div className="filter-section">
+          <label>Select Date:</label>
+          <select value={selectedDate} onChange={(e) => setSelectedDate(e.target.value)}>
+            {availableDates.map(date => (
+              <option key={date} value={date}>
+                {new Date(date).toLocaleDateString("en-US",{ year:"numeric", month:"long", day:"numeric" })}
+              </option>
+            ))}
+          </select>
         </div>
+
+        {loadingDaily ? <p>Loading data...</p> :
+          dailyData.length === 0 ? <p>No data available for this date.</p> :
+            <ResponsiveContainer width="100%" height={400}>
+              <LineChart data={dailyData}>
+                <CartesianGrid strokeDasharray="3 3"/>
+                <XAxis dataKey="time"/>
+                <YAxis/>
+                <Tooltip/>
+                <Legend/>
+                <Line dataKey="ph" stroke="#8884d8" name="pH"/>
+                <Line dataKey="turbidity" stroke="#82ca9d" name="Turbidity"/>
+                <Line dataKey="temperature" stroke="#ffc658" name="Temp (°C)"/>
+                <Line dataKey="tds" stroke="#ff7300" name="TDS (ppm)"/>
+              </LineChart>
+            </ResponsiveContainer>
+        }
       </section>
 
-      {/* Features Section */}
+      {/* FEATURES */}
       <section id="features" className="features">
         <h2>Features</h2>
         <div className="features-grid-2x2">
@@ -188,39 +218,34 @@ const VisitorPage = () => {
         </div>
       </section>
 
-      {/* About Section */}
+      {/* ABOUT */}
       <section id="about" className="about">
         <h2>About AquaCheck</h2>
-        <p>
-          AquaCheck is an advanced water quality monitoring system designed to deliver precise, real-time readings
-          of key parameters such as pH, turbidity, temperature, and total dissolved solids (TDS). It empowers users
-          to maintain safe and healthy water conditions.
-        </p>
+        <p>AquaCheck is an advanced water quality monitoring system designed to deliver precise, real-time readings of pH, turbidity, temperature, and TDS.</p>
       </section>
 
-      {/* Developers Section */}
+      {/* DEVELOPERS */}
       <section id="developers" className="developers">
         <h2>Meet the Developers</h2>
         <div className="developer-grid">
-          {[{img: peejayPhoto, name: "Peejay Marco A. Apale"},
-            {img: aldricPhoto, name: "Aldric Rholen Calatrava"},
-            {img: lawrencePhoto, name: "Lawrence Jay Saludes"},
-            {img: wencePhoto, name: "Wence Dante De Vera"}].map((dev, idx) => (
-            <div key={idx} className="developer-item">
-              <img src={dev.img} alt="" className="dev-photo" />
-              <div className="dev-name"><b>{dev.name}</b></div>
-            </div>
-          ))}
+          {[{img:peejayPhoto,name:"Peejay Marco A. Apale"},
+            {img:aldricPhoto,name:"Aldric Rholen Calatrava"},
+            {img:lawrencePhoto,name:"Lawrence Jay Saludes"},
+            {img:wencePhoto,name:"Wence Dante De Vera"}].map((dev,idx)=>(
+              <div key={idx} className="developer-item">
+                <img src={dev.img} alt="" className="dev-photo"/>
+                <div className="dev-name"><b>{dev.name}</b></div>
+              </div>
+            ))}
         </div>
       </section>
 
-      {/* Contact Section */}
+      {/* CONTACT */}
       <section id="contact" className="contact">
         Email: <a href="mailto:contact@aquacheck.com" className="highlight">contact@aquacheck.com</a>
-        <p>Phone: <span className="highlight"></span>+63 912 345 6789</p>
+        <p>Phone: <span className="highlight">+63 912 345 6789</span></p>
       </section>
 
-      {/* Footer */}
       <footer className="footer">&copy; {new Date().getFullYear()} AquaCheck. All rights reserved.</footer>
     </div>
   );

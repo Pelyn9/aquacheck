@@ -7,6 +7,7 @@ import { supabase } from "./supabaseClient.js";
 import VisitorPage from "./pages/VisitorPage.jsx";
 import Dashboard from "./pages/Dashboard.jsx";
 import DataHistory from "./pages/DataHistory.jsx";
+import DataAnalytics from "./pages/DataAnalytics.jsx";
 import AdminLogin from "./pages/AdminLogin.jsx";
 import CreateAdmin from "./pages/CreateAdmin.jsx";
 import ForgotPassword from "./pages/forgotPassword.jsx";
@@ -28,7 +29,6 @@ function App() {
     const adminStatus = localStorage.getItem("isAdmin") === "true";
     setIsAdmin(adminStatus);
 
-    // 🔑 Kick out disabled accounts if already logged in
     const checkDisabled = async () => {
       const {
         data: { user },
@@ -79,6 +79,7 @@ function App() {
             <Route path="/update-password" element={<UpdatePassword />} />
 
             <Route path="/datahistory" element={isAdmin ? <DataHistory /> : <Navigate to="/admin" replace />} />
+            <Route path="/data-analytics" element={isAdmin ? <DataAnalytics /> : <Navigate to="/admin" replace />} />
             <Route path="/master-admin" element={isAdmin ? <MasterAdmin /> : <Navigate to="/admin" replace />} />
             <Route path="/manual-scan" element={isAdmin ? <ManualScan /> : <Navigate to="/admin" replace />} />
 
