@@ -5,10 +5,17 @@ export default async function handler(req, res) {
   }
 
   try {
+    // Ensure JSON body is parsed
     const data = req.body;
+
+    if (!data) {
+      return res.status(400).json({ error: "No JSON body received" });
+    }
+
     console.log("📥 Received data from ESP32:", data);
 
-    // Optional: Save to Supabase or your database here
+    // Optional: Save to Supabase or any database
+    // await supabase.from("dataset_history").insert([data]);
 
     return res.status(200).json({ message: "✅ Data received successfully!" });
   } catch (err) {

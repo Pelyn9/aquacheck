@@ -1,5 +1,5 @@
 #include <WiFi.h>
-#include <WiFiManager.h>   // ✅ Use this instead of AutoConnect
+#include <WiFiManager.h>
 #include <HTTPClient.h>
 #include <OneWire.h>
 #include <DallasTemperature.h>
@@ -14,8 +14,8 @@
 #define TURBIDITY_PIN 32
 
 // ---------------- SERVER CONFIG ----------------
-const char* localServer = "http://aquacheck.local:5000/upload";  // 🏠 Local Flask
-const char* cloudServer = "https://aquachecklive.vercel.app/api/upload";  // ☁️ Online version
+const char* localServer = "http://aquacheck.local:5000/upload";  // Local Flask
+const char* cloudServer = "https://aquachecklive.vercel.app/api/upload";  // Vercel Cloud
 
 // ---------------- SENSOR OBJECTS ----------------
 OneWire oneWire(ONE_WIRE_BUS);
@@ -37,14 +37,12 @@ float readTDS(float temp) {
     sum += voltage;
     delay(5);
   }
-
   float avgVoltage = sum / samples;
   float compensation = 1.0 + 0.02 * (temp - 25.0);
   float compensatedVoltage = avgVoltage / compensation;
   float tds = (133.42 * pow(compensatedVoltage, 3)
               - 255.86 * pow(compensatedVoltage, 2)
               + 857.39 * compensatedVoltage) * 0.5;
-
   if (tds < 0) tds = 0;
   return tds;
 }
@@ -53,14 +51,12 @@ float readTDS(float temp) {
 float readTurbidity() {
   const int samples = 10;
   float sumVoltage = 0;
-
   for (int i = 0; i < samples; i++) {
     int raw = analogRead(TURBIDITY_PIN);
     float voltage = raw * (3.3 / 4095.0);
     sumVoltage += voltage;
     delay(5);
   }
-
   float avgVoltage = sumVoltage / samples;
   float turbidity = -1120.4 * sq(avgVoltage) + 5742.3 * avgVoltage - 4352.9;
   if (turbidity < 0) turbidity = 0;
@@ -102,7 +98,6 @@ void uploadToServers() {
     } else {
       Serial.printf("❌ %s failed (code: %d)\n", target.name, httpCode);
     }
-
     http.end();
   }
 }
@@ -119,11 +114,9 @@ void setup() {
 
   // ---------------- WIFI CONFIGURATION ----------------
   WiFiManager wm;
-  wm.setConfigPortalTimeout(180);  // portal active for 3 mins if no connect
-
-  // Custom AP name and password
+  wm.setConfigPortalTimeout(180);  // 3 mins
   if (!wm.autoConnect("AquaCheck-Setup", "aquacheck4dmin")) {
-    Serial.println("⚠️ Failed to connect or timeout — restarting...");
+    Serial.println("⚠️ Failed to connect — restarting...");
     delay(3000);
     ESP.restart();
   }
@@ -136,12 +129,10 @@ void setup() {
 
 // ---------------- MAIN LOOP ----------------
 void loop() {
-  // --- TEMPERATURE ---
   sensors.requestTemperatures();
   temperature = sensors.getTempCByIndex(0);
   if (temperature == -127.0 || isnan(temperature)) temperature = 25.0;
 
-  // --- PH SENSOR ---
   int phRaw = analogRead(PH_PIN);
   if (phRaw > 0) {
     phValue = ph.readPH(phRaw, temperature);
@@ -151,11 +142,9 @@ void loop() {
     Serial.println("⚠️ No valid pH signal detected.");
   }
 
-  // --- TURBIDITY & TDS ---
   turbidityValue = readTurbidity();
   tdsValue = readTDS(temperature);
 
-  // --- SERIAL DISPLAY ---
   Serial.println("-------------------------------------------------");
   Serial.printf("🌡 Temperature: %.2f °C\n", temperature);
   Serial.printf("💧 pH Value: %.2f\n", phValue);
@@ -163,9 +152,6 @@ void loop() {
   Serial.printf("🌫 Turbidity: %.2f NTU\n", turbidityValue);
   Serial.println("-------------------------------------------------\n");
 
-  // --- UPLOAD DATA (Local + Online) ---
   uploadToServers();
-
-  // --- AUTO SCAN INTERVAL ---
-  delay(1000); // 🕒 Set Auto Scan Interval (change this if needed)
+  delay(1000);  // 1-second scan interval
 }
