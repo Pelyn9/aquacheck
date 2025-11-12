@@ -1,9 +1,5 @@
-// /api/data.js
+import { latestData } from "./upload";
+
 export default function handler(req, res) {
-  res.status(200).json({
-    ph: 7.0,
-    turbidity: 2.5,
-    temperature: 29.2,
-    tds: 150,
-  });
+  res.status(200).json(latestData);
 }

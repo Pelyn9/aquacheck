@@ -1,11 +1,16 @@
+let latestData = {
+  ph: null,
+  turbidity: null,
+  temperature: null,
+  tds: null,
+};
+
 export default async function handler(req, res) {
-  // ✅ Only allow POST requests
   if (req.method !== "POST") {
     return res.status(405).json({ error: "Method Not Allowed" });
   }
 
   try {
-    // Ensure JSON body is parsed
     const data = req.body;
 
     if (!data) {
@@ -14,8 +19,12 @@ export default async function handler(req, res) {
 
     console.log("📥 Received data from ESP32:", data);
 
-    // Optional: Save to Supabase or any database
-    // await supabase.from("dataset_history").insert([data]);
+    latestData = {
+      ph: data.ph ?? null,
+      turbidity: data.turbidity ?? null,
+      temperature: data.temperature ?? null,
+      tds: data.tds ?? null,
+    };
 
     return res.status(200).json({ message: "✅ Data received successfully!" });
   } catch (err) {
@@ -23,3 +32,6 @@ export default async function handler(req, res) {
     return res.status(500).json({ error: "Internal Server Error" });
   }
 }
+
+// Export for data API
+export { latestData };

@@ -14,8 +14,7 @@ const AdminDashboard = () => {
   const { autoScanRunning, startAutoScan, stopAutoScan } =
     useContext(AutoScanContext);
 
-  // 🔁 Fixed Interval (15 Minutes)
-  const FIXED_INTERVAL = 900000;
+  const FIXED_INTERVAL = 900000; // 15 minutes
   const [sensorData, setSensorData] = useState({
     ph: "N/A",
     turbidity: "N/A",
@@ -30,19 +29,19 @@ const AdminDashboard = () => {
   const isScanning = useRef(false);
   const hasSaved = useRef(false);
 
-  // ✅ Dynamic URL (Avoid Mixed Content)
+  // ✅ Dynamic local vs Vercel URL
   const esp32Url =
     window.location.protocol === "https:"
       ? "https://aquachecklive.vercel.app/api/data"
       : "http://aquacheck.local:5000/data";
 
-  // ✅ Fetch data (try ESP32 → fallback to Vercel)
+  // ✅ Fetch logic (ESP32 → fallback Vercel)
   const fetchSensorData = useCallback(async () => {
     try {
-      const localResponse = await fetch(esp32Url);
-      if (!localResponse.ok) throw new Error("ESP32 not reachable");
+      const response = await fetch(esp32Url);
+      if (!response.ok) throw new Error("ESP32 not reachable");
+      const localData = await response.json();
 
-      const localData = await localResponse.json();
       const newData = {
         ph: localData.ph ? parseFloat(localData.ph).toFixed(2) : "N/A",
         turbidity: localData.turbidity
@@ -55,32 +54,23 @@ const AdminDashboard = () => {
       };
 
       setSensorData(newData);
-      setStatus("✅ Data fetched successfully.");
+      setStatus("✅ Data fetched successfully (Local ESP32).");
       return newData;
     } catch (err) {
-      console.warn("⚠️ Primary source failed, trying backup...");
+      console.warn("⚠️ Primary source failed, trying Vercel backup...");
       try {
-        const cloudResponse = await fetch(
-          "https://aquachecklive.vercel.app/api/data"
-        );
-        const text = await cloudResponse.text();
-        let cloudData;
-
-        try {
-          cloudData = JSON.parse(text);
-        } catch {
-          throw new Error("Vercel returned non-JSON data");
-        }
+        const cloudResponse = await fetch("/api/data"); // ✅ Local relative path works in Vercel
+        const data = await cloudResponse.json();
 
         const newData = {
-          ph: cloudData.ph ? parseFloat(cloudData.ph).toFixed(2) : "N/A",
-          turbidity: cloudData.turbidity
-            ? parseFloat(cloudData.turbidity).toFixed(1)
+          ph: data.ph ? parseFloat(data.ph).toFixed(2) : "N/A",
+          turbidity: data.turbidity
+            ? parseFloat(data.turbidity).toFixed(1)
             : "N/A",
-          temp: cloudData.temperature
-            ? parseFloat(cloudData.temperature).toFixed(1)
+          temp: data.temperature
+            ? parseFloat(data.temperature).toFixed(1)
             : "N/A",
-          tds: cloudData.tds ? parseFloat(cloudData.tds).toFixed(0) : "N/A",
+          tds: data.tds ? parseFloat(data.tds).toFixed(0) : "N/A",
         };
 
         setSensorData(newData);
@@ -172,7 +162,7 @@ const AdminDashboard = () => {
     }
   }, [fetchSensorData]);
 
-  // 🛑 Stop Auto Scan
+  // 🛑 Stop scanning
   const stopContinuousAutoScan = useCallback(() => {
     clearInterval(countdownRef.current);
     clearInterval(liveIntervalRef.current);
@@ -191,7 +181,7 @@ const AdminDashboard = () => {
     setStatus("🛑 Auto Scan stopped.");
   }, []);
 
-  // 🔁 Start Auto Scan
+  // 🔁 Start scanning
   const startContinuousAutoScan = useCallback(() => {
     stopContinuousAutoScan();
     isScanning.current = true;
@@ -232,7 +222,7 @@ const AdminDashboard = () => {
     handleAutoSave,
   ]);
 
-  // 🎨 Sensor color logic
+  // Color logic
   const getSensorStatus = (type, value) => {
     if (value === "N/A") return "";
     const val = parseFloat(value);
@@ -286,8 +276,8 @@ const AdminDashboard = () => {
 
           {autoScanRunning && (
             <div className="countdown-timer">
-              ⏱ Next auto-save in: {Math.floor(countdown / 60)}m {countdown % 60}
-              s
+              ⏱ Next auto-save in: {Math.floor(countdown / 60)}m{" "}
+              {countdown % 60}s
             </div>
           )}
         </section>
