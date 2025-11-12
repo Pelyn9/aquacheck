@@ -182,7 +182,7 @@ export default function Sidebar() {
           {!isCollapsed && (
             <h2>
               <FontAwesomeIcon icon={faTint} style={{ marginRight: "5px" }} />
-              AquaCheck
+              H2Go
             </h2>
           )}
         </div>

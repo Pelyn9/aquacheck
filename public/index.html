@@ -20,13 +20,13 @@
 
       if (path.startsWith("/dashboard")) {
         manifest.href = "/manifest.dashboard.json";
-        document.title = "AquaCheck Dashboard";
+        document.title = "H2Go Dashboard";
       } else if (path.startsWith("/visitor")) {
         manifest.href = "/manifest.visitor.json";
-        document.title = "AquaCheck Visitor";
+        document.title = "H2Go Visitor";
       } else {
         manifest.href = "/manifest.visitor.json";
-        document.title = "AquaCheck";
+        document.title = "H2Go";
       }
 
       document.head.appendChild(manifest);

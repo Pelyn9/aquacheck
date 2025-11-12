@@ -18,7 +18,7 @@ import {
 } from "recharts";
 
 const VisitorPage = () => {
-  useEffect(() => { document.title = "AquaCheck"; }, []);
+  useEffect(() => { document.title = "H2Go"; }, []);
 
   const [theme, setTheme] = useState(() => localStorage.getItem("theme") || "light");
   const [menuOpen, setMenuOpen] = useState(false);
@@ -141,7 +141,7 @@ const VisitorPage = () => {
     <div className="visitor-container">
       {/* NAVBAR */}
       <nav className="navbar">
-        <a href="#home" className="navbar-logo">AquaCheck</a>
+        <a href="#home" className="navbar-logo">H2Go</a>
         <div className={`hamburger ${menuOpen ? "active" : ""}`} onClick={toggleMenu}>
           <span></span><span></span><span></span>
         </div>
@@ -220,8 +220,8 @@ const VisitorPage = () => {
 
       {/* ABOUT */}
       <section id="about" className="about">
-        <h2>About AquaCheck</h2>
-        <p>AquaCheck is an advanced water quality monitoring system designed to deliver precise, real-time readings of pH, turbidity, temperature, and TDS.</p>
+        <h2>About H2Go</h2>
+        <p>H2Go is an advanced water quality monitoring system designed to deliver precise, real-time readings of pH, turbidity, temperature, and TDS.</p>
       </section>
 
       {/* DEVELOPERS */}
@@ -242,11 +242,11 @@ const VisitorPage = () => {
 
       {/* CONTACT */}
       <section id="contact" className="contact">
-        Email: <a href="mailto:contact@aquacheck.com" className="highlight">contact@aquacheck.com</a>
+        Email: <a href="mailto:contact@H2Go.com" className="highlight">contact@H2Go.com</a>
         <p>Phone: <span className="highlight">+63 912 345 6789</span></p>
       </section>
 
-      <footer className="footer">&copy; {new Date().getFullYear()} AquaCheck. All rights reserved.</footer>
+      <footer className="footer">&copy; {new Date().getFullYear()} H2Go. All rights reserved.</footer>
     </div>
   );
 };
