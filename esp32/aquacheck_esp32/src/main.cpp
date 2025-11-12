@@ -1,3 +1,4 @@
+#include <Arduino.h>
 #include <WiFi.h>
 #include <WiFiManager.h>
 #include <HTTPClient.h>
@@ -14,7 +15,7 @@
 #define TURBIDITY_PIN 32
 
 // ---------------- SERVER CONFIG ----------------
-const char* localServer = "http://aquacheck.local:5000/upload";  // Local Flask
+const char* localServer = "http://aquacheck.local:5000/upload";   // Local Flask server
 const char* cloudServer = "https://aquachecklive.vercel.app/api/upload";  // Vercel Cloud
 
 // ---------------- SENSOR OBJECTS ----------------

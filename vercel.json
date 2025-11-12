@@ -15,5 +15,9 @@
       "src": "/.*",
       "dest": "/index.html"
     }
-  ]
+  ],
+  "env": {
+    "REACT_APP_API_URL": "https://aquacheck-backend.vercel.app"
+  },
+  "framework": "create-react-app"
 }

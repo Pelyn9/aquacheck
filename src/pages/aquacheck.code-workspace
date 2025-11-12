@@ -1,0 +1,12 @@
+{
+	"folders": [
+		{
+			"path": "../.."
+		},
+		{
+			"name": "aquacheck_esp32",
+			"path": "../../esp32/aquacheck_esp32"
+		}
+	],
+	"settings": {}
+}
