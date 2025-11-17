@@ -3,8 +3,8 @@ import Sidebar from "../components/Sidebar";
 import { supabase } from "../supabaseClient";
 import "../assets/dataanalytics.css";
 import {
-  LineChart,
-  Line,
+  AreaChart,
+  Area,
   XAxis,
   YAxis,
   CartesianGrid,
@@ -26,7 +26,7 @@ export default function DataAnalytics() {
   const [loadingMonthly, setLoadingMonthly] = useState(true);
   const [overallStatus, setOverallStatus] = useState("Calculating...");
 
-  // 🧩 Fetch available dates
+  // Fetch available dates
   useEffect(() => {
     const fetchDates = async () => {
       const { data: rows, error } = await supabase
@@ -54,9 +54,8 @@ export default function DataAnalytics() {
         setAvailableDates(formattedDates);
         setSelectedDate(formattedDates[0].value);
 
-        // ✅ Automatically set most recent month/year for monthly chart
         const mostRecent = new Date(formattedDates[0].value);
-        setSelectedMonth(mostRecent.getMonth() + 1); // Month: 1-12
+        setSelectedMonth(mostRecent.getMonth() + 1);
         setSelectedYear(mostRecent.getFullYear());
       }
     };
@@ -64,7 +63,7 @@ export default function DataAnalytics() {
     fetchDates();
   }, []);
 
-  // 📅 Fetch Daily Chart Data
+  // Fetch Daily Chart Data
   useEffect(() => {
     if (!selectedDate) return;
     setLoadingDaily(true);
@@ -99,7 +98,7 @@ export default function DataAnalytics() {
     fetchDaily();
   }, [selectedDate]);
 
-  // 📆 Fetch Monthly Chart Data
+  // Fetch Monthly Chart Data
   useEffect(() => {
     if (!selectedMonth || !selectedYear) return;
     setLoadingMonthly(true);
@@ -148,15 +147,15 @@ export default function DataAnalytics() {
 
         setMonthlyData(averaged);
 
-        // ✅ Compute overall status
         const avgAll = {
           ph: averaged.reduce((a, b) => a + b.ph, 0) / averaged.length || 0,
           turbidity:
-            averaged.reduce((a, b) => a + b.turbidity, 0) / averaged.length || 0,
+            averaged.reduce((a, b) => a + b.turbidity, 0) / averaged.length ||
+            0,
           tds: averaged.reduce((a, b) => a + b.tds, 0) / averaged.length || 0,
           temperature:
-            averaged.reduce((a, b) => a + b.temperature, 0) / averaged.length ||
-            0,
+            averaged.reduce((a, b) => a + b.temperature, 0) /
+              averaged.length || 0,
         };
 
         if (
@@ -198,7 +197,7 @@ export default function DataAnalytics() {
         </p>
 
         <div className="chart-grid">
-          {/* 📈 DAILY LINE CHART */}
+          {/* DAILY AREA CHART */}
           <div className="chart-container">
             <div className="filter-section">
               <label>Select Date:</label>
@@ -219,23 +218,99 @@ export default function DataAnalytics() {
             ) : data.length === 0 ? (
               <p className="no-data">No data available for this date.</p>
             ) : (
-              <ResponsiveContainer width="100%" height={350}>
-                <LineChart data={data}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#dbeafe" />
-                  <XAxis dataKey="time" stroke="#2563eb" />
-                  <YAxis stroke="#2563eb" />
-                  <Tooltip />
-                  <Legend />
-                  <Line dataKey="ph" stroke="#22d3ee" name="pH" />
-                  <Line dataKey="turbidity" stroke="#3b82f6" name="Turbidity" />
-                  <Line dataKey="temperature" stroke="#f97316" name="Temp (°C)" />
-                  <Line dataKey="tds" stroke="#16a34a" name="TDS (ppm)" />
-                </LineChart>
-              </ResponsiveContainer>
+              <div style={{ width: "100%", marginTop: "20px" }}>
+                <h2
+                  style={{
+                    marginBottom: "5px",
+                    fontSize: "28px",
+                    fontWeight: "700",
+                  }}
+                >
+                  {new Date(selectedDate).toLocaleDateString("en-US", {
+                    weekday: "long",
+                  })}
+                </h2>
+
+                <ResponsiveContainer width="100%" height={330}>
+                  <AreaChart
+                    data={data}
+                    margin={{ top: 20, right: 20, left: 0, bottom: 0 }}
+                  >
+                    <defs>
+                      <linearGradient id="PH" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor="#0bef17ff" stopOpacity={0.8} />
+                        <stop offset="95%" stopColor="#7EE8FA" stopOpacity={0.1} />
+                      </linearGradient>
+
+                      <linearGradient id="Turbidity" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor="#4BB7A7" stopOpacity={0.8} />
+                        <stop offset="95%" stopColor="#4BB7A7" stopOpacity={0.1} />
+                      </linearGradient>
+
+                      <linearGradient id="Temperature" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor="#6010ebff" stopOpacity={0.8} />
+                        <stop offset="95%" stopColor="#67C6F2" stopOpacity={0.1} />
+                      </linearGradient>
+
+                      <linearGradient id="TDS" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor="#c9e20aff" stopOpacity={0.8} />
+                        <stop offset="95%" stopColor="#435B9A" stopOpacity={0.1} />
+                      </linearGradient>
+                    </defs>
+
+                    <XAxis dataKey="time" tick={{ fontSize: 12 }} />
+                    <YAxis tick={{ fontSize: 12 }} />
+                    <Tooltip />
+                    <Legend
+                      verticalAlign="top"
+                      height={40}
+                      formatter={(value) => (
+                        <span style={{ fontSize: "14px" }}>{value}</span>
+                      )}
+                    />
+
+                    <Area
+                      type="monotone"
+                      dataKey="ph"
+                      stroke="#0bef17ff"
+                      fill="url(#PH)"
+                      strokeWidth={2}
+                      name="PH"
+                    />
+
+                    <Area
+                      type="monotone"
+                      dataKey="turbidity"
+                      stroke="#4BB7A7"
+                      fill="url(#Turbidity)"
+                      strokeWidth={2}
+                      name="Turbidity"
+                    />
+
+                    <Area
+                      type="monotone"
+                      dataKey="temperature"
+                      stroke="#6010ebff"
+                      fill="url(#Temperature)"
+                      strokeWidth={2}
+                      name="Temperature"
+                    />
+
+                    <Area
+                      type="monotone"
+                      dataKey="tds"
+                      stroke="#c9e20aff"
+                      fill="url(#TDS)"
+                      strokeWidth={2}
+                      name="TDS"
+                    />
+                  </AreaChart>
+                </ResponsiveContainer>
+              </div>
             )}
           </div>
 
-          {/* 📊 MONTHLY BAR CHART + STATUS */}
+          {/* MONTHLY BAR CHART */}
           <div className="chart-container">
             <div className="filter-section month-selector">
               <label>Select Month & Year:</label>
@@ -264,6 +339,7 @@ export default function DataAnalytics() {
                     </option>
                   ))}
                 </select>
+
                 <select
                   value={selectedYear}
                   onChange={(e) => setSelectedYear(e.target.value)}
@@ -298,9 +374,8 @@ export default function DataAnalytics() {
                   </BarChart>
                 </ResponsiveContainer>
 
-                {/* ✅ Overall Status */}
                 <div className="status-card">
-                  <h3> Overall Monthly Status</h3>
+                  <h3>Overall Monthly Status</h3>
                   <p>{overallStatus}</p>
                 </div>
               </>
