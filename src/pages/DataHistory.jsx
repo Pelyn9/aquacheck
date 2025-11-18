@@ -3,9 +3,9 @@ import Sidebar from "../components/Sidebar";
 import { supabase } from "../supabaseClient";
 import "../assets/datahistory.css";
 
-// ✅ Sensor status check
+// ✅ Corrected getSensorStatus based on thresholds you provided earlier
 const getSensorStatus = (type, value) => {
-  if (value === null || value === undefined || value === "N/A") return "unknown";
+  if (value === "N/A") return "unknown";
   const val = parseFloat(value);
   if (isNaN(val)) return "unknown";
 
@@ -20,7 +20,7 @@ const getSensorStatus = (type, value) => {
       if (val > 5 && val <= 10) return "moderate";
       return "unsafe";
 
-    case "temperature":
+    case "temp":
       if (val >= 24 && val <= 32) return "safe";
       if ((val >= 20 && val < 24) || (val > 32 && val <= 35)) return "moderate";
       return "unsafe";
@@ -35,19 +35,18 @@ const getSensorStatus = (type, value) => {
   }
 };
 
-// ✅ Determine overall water quality
-const getOverallStatus = (entry) => {
+// ✅ Compute overall status from all sensors
+const getOverallStatus = (data) => {
   const statuses = [
-    getSensorStatus("ph", entry.ph),
-    getSensorStatus("turbidity", entry.turbidity),
-    getSensorStatus("temperature", entry.temperature),
-    getSensorStatus("tds", entry.tds),
+    getSensorStatus("ph", data.ph),
+    getSensorStatus("turbidity", data.turbidity),
+    getSensorStatus("temp", data.temp),
+    getSensorStatus("tds", data.tds),
   ];
 
-  if (statuses.includes("unknown")) return "Unknown";
   if (statuses.includes("unsafe")) return "Unsafe";
-  if (statuses.includes("moderate")) return "Moderate";
-  if (statuses.every((s) => s === "safe")) return "Safe";
+  if (statuses.filter(s => s === "moderate").length >= 1) return "Moderate";
+  if (statuses.every(s => s === "safe")) return "Safe";
   return "Unknown";
 };
 
