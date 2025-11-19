@@ -24,7 +24,7 @@ const SENSOR_LIMITS = {
 };
 
 const VisitorPage = () => {
-  useEffect(() => { document.title = "H2Go"; }, []);
+  useEffect(() => { document.title = "SafeShore"; }, []);
 
   const [theme, setTheme] = useState(localStorage.getItem("theme") || "light");
   const [menuOpen, setMenuOpen] = useState(false);
@@ -168,7 +168,7 @@ const VisitorPage = () => {
 
       {/* NAVBAR */}
       <nav className="navbar">
-        <a href="#home" className="navbar-logo">H2Go</a>
+        <a href="#home" className="navbar-logo">SafeShore</a>
         <div className={`hamburger ${menuOpen ? "active" : ""}`} onClick={toggleMenu}><span></span><span></span><span></span></div>
         <div className={`navbar-links ${menuOpen ? "active" : ""}`}>
           {["features", "about", "developers", "contact"].map(section => (
@@ -265,12 +265,13 @@ const VisitorPage = () => {
             {/* ---------------- OVERALL STATUS BOX ---------------- */}
             <div
               style={{
-                margin: "20px auto",       // centers horizontally
-                padding: "10px 20px",      // smaller padding
-                width: "300px",            // smaller width
-                borderRadius: "12px",
+                margin: "2vh auto",               // vertical spacing responsive
+                padding: "1vh 2vw",               // responsive padding
+                width: "80%",                      // responsive width, max 300px
+                maxWidth: "300px",                 // caps width for larger screens
+                borderRadius: "1rem",              // scalable radius
                 textAlign: "center",
-                fontSize: "20px",          // smaller text
+                fontSize: "1.2rem",                // scales with root font size
                 fontWeight: "600",
                 background: "#f5f5f5",
               }}
@@ -342,8 +343,8 @@ const VisitorPage = () => {
       </section>
 
       <section id="about" className="about">
-        <h2>About H2Go</h2>
-        <p>H2Go is a water monitoring system providing real-time readings of pH, turbidity, temperature, and TDS.</p>
+        <h2>About SafeShore</h2>
+        <p>SafeShore is a water monitoring system providing real-time readings of pH, turbidity, temperature, and TDS.</p>
       </section>
 
       <section id="developers" className="developers">
@@ -363,11 +364,11 @@ const VisitorPage = () => {
       </section>
 
       <section id="contact" className="contact">
-        Email: <a href="mailto:contact@H2Go.com" className="highlight">contact@H2Go.com</a>
+        Email: <a href="mailto:contact@SafeShore.com" className="highlight">contact@SafeShore.com</a>
         <p>Phone: <span className="highlight">+63 912 345 6789</span></p>
       </section>
 
-      <footer className="footer">&copy; {new Date().getFullYear()} H2Go. All rights reserved.</footer>
+      <footer className="footer">&copy; {new Date().getFullYear()} SafeShore. All rights reserved.</footer>
     </div>
   );
 };

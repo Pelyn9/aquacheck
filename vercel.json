@@ -1,19 +1,31 @@
 {
-  "version": 2,
-  "builds": [
+  "functions": {
+    "api/**/*.js": {
+      "runtime": "nodejs18.x"
+    },
+    "api/cron-scan.js": {
+      "runtime": "edge"
+    }
+  },
+  "buildCommand": "npm run build",
+  "outputDirectory": "build",
+  "installCommand": "npm install",
+  "cron": {
+    "jobs": [
+      {
+        "path": "/api/cron-scan",
+        "schedule": "*/15 * * * *"
+      }
+    ]
+  },
+  "routes": [
     {
-      "src": "package.json",
-      "use": "@vercel/static-build",
-      "config": { "distDir": "build" }
+      "src": "/api/(.*)",
+      "dest": "/api/$1"
     },
     {
-      "src": "api/**/*.js",
-      "use": "@vercel/node"
+      "src": "/(.*)",
+      "dest": "/index.html"
     }
-  ],
-  "routes": [
-    { "handle": "filesystem" },
-    { "src": "/api/(.*)", "dest": "/api/$1" },
-    { "src": "/.*", "dest": "/index.html" }
   ]
 }
