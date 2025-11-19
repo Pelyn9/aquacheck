@@ -2,7 +2,7 @@
   "version": 2,
   "functions": {
     "api/**/*.js": {
-      "runtime": "nodejs18.x"
+      "runtime": "now-node@1.19.1"
     }
   },
   "installCommand": "npm install",
