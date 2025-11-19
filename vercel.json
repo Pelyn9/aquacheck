@@ -5,12 +5,9 @@
       "runtime": "vercel-node@1.0.0"
     }
   },
-  "build": {
-    "env": {},
-    "installCommand": "npm install",
-    "buildCommand": "npm run build",
-    "outputDirectory": "build"
-  },
+  "installCommand": "npm install",
+  "buildCommand": "npm run build",
+  "outputDirectory": "build",
   "routes": [
     {
       "src": "/api/(.*)",
