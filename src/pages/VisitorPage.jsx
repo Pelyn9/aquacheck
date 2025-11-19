@@ -1,3 +1,4 @@
+//updated title SafeShore
 import React, { useState, useEffect } from "react";
 import "../assets/VisitorPage.css";
 import peejayPhoto from "../assets/picture/peejay1.jpg";
