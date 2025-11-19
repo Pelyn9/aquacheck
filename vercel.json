@@ -1,8 +1,8 @@
 {
-  "version": 3,
+  "version": 2,
   "functions": {
     "api/**/*.js": {
-      "runtime": "vercel-node@1.0.0"
+      "runtime": "nodejs18.x"
     }
   },
   "installCommand": "npm install",
