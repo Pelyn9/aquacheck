@@ -1,12 +1,16 @@
 {
+  "version": 3,
   "functions": {
     "api/**/*.js": {
       "runtime": "vercel-node@1.0.0"
     }
   },
-  "buildCommand": "npm run build",
-  "outputDirectory": "build",
-  "installCommand": "npm install",
+  "build": {
+    "env": {},
+    "installCommand": "npm install",
+    "buildCommand": "npm run build",
+    "outputDirectory": "build"
+  },
   "routes": [
     {
       "src": "/api/(.*)",
