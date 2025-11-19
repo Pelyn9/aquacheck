@@ -20,13 +20,13 @@
 
       if (path.startsWith("/dashboard")) {
         manifest.href = "/manifest.dashboard.json";
-        document.title = "H2Go Dashboard";
+        document.title = "SafeShore Dashboard";
       } else if (path.startsWith("/visitor")) {
         manifest.href = "/manifest.visitor.json";
-        document.title = "H2Go Visitor";
+        document.title = "SafeShore Visitor";
       } else {
         manifest.href = "/manifest.visitor.json";
-        document.title = "H2Go";
+        document.title = "SafeShore";
       }
 
       document.head.appendChild(manifest);

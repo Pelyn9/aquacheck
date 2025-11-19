@@ -2,22 +2,11 @@
   "functions": {
     "api/**/*.js": {
       "runtime": "nodejs18.x"
-    },
-    "api/cron-scan.js": {
-      "runtime": "edge"
     }
   },
   "buildCommand": "npm run build",
   "outputDirectory": "build",
   "installCommand": "npm install",
-  "cron": {
-    "jobs": [
-      {
-        "path": "/api/cron-scan",
-        "schedule": "*/15 * * * *"
-      }
-    ]
-  },
   "routes": [
     {
       "src": "/api/(.*)",
