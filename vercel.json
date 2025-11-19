@@ -1,7 +1,7 @@
 {
   "functions": {
     "api/**/*.js": {
-      "runtime": "nodejs18.x"
+      "runtime": "vercel-node@1.0.0"
     }
   },
   "buildCommand": "npm run build",
