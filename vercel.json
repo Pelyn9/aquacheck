@@ -4,9 +4,7 @@
     {
       "src": "package.json",
       "use": "@vercel/static-build",
-      "config": {
-        "distDir": "build"
-      }
+      "config": { "distDir": "build" }
     },
     {
       "src": "api/**/*.js",
@@ -21,9 +19,7 @@
     {
       "src": "/(.*)",
       "dest": "/index.html",
-      "headers": {
-        "Cache-Control": "no-cache"
-      }
+      "status": 200
     }
   ]
 }
