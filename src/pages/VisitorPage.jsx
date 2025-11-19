@@ -1,4 +1,3 @@
-//updated title SafeShore
 import React, { useState, useEffect } from "react";
 import "../assets/VisitorPage.css";
 import peejayPhoto from "../assets/picture/peejay1.jpg";
@@ -25,7 +24,7 @@ const SENSOR_LIMITS = {
 };
 
 const VisitorPage = () => {
-  useEffect(() => { document.title = "SafeShore"; }, []);
+  useEffect(() => { document.title = "H2Go"; }, []);
 
   const [theme, setTheme] = useState(localStorage.getItem("theme") || "light");
   const [menuOpen, setMenuOpen] = useState(false);
@@ -169,7 +168,7 @@ const VisitorPage = () => {
 
       {/* NAVBAR */}
       <nav className="navbar">
-        <a href="#home" className="navbar-logo">SafeShore</a>
+        <a href="#home" className="navbar-logo">H2Go</a>
         <div className={`hamburger ${menuOpen ? "active" : ""}`} onClick={toggleMenu}><span></span><span></span><span></span></div>
         <div className={`navbar-links ${menuOpen ? "active" : ""}`}>
           {["features", "about", "developers", "contact"].map(section => (
@@ -344,8 +343,8 @@ const VisitorPage = () => {
       </section>
 
       <section id="about" className="about">
-        <h2>About SafeShore</h2>
-        <p>SafeShore is a water monitoring system providing real-time readings of pH, turbidity, temperature, and TDS.</p>
+        <h2>About H2Go</h2>
+        <p>H2Go is a water monitoring system providing real-time readings of pH, turbidity, temperature, and TDS.</p>
       </section>
 
       <section id="developers" className="developers">
@@ -365,11 +364,11 @@ const VisitorPage = () => {
       </section>
 
       <section id="contact" className="contact">
-        Email: <a href="mailto:contact@SafeShore.com" className="highlight">contact@SafeShore.com</a>
+        Email: <a href="mailto:contact@H2Go.com" className="highlight">contact@H2Go.com</a>
         <p>Phone: <span className="highlight">+63 912 345 6789</span></p>
       </section>
 
-      <footer className="footer">&copy; {new Date().getFullYear()} SafeShore. All rights reserved.</footer>
+      <footer className="footer">&copy; {new Date().getFullYear()} H2Go. All rights reserved.</footer>
     </div>
   );
 };
