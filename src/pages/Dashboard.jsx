@@ -133,6 +133,7 @@ const AdminDashboard = () => {
     setCountdown(FIXED_INTERVAL / 1000);
     setSensorData({ ph: "N/A", turbidity: "N/A", temp: "N/A", tds: "N/A" });
     setStatus("🛑 Auto Scan stopped.");
+    localStorage.setItem("autoScanRunning", "false"); // Stop persistence
   }, []);
 
   const startContinuousAutoScan = useCallback(() => {
@@ -154,6 +155,7 @@ const AdminDashboard = () => {
 
     liveIntervalRef.current = setInterval(fetchSensorData, 1000);
     setStatus("🔄 Auto Scan started (every 15 minutes).");
+    localStorage.setItem("autoScanRunning", "true"); // Start persistence
   }, [fetchSensorData, handleAutoSave, stopContinuousAutoScan]);
 
   const toggleAutoScan = useCallback(() => {
@@ -178,7 +180,13 @@ const AdminDashboard = () => {
     }
   };
 
-  useEffect(() => { return () => stopContinuousAutoScan(); }, [stopContinuousAutoScan]);
+  // --- Fix: Only auto-start if persisted ---
+  useEffect(() => {
+    if (localStorage.getItem("autoScanRunning") === "true") {
+      startContinuousAutoScan();
+    }
+    return () => stopContinuousAutoScan();
+  }, [startContinuousAutoScan, stopContinuousAutoScan]);
 
   return (
     <div className="dashboard-container">
