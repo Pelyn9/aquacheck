@@ -6,7 +6,6 @@
 #include <DFRobot_PH.h>
 #include <EEPROM.h>
 #include <math.h>
-#include <WiFiClientSecure.h>
 
 // ---------------- PIN CONFIGURATION ----------------
 #define ONE_WIRE_BUS 14
@@ -25,11 +24,13 @@ float tdsValue = 0;
 float phValue = 7.0;
 float turbidityValue = 0;
 
+// Scan ON/OFF from dashboard
+bool allowScanning = true;
+
 // ---------------- pH CALIBRATION ----------------
 float phSlope = 1.0;
 float phOffset = 0.0;
 
-// 2–point pH calibration
 void calibratePH(float voltageAtPH7, float voltageAtPH4) {
   phSlope = (7.0 - 4.0) / (voltageAtPH7 - voltageAtPH4);
   phOffset = 7.0 - phSlope * voltageAtPH7;
@@ -47,13 +48,14 @@ float readTDS() {
     float voltage = raw * (3.3 / 4095.0);
 
     float tds = (133.42 * pow(voltage, 3)
-                 - 255.86 * pow(voltage, 2)
-                 + 857.39 * voltage) * 0.5;
+               - 255.86 * pow(voltage, 2)
+               + 857.39 * voltage) * 0.5;
 
     if (tds < 0) tds = 0;
     sum += tds;
     delay(5);
   }
+
   return sum / samples;
 }
 
@@ -76,19 +78,47 @@ float readTurbidity() {
                     - 4352.9;
 
   if (turbidity < 0) turbidity = 0;
+
   return turbidity;
+}
+
+// ---------------- CHECK DASHBOARD CONTROL ----------------
+void checkControlCommand() {
+  if (WiFi.status() != WL_CONNECTED) return;
+
+  HTTPClient http;
+  http.begin("https://aquachecklive.vercel.app/api/control");
+
+  int code = http.GET();
+  if (code == 200) {
+    String payload = http.getString();
+    Serial.print("📥 Control Response: ");
+    Serial.println(payload);
+
+    if (payload.indexOf("\"scan\":true") >= 0) {
+      allowScanning = true;
+      Serial.println("▶️ Scanning ENABLED by dashboard");
+    }
+
+    if (payload.indexOf("\"scan\":false") >= 0) {
+      allowScanning = false;
+      Serial.println("⏸️ Scanning STOPPED by dashboard");
+    }
+  }
+  http.end();
 }
 
 // ---------------- UPLOAD TO SERVERS ----------------
 void uploadToServers() {
+  if (!allowScanning) {
+    Serial.println("⏸️ Scanning disabled — no upload.");
+    return;
+  }
+
   if (WiFi.status() != WL_CONNECTED) {
     Serial.println("⚠️ Wi-Fi not connected, skipping upload...");
     return;
   }
-
-  // Create secure client for HTTPS bypass
-  WiFiClientSecure client;
-  client.setInsecure();  // 🔥 BYPASS SSL CERTIFICATE CHECK
 
   HTTPClient http;
 
@@ -100,79 +130,86 @@ void uploadToServers() {
   struct ServerTarget {
     const char* name;
     const char* url;
-    bool secure;
   };
 
+  // YOUR SERVERS — DO NOT REMOVE
   ServerTarget servers[] = {
-    {"Local Flask", "http://aquacheck.local:5000/upload", false},
-    {"Cloud Vercel", "https://aquachecklive.vercel.app/api/upload", true}
+    {"Local Flask", "http://aquacheck.local:5000/upload"},
+    {"Cloud Vercel", "https://aquachecklive.vercel.app/api/upload"}
   };
 
   for (auto &target : servers) {
-
-    if (target.secure) {
-      http.begin(client, target.url);   // HTTPS 🔥 WITH BYPASS
-    } else {
-      http.begin(target.url);           // HTTP normal
-    }
-
+    http.begin(target.url);
     http.addHeader("Content-Type", "application/json");
-    int code = http.POST(jsonData);
 
-    Serial.printf("🌍 Sent to %s | HTTP %d\n", target.name, code);
+    int code = http.POST(jsonData);
+    String resp = http.getString();
+
+    Serial.printf("➡ %s -> HTTP %d | Response: %s\n",
+                  target.name, code, resp.c_str());
+
     http.end();
   }
+}
+
+// ---------------- WIFI MANAGER ----------------
+void setupWiFiManager() {
+  WiFiManager wm;
+  wm.setClass("invert");
+  wm.setConfigPortalTimeout(180);
+
+  Serial.println("📡 Starting WiFiManager...");
+
+  if (!wm.autoConnect("SafeShore", "safeshore4dmin")) {
+    Serial.println("❌ WiFiManager Timeout. Rebooting...");
+    delay(2000);
+    ESP.restart();
+  }
+
+  Serial.println("✅ Wi-Fi connected!");
+  Serial.print("📍 IP Address: ");
+  Serial.println(WiFi.localIP());
 }
 
 // ---------------- SETUP ----------------
 void setup() {
   Serial.begin(115200);
   delay(1000);
-  Serial.println("🔧 AquaCheck System Booting...");
+  Serial.println("🔧 SafeShore System Booting...");
 
   EEPROM.begin(32);
   sensors.begin();
   ph.begin();
 
-  // ---------------- WIFI CONFIGURATION ----------------
-  WiFiManager wm;
-  wm.setConfigPortalTimeout(180);
+  setupWiFiManager();
 
-  if (!wm.autoConnect("AquaCheck-Setup", "aquacheck4dmin")) {
-    delay(3000);
-    ESP.restart();
-  }
-
-  Serial.println("✅ Wi-Fi connected!");
-
-  // ---------------- TEMPORARY PH CALIBRATION ----------------
-  float voltageAtPH7 = 2.06;
-  float voltageAtPH4 = 2.50;
-  calibratePH(voltageAtPH7, voltageAtPH4);
+  calibratePH(2.06, 2.50);
 }
 
 // ---------------- MAIN LOOP ----------------
 void loop() {
+  checkControlCommand();
+
+  if (!allowScanning) {
+    delay(500);
+    return;
+  }
 
   // ---------------- TEMPERATURE ----------------
   sensors.requestTemperatures();
   temperature = sensors.getTempCByIndex(0);
   if (temperature == -127.0 || isnan(temperature)) temperature = 25.0;
 
-  // ---------------- pH ----------------
+  // ---------------- pH SENSOR ----------------
   int phRaw = analogRead(PH_PIN);
 
   if (phRaw > 0 && phRaw < 4095) {
     float voltage = phRaw * (3.3 / 4095.0);
     phValue = phSlope * voltage + phOffset;
-
-    if (phValue < 0) phValue = 0;
-    if (phValue > 14) phValue = 14;
+    phValue = constrain(phValue, 0, 14);
   } else {
     phValue = 7.0;
   }
-
-  delay(50); // avoid TDS interference
 
   // ---------------- TDS ----------------
   tdsValue = readTDS();
@@ -180,15 +217,14 @@ void loop() {
   // ---------------- TURBIDITY ----------------
   turbidityValue = readTurbidity();
 
-  // ---------------- PRINT ----------------
+  // ---------------- PRINT READINGS ----------------
   Serial.println("-------------------------------------------------");
   Serial.printf("🌡 Temperature: %.2f °C\n", temperature);
-  Serial.printf("💧 pH: %.2f\n", phValue);
+  Serial.printf("💧 pH Value: %.2f\n", phValue);
   Serial.printf("🧂 TDS: %.2f ppm\n", tdsValue);
   Serial.printf("🌫 Turbidity: %.2f NTU\n", turbidityValue);
   Serial.println("-------------------------------------------------\n");
 
-  // ---------------- UPLOAD ----------------
   uploadToServers();
 
   delay(1000);

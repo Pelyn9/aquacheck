@@ -11,6 +11,7 @@ const AdminDashboard = () => {
   const [sensorData, setSensorData] = useState({ ph: "N/A", turbidity: "N/A", temp: "N/A", tds: "N/A" });
   const [status, setStatus] = useState("Awaiting sensor data...");
   const [countdown, setCountdown] = useState(FIXED_INTERVAL / 1000);
+  const [overallSafety, setOverallSafety] = useState("N/A");
 
   const countdownRef = useRef(null);
   const liveIntervalRef = useRef(null);
@@ -22,6 +23,7 @@ const AdminDashboard = () => {
       ? "/api/data" // Vercel
       : "http://aquacheck.local:5000/data"; // Local ESP32
 
+  // --- Fetch sensor data ---
   const fetchSensorData = useCallback(async () => {
     try {
       const response = await fetch(esp32Url);
@@ -36,6 +38,7 @@ const AdminDashboard = () => {
       };
 
       setSensorData(newData);
+      computeOverallSafety(newData);
       setStatus("✅ Data fetched successfully (Local ESP32).");
       return newData;
     } catch (err) {
@@ -52,16 +55,42 @@ const AdminDashboard = () => {
         };
 
         setSensorData(newData);
+        computeOverallSafety(newData);
         setStatus("🌐 Fetched from Vercel backup.");
         return newData;
       } catch (cloudError) {
         console.error("❌ Both sources failed:", cloudError);
         setStatus("❌ Failed to fetch data.");
+        setOverallSafety("N/A");
         return null;
       }
     }
   }, [esp32Url]);
 
+  // --- Compute overall safety ---
+  const computeOverallSafety = (data) => {
+    if (!data) return setOverallSafety("N/A");
+
+    const safetyScores = Object.entries(data).map(([key, value]) => {
+      if (value === "N/A") return 0; // treat missing as unsafe
+      const val = parseFloat(value);
+      switch (key) {
+        case "ph": return val >= 6.5 && val <= 8.5 ? 2 : 0;
+        case "turbidity": return val <= 5 ? 2 : val <= 10 ? 1 : 0;
+        case "temp": return val >= 24 && val <= 32 ? 2 : 0;
+        case "tds": return val <= 500 ? 2 : 0;
+        default: return 0;
+      }
+    });
+
+    const totalScore = safetyScores.reduce((acc, val) => acc + val, 0);
+
+    if (totalScore >= 7) setOverallSafety("Safe");
+    else if (totalScore >= 4) setOverallSafety("Moderate");
+    else setOverallSafety("Unsafe");
+  };
+
+  // --- Save manually ---
   const handleSave = useCallback(async () => {
     if (Object.values(sensorData).every((v) => v === "N/A")) {
       setStatus("⚠ No valid data to save. Please scan first.");
@@ -90,6 +119,7 @@ const AdminDashboard = () => {
     }
   }, [sensorData]);
 
+  // --- Auto-save during continuous scan ---
   const handleAutoSave = useCallback(async () => {
     if (!isScanning.current || hasSaved.current) return;
     hasSaved.current = true;
@@ -122,6 +152,7 @@ const AdminDashboard = () => {
     }
   }, [fetchSensorData]);
 
+  // --- Stop auto scan ---
   const stopContinuousAutoScan = useCallback(() => {
     clearInterval(countdownRef.current);
     clearInterval(liveIntervalRef.current);
@@ -132,10 +163,12 @@ const AdminDashboard = () => {
 
     setCountdown(FIXED_INTERVAL / 1000);
     setSensorData({ ph: "N/A", turbidity: "N/A", temp: "N/A", tds: "N/A" });
+    setOverallSafety("N/A");
     setStatus("🛑 Auto Scan stopped.");
-    localStorage.setItem("autoScanRunning", "false"); // Stop persistence
+    localStorage.setItem("autoScanRunning", "false");
   }, []);
 
+  // --- Start auto scan ---
   const startContinuousAutoScan = useCallback(() => {
     stopContinuousAutoScan();
     isScanning.current = true;
@@ -155,9 +188,10 @@ const AdminDashboard = () => {
 
     liveIntervalRef.current = setInterval(fetchSensorData, 1000);
     setStatus("🔄 Auto Scan started (every 15 minutes).");
-    localStorage.setItem("autoScanRunning", "true"); // Start persistence
+    localStorage.setItem("autoScanRunning", "true");
   }, [fetchSensorData, handleAutoSave, stopContinuousAutoScan]);
 
+  // --- Toggle auto scan ---
   const toggleAutoScan = useCallback(() => {
     if (autoScanRunning) {
       stopAutoScan();
@@ -168,6 +202,7 @@ const AdminDashboard = () => {
     }
   }, [autoScanRunning, stopAutoScan, stopContinuousAutoScan, startAutoScan, startContinuousAutoScan, handleAutoSave]);
 
+  // --- Sensor status based on WHO/EPA guidelines ---
   const getSensorStatus = (type, value) => {
     if (value === "N/A") return "";
     const val = parseFloat(value);
@@ -180,7 +215,7 @@ const AdminDashboard = () => {
     }
   };
 
-  // --- Fix: Only auto-start if persisted ---
+  // --- Auto-start scan if persisted ---
   useEffect(() => {
     if (localStorage.getItem("autoScanRunning") === "true") {
       startContinuousAutoScan();
@@ -217,9 +252,15 @@ const AdminDashboard = () => {
             <div key={key} className={`sensor-card ${getSensorStatus(key, sensorData[key])}`}>
               <h3>{key.toUpperCase()}</h3>
               <p>{sensorData[key]} {key === "turbidity" ? "NTU" : key === "temp" ? "°C" : key === "tds" ? "ppm" : ""}</p>
-              <p className="status-label">{getSensorStatus(key, sensorData[key]).toUpperCase()}</p>
+              <p className={`status-label ${getSensorStatus(key, sensorData[key])}`}>
+                {getSensorStatus(key, sensorData[key]).toUpperCase()}
+              </p>
             </div>
           ))}
+        </section>
+
+        <section className={`overall-safety ${overallSafety.toLowerCase()}`}>
+          <h2>Swimming Safety: {overallSafety}</h2>
         </section>
 
         <div className="status-card">{status}</div>

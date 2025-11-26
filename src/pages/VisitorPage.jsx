@@ -17,13 +17,6 @@ import {
   ResponsiveContainer,
 } from "recharts";
 
-const SENSOR_LIMITS = {
-  ph: { safe: [6.5, 8.5], moderate: [6, 6.5, 8.5, 9] },
-  turbidity: { safe: 5, moderate: 10 },
-  temperature: { safe: [20, 32], moderate: [15, 20, 32, 35] },
-  tds: { safe: 500, moderate: 1000 },
-};
-
 const VisitorPage = () => {
   useEffect(() => { document.title = "SafeShore"; }, []);
 
@@ -44,50 +37,64 @@ const VisitorPage = () => {
   const toggleTheme = () => setTheme(prev => prev === "light" ? "dark" : "light");
   const toggleMenu = () => setMenuOpen(prev => !prev);
 
-  // Determine water quality status
+  // ---------------- ADMIN-STYLE COMPUTATION ----------------
+  const computeOverallStatus = (data = sensorData) => {
+    if (!data) return "N/A";
+
+    const safetyScores = Object.entries(data).map(([key, value]) => {
+      if (value === "N/A") return 0; // treat missing as unsafe
+      const val = parseFloat(value);
+      switch (key) {
+        case "ph": return val >= 6.5 && val <= 8.5 ? 2 : 0;
+        case "turbidity": return val <= 5 ? 2 : val <= 10 ? 1 : 0;
+        case "temperature": return val >= 24 && val <= 32 ? 2 : 0;
+        case "tds": return val <= 500 ? 2 : 0;
+        default: return 0;
+      }
+    });
+
+    const totalScore = safetyScores.reduce((acc, val) => acc + val, 0);
+
+    if (totalScore >= 7) return "Safe";
+    else if (totalScore >= 4) return "Moderate";
+    else return "Unsafe";
+  };
+
+  const getColor = (status) => {
+    return status === "Safe" ? "green" :
+      status === "Moderate" ? "orange" :
+        status === "Unsafe" ? "red" :
+          "gray";
+  };
+
+  // ---------------- SENSOR STATUS ----------------
   const getStatus = (type, value) => {
     if (value === "N/A") return "Unknown";
     const val = parseFloat(value);
 
     switch (type) {
       case "ph":
-        if (val >= SENSOR_LIMITS.ph.safe[0] && val <= SENSOR_LIMITS.ph.safe[1]) return "Safe";
-        if ((val >= SENSOR_LIMITS.ph.moderate[0] && val < SENSOR_LIMITS.ph.moderate[1]) ||
-          (val > SENSOR_LIMITS.ph.moderate[2] && val <= SENSOR_LIMITS.ph.moderate[3])) return "Moderate";
+        if (val >= 6.5 && val <= 8.5) return "Safe";
+        if ((val > 6 && val < 6.5) || (val > 8.5 && val <= 9)) return "Moderate";
         return "Unsafe";
-
       case "turbidity":
-        if (val <= SENSOR_LIMITS.turbidity.safe) return "Safe";
-        if (val <= SENSOR_LIMITS.turbidity.moderate) return "Moderate";
+        if (val <= 5) return "Safe";
+        if (val > 5 && val <= 10) return "Moderate";
         return "Unsafe";
-
       case "temperature":
-        if (val >= SENSOR_LIMITS.temperature.safe[0] && val <= SENSOR_LIMITS.temperature.safe[1]) return "Safe";
-        if ((val >= SENSOR_LIMITS.temperature.moderate[0] && val < SENSOR_LIMITS.temperature.moderate[1]) ||
-          (val > SENSOR_LIMITS.temperature.moderate[2] && val <= SENSOR_LIMITS.temperature.moderate[3])) return "Moderate";
+        if (val >= 24 && val <= 32) return "Safe";
+        if ((val >= 20 && val < 24) || (val > 32 && val <= 35)) return "Moderate";
         return "Unsafe";
-
       case "tds":
-        if (val <= SENSOR_LIMITS.tds.safe) return "Safe";
-        if (val <= SENSOR_LIMITS.tds.moderate) return "Moderate";
+        if (val <= 500) return "Safe";
+        if (val > 500 && val <= 1000) return "Moderate";
         return "Unsafe";
-
       default:
         return "Unknown";
     }
   };
 
-  const getColor = status => ({ Safe: "green", Moderate: "orange", Unsafe: "red", Unknown: "gray" }[status]);
-
-  const computeOverallStatus = (data = sensorData) => {
-    const statuses = Object.keys(data).map(type => getStatus(type, data[type]));
-    if (statuses.includes("Unsafe")) return "Unsafe";
-    if (statuses.includes("Moderate")) return "Moderate";
-    if (statuses.every(s => s === "Safe")) return "Safe";
-    return "Unknown";
-  };
-
-  // Fetch live sensor data
+  // ---------------- FETCH LIVE SENSOR DATA ----------------
   const fetchSensorData = async () => {
     try {
       const response = await fetch("http://aquacheck.local:5000/data");
@@ -119,7 +126,7 @@ const VisitorPage = () => {
     });
   };
 
-  // Fetch available dates from Supabase
+  // ---------------- FETCH AVAILABLE DATES ----------------
   useEffect(() => {
     const fetchDates = async () => {
       const { data: rows } = await supabase
@@ -136,7 +143,7 @@ const VisitorPage = () => {
     fetchDates();
   }, []);
 
-  // Fetch daily chart data
+  // ---------------- FETCH DAILY CHART DATA ----------------
   useEffect(() => {
     if (!selectedDate) return;
     setLoadingDaily(true);
@@ -164,6 +171,7 @@ const VisitorPage = () => {
     fetchDailyData();
   }, [selectedDate]);
 
+  // ---------------- RENDER ----------------
   return (
     <div className="visitor-container">
 
@@ -263,72 +271,37 @@ const VisitorPage = () => {
               </AreaChart>
             </ResponsiveContainer>
 
-            {/* ---------------- OVERALL STATUS BOX ---------------- */}
+            {/* OVERALL STATUS BOX */}
             <div
               style={{
-                margin: "2vh auto",               // vertical spacing responsive
-                padding: "1vh 2vw",               // responsive padding
-                width: "80%",                      // responsive width, max 300px
-                maxWidth: "300px",                 // caps width for larger screens
-                borderRadius: "1rem",              // scalable radius
+                margin: "2vh auto",
+                padding: "1vh 2vw",
+                width: "80%",
+                maxWidth: "300px",
+                borderRadius: "1rem",
                 textAlign: "center",
-                fontSize: "1.2rem",                // scales with root font size
+                fontSize: "1.2rem",
                 fontWeight: "600",
                 background: "#f5f5f5",
               }}
             >
               {(() => {
-                const latest = dailyData[dailyData.length - 1];
+                const latest = dailyData[dailyData.length - 1] || sensorData;
 
-                // Sensor status helper
-                const getSensorStatus = (type, value) => {
-                  if (value === null || value === undefined || value === "N/A") return "unknown";
-                  const val = parseFloat(value);
-                  if (isNaN(val)) return "unknown";
-
-                  switch (type) {
-                    case "ph":
-                      if (val >= 6.5 && val <= 8.5) return "safe";
-                      if ((val >= 6 && val < 6.5) || (val > 8.5 && val <= 9)) return "moderate";
-                      return "unsafe";
-                    case "turbidity":
-                      if (val <= 5) return "safe";
-                      if (val > 5 && val <= 10) return "moderate";
-                      return "unsafe";
-                    case "temperature":
-                      if (val >= 24 && val <= 32) return "safe";
-                      if ((val >= 20 && val < 24) || (val > 32 && val <= 35)) return "moderate";
-                      return "unsafe";
-                    case "tds":
-                      if (val <= 500) return "safe";
-                      if (val > 500 && val <= 1000) return "moderate";
-                      return "unsafe";
-                    default:
-                      return "unknown";
-                  }
+                const latestData = {
+                  ph: latest.ph,
+                  turbidity: latest.turbidity,
+                  temperature: latest.temperature,
+                  tds: latest.tds
                 };
 
-                const statuses = [
-                  getSensorStatus("ph", latest.ph),
-                  getSensorStatus("turbidity", latest.turbidity),
-                  getSensorStatus("temperature", latest.temperature),
-                  getSensorStatus("tds", latest.tds),
-                ];
+                const overall = computeOverallStatus(latestData);
 
-                let overall = "Safe";
-                if (statuses.includes("unsafe")) overall = "Unsafe";
-                else if (statuses.includes("moderate")) overall = "Moderate";
-                else if (statuses.includes("unknown")) overall = "Unknown";
-
-                const color =
-                  overall === "Safe" ? "green" : overall === "Moderate" ? "orange" : overall === "Unsafe" ? "red" : "gray";
-
-                return <span style={{ color }}>Overall Water Quality: {overall.charAt(0).toUpperCase() + overall.slice(1)}</span>;
+                return <span style={{ color: getColor(overall) }}>Overall Water Quality: {overall}</span>;
               })()}
             </div>
           </div>
         )}
-
 
       </section>
 
