@@ -63,7 +63,7 @@ export default function DataAnalytics() {
     fetchDates();
   }, []);
 
-  // Fetch Daily Chart Data
+  // DAILY CHART
   useEffect(() => {
     if (!selectedDate) return;
     setLoadingDaily(true);
@@ -98,7 +98,7 @@ export default function DataAnalytics() {
     fetchDaily();
   }, [selectedDate]);
 
-  // Fetch Monthly Chart Data
+  // MONTHLY CHART + OVERALL STATUS (same as Admin Dashboard)
   useEffect(() => {
     if (!selectedMonth || !selectedYear) return;
     setLoadingMonthly(true);
@@ -133,6 +133,7 @@ export default function DataAnalytics() {
             (
               values.reduce((sum, x) => sum + (x[key] || 0), 0) / values.length
             ).toFixed(2);
+
           return {
             day: new Date(day).toLocaleDateString("en-US", {
               month: "short",
@@ -147,32 +148,34 @@ export default function DataAnalytics() {
 
         setMonthlyData(averaged);
 
+        // Compute overall average values
         const avgAll = {
           ph: averaged.reduce((a, b) => a + b.ph, 0) / averaged.length || 0,
           turbidity:
-            averaged.reduce((a, b) => a + b.turbidity, 0) / averaged.length ||
-            0,
+            averaged.reduce((a, b) => a + b.turbidity, 0) / averaged.length || 0,
           tds: averaged.reduce((a, b) => a + b.tds, 0) / averaged.length || 0,
           temperature:
             averaged.reduce((a, b) => a + b.temperature, 0) /
               averaged.length || 0,
         };
 
-        if (
-          avgAll.ph >= 6.5 &&
-          avgAll.ph <= 8.5 &&
-          avgAll.turbidity < 5 &&
-          avgAll.tds < 500 &&
-          avgAll.temperature < 35
-        ) {
-          setOverallStatus("✅ Safe for general use");
-        } else if (
-          avgAll.ph >= 5.5 &&
-          avgAll.ph <= 9 &&
-          avgAll.turbidity < 10 &&
-          avgAll.tds < 1000
-        ) {
-          setOverallStatus("⚠️ Moderate (Caution Advised)");
+        // SAME LOGIC AS ADMIN DASHBOARD
+        const isSafe =
+          (avgAll.ph >= 6.5 && avgAll.ph <= 8.5) &&
+          (avgAll.turbidity <= 5) &&
+          (avgAll.tds <= 300) &&
+          (avgAll.temperature >= 18 && avgAll.temperature <= 30);
+
+        const isModerate =
+          (avgAll.ph >= 6.0 && avgAll.ph <= 9.0) &&
+          (avgAll.turbidity <= 10) &&
+          (avgAll.tds <= 600) &&
+          (avgAll.temperature >= 15 && avgAll.temperature <= 35);
+
+        if (isSafe) {
+          setOverallStatus("✅ Safe (Good Water Quality)");
+        } else if (isModerate) {
+          setOverallStatus("⚠️ Moderate (Some Parameters Slightly Off)");
         } else {
           setOverallStatus("❌ Unsafe (Water Quality Poor)");
         }
@@ -192,9 +195,7 @@ export default function DataAnalytics() {
       <Sidebar />
       <div className="analytics-content">
         <h2>AquaCheck Data Analytics</h2>
-        <p className="subtitle">
-          View real-time daily and monthly water quality trends
-        </p>
+        <p className="subtitle">View real-time daily and monthly water quality trends</p>
 
         <div className="chart-grid">
           {/* DAILY AREA CHART */}
@@ -218,24 +219,16 @@ export default function DataAnalytics() {
             ) : data.length === 0 ? (
               <p className="no-data">No data available for this date.</p>
             ) : (
-              <div style={{ width: "100%", marginTop: "20px" }}>
-                <h2
-                  style={{
-                    marginBottom: "5px",
-                    fontSize: "28px",
-                    fontWeight: "700",
-                  }}
-                >
+              <>
+                <h2 style={{ marginBottom: "5px", fontSize: "28px", fontWeight: "700" }}>
                   {new Date(selectedDate).toLocaleDateString("en-US", {
                     weekday: "long",
                   })}
                 </h2>
 
                 <ResponsiveContainer width="100%" height={330}>
-                  <AreaChart
-                    data={data}
-                    margin={{ top: 20, right: 20, left: 0, bottom: 0 }}
-                  >
+                  <AreaChart data={data} margin={{ top: 20, right: 20, left: 0, bottom: 0 }}>
+
                     <defs>
                       <linearGradient id="PH" x1="0" y1="0" x2="0" y2="1">
                         <stop offset="5%" stopColor="#0bef17ff" stopOpacity={0.8} />
@@ -261,52 +254,16 @@ export default function DataAnalytics() {
                     <XAxis dataKey="time" tick={{ fontSize: 12 }} />
                     <YAxis tick={{ fontSize: 12 }} />
                     <Tooltip />
-                    <Legend
-                      verticalAlign="top"
-                      height={40}
-                      formatter={(value) => (
-                        <span style={{ fontSize: "14px" }}>{value}</span>
-                      )}
-                    />
+                    <Legend />
 
-                    <Area
-                      type="monotone"
-                      dataKey="ph"
-                      stroke="#0bef17ff"
-                      fill="url(#PH)"
-                      strokeWidth={2}
-                      name="PH"
-                    />
+                    <Area type="monotone" dataKey="ph" stroke="#0bef17ff" fill="url(#PH)" strokeWidth={2} name="PH" />
+                    <Area type="monotone" dataKey="turbidity" stroke="#4BB7A7" fill="url(#Turbidity)" strokeWidth={2} name="Turbidity" />
+                    <Area type="monotone" dataKey="temperature" stroke="#6010ebff" fill="url(#Temperature)" strokeWidth={2} name="Temperature" />
+                    <Area type="monotone" dataKey="tds" stroke="#c9e20aff" fill="url(#TDS)" strokeWidth={2} name="TDS" />
 
-                    <Area
-                      type="monotone"
-                      dataKey="turbidity"
-                      stroke="#4BB7A7"
-                      fill="url(#Turbidity)"
-                      strokeWidth={2}
-                      name="Turbidity"
-                    />
-
-                    <Area
-                      type="monotone"
-                      dataKey="temperature"
-                      stroke="#6010ebff"
-                      fill="url(#Temperature)"
-                      strokeWidth={2}
-                      name="Temperature"
-                    />
-
-                    <Area
-                      type="monotone"
-                      dataKey="tds"
-                      stroke="#c9e20aff"
-                      fill="url(#TDS)"
-                      strokeWidth={2}
-                      name="TDS"
-                    />
                   </AreaChart>
                 </ResponsiveContainer>
-              </div>
+              </>
             )}
           </div>
 
@@ -321,22 +278,10 @@ export default function DataAnalytics() {
                 >
                   <option value="">Month</option>
                   {[
-                    "January",
-                    "February",
-                    "March",
-                    "April",
-                    "May",
-                    "June",
-                    "July",
-                    "August",
-                    "September",
-                    "October",
-                    "November",
-                    "December",
+                    "January","February","March","April","May","June",
+                    "July","August","September","October","November","December",
                   ].map((m, i) => (
-                    <option key={i + 1} value={i + 1}>
-                      {m}
-                    </option>
+                    <option key={i + 1} value={i + 1}>{m}</option>
                   ))}
                 </select>
 
@@ -346,9 +291,7 @@ export default function DataAnalytics() {
                 >
                   <option value="">Year</option>
                   {[2024, 2025, 2026].map((y) => (
-                    <option key={y} value={y}>
-                      {y}
-                    </option>
+                    <option key={y} value={y}>{y}</option>
                   ))}
                 </select>
               </div>
