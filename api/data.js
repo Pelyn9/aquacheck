@@ -1,14 +1,10 @@
-// /api/data.js
-
-// In-memory storage for latest ESP32 data
 let latestData = null;
-let lastUpdated = null; // timestamp in ms
+let lastUpdated = null;
 
-export default function handler(req, res) {
+export default async function handler(req, res) {
   const OFFLINE_THRESHOLD = 15000; // 15 seconds
 
   if (req.method === "POST") {
-    // ESP32 sends new data
     const data = req.body;
     if (!data) return res.status(400).json({ error: "No data sent" });
 
@@ -16,14 +12,13 @@ export default function handler(req, res) {
     lastUpdated = Date.now();
 
     console.log("📥 Data received from ESP32:", data);
-    return res.status(200).json({ message: "✅ Data received" });
+    return res.status(200).json({ message: "✅ Data received successfully!" });
   }
 
   if (req.method === "GET") {
     const now = Date.now();
 
     if (!latestData || (lastUpdated && now - lastUpdated > OFFLINE_THRESHOLD)) {
-      // ESP32 offline
       return res.status(200).json({
         status: "offline",
         data: {
@@ -35,7 +30,6 @@ export default function handler(req, res) {
       });
     }
 
-    // ESP32 online
     return res.status(200).json({
       status: "online",
       data: latestData,
