@@ -86,31 +86,44 @@ float readTurbidity() {
 void checkControlCommand() {
   if (WiFi.status() != WL_CONNECTED) return;
 
-  HTTPClient http;
-  http.begin("https://aquachecklive.vercel.app/api/control");
+  struct ServerTarget {
+    const char* name;
+    const char* url;
+  };
 
-  int code = http.GET();
-  if (code == 200) {
-    String payload = http.getString();
-    Serial.print("📥 Control Response: ");
-    Serial.println(payload);
+  ServerTarget servers[] = {
+    {"Local Flask", "http://aquacheck.local:5000/api/control"},
+    {"Cloud Vercel", "https://aquachecklive.vercel.app/api/control"}
+  };
 
-    // Update scanning only if payload contains "scan" key
-    if (payload.indexOf("\"scan\":true") >= 0) {
-      allowScanning = true;
-      Serial.println("▶️ Scanning ENABLED by dashboard");
-    } else if (payload.indexOf("\"scan\":false") >= 0) {
-      allowScanning = false;
-      Serial.println("⏸️ Scanning STOPPED by dashboard");
+  bool success = false;
+
+  for (auto &target : servers) {
+    HTTPClient http;
+    http.begin(target.url);
+    int code = http.GET();
+
+    if (code == 200) {
+      String payload = http.getString();
+      Serial.printf("📥 %s Control Response: %s\n", target.name, payload.c_str());
+
+      if (payload.indexOf("\"scan\":true") >= 0) allowScanning = true;
+      else if (payload.indexOf("\"scan\":false") >= 0) allowScanning = false;
+
+      success = true;
+      http.end();
+      break; // stop after first successful server
     } else {
-      Serial.println("⚠️ No scan key found. Keeping previous state.");
+      Serial.printf("⚠️ Failed %s, HTTP code: %d\n", target.name, code);
     }
-  } else {
-    Serial.printf("⚠️ Failed to fetch control command, HTTP code: %d. Pausing scan.\n", code);
-    allowScanning = false; // failsafe: stop scanning on error
+
+    http.end();
   }
 
-  http.end();
+  if (!success) {
+    Serial.println("⚠️ No control server reachable. Continuing scan anyway.");
+    // Do NOT stop scanning
+  }
 }
 
 // ---------------- UPLOAD TO SERVERS ----------------
@@ -125,32 +138,34 @@ void uploadToServers() {
     return;
   }
 
-  HTTPClient http;
-
-  String jsonData = "{\"ph\":" + String(phValue, 2) +
-                    ",\"turbidity\":" + String(turbidityValue, 2) +
-                    ",\"temperature\":" + String(temperature, 2) +
-                    ",\"tds\":" + String(tdsValue, 2) + "}";
-
   struct ServerTarget {
     const char* name;
     const char* url;
   };
 
   ServerTarget servers[] = {
-    {"Local Flask", "http://aquacheck.local:5000/upload"},
+    {"Local Flask", "http://aquacheck.local:5000/api/upload"},
     {"Cloud Vercel", "https://aquachecklive.vercel.app/api/upload"}
   };
 
+  String jsonData = "{\"ph\":" + String(phValue, 2) +
+                    ",\"turbidity\":" + String(turbidityValue, 2) +
+                    ",\"temperature\":" + String(temperature, 2) +
+                    ",\"tds\":" + String(tdsValue, 2) + "}";
+
   for (auto &target : servers) {
+    HTTPClient http;
     http.begin(target.url);
     http.addHeader("Content-Type", "application/json");
 
     int code = http.POST(jsonData);
-    String resp = http.getString();
-
-    Serial.printf("➡ %s -> HTTP %d | Response: %s\n",
-                  target.name, code, resp.c_str());
+    if (code > 0) {
+      String resp = http.getString();
+      Serial.printf("➡ %s -> HTTP %d | Response: %s\n",
+                    target.name, code, resp.c_str());
+    } else {
+      Serial.printf("⚠️ Failed %s, HTTP code: %d\n", target.name, code);
+    }
 
     http.end();
   }
@@ -194,31 +209,19 @@ void setup() {
 void loop() {
   checkControlCommand();
 
-  if (!allowScanning) {
-    delay(500);
-    return;
-  }
-
-  // ---------------- TEMPERATURE ----------------
+  // Always scan and read sensors
   sensors.requestTemperatures();
   temperature = sensors.getTempCByIndex(0);
   if (temperature == -127.0 || isnan(temperature)) temperature = 25.0;
 
-  // ---------------- pH SENSOR ----------------
   int phRaw = analogRead(PH_PIN);
-
   if (phRaw > 0 && phRaw < 4095) {
     float voltage = phRaw * (3.3 / 4095.0);
     phValue = phSlope * voltage + phOffset;
     phValue = constrain(phValue, 0, 14);
-  } else {
-    phValue = 7.0;
-  }
+  } else phValue = 7.0;
 
-  // ---------------- TDS ----------------
   tdsValue = readTDS();
-
-  // ---------------- TURBIDITY ----------------
   turbidityValue = readTurbidity();
 
   // ---------------- PRINT READINGS ----------------
@@ -231,5 +234,5 @@ void loop() {
 
   uploadToServers();
 
-  delay(1000);
+  delay(1000); // 1 second loop
 }
