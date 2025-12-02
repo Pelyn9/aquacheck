@@ -30,6 +30,22 @@ export const AutoScanProvider = ({ children }) => {
     }
   }, []);
 
+  // ✅ Stop Auto Scan (manual admin stop)
+  const stopAutoScan = useCallback(() => {
+    if (intervalRef.current) clearInterval(intervalRef.current);
+    intervalRef.current = null;
+    setAutoScanRunning(false);
+
+    // Update Supabase to mark as stopped
+    supabase
+      .from("device_scanning")
+      .update({ status: 0, updated_at: new Date().toISOString() })
+      .eq("id", 1) // adjust row ID if needed
+      .then(({ error }) => {
+        if (error) console.error("Error updating scan status:", error.message);
+      });
+  }, []);
+
   // ✅ Start Auto Scan
   const startAutoScan = useCallback(
     async (fetchSensorData) => {
@@ -52,32 +68,14 @@ export const AutoScanProvider = ({ children }) => {
           fetchSensorData();
         } else {
           console.log("Auto scan stopped by admin.");
-          clearInterval(intervalRef.current);
-          intervalRef.current = null;
-          setAutoScanRunning(false);
+          stopAutoScan(); // call stop safely
         }
       }, intervalTime);
 
       setAutoScanRunning(true);
     },
-    [fetchScanStatus, intervalTime]
+    [fetchScanStatus, intervalTime, stopAutoScan] // ✅ include stopAutoScan
   );
-
-  // ✅ Stop Auto Scan (manual admin stop)
-  const stopAutoScan = useCallback(() => {
-    if (intervalRef.current) clearInterval(intervalRef.current);
-    intervalRef.current = null;
-    setAutoScanRunning(false);
-
-    // Update Supabase to mark as stopped
-    supabase
-      .from("device_scanning")
-      .update({ status: 0, updated_at: new Date().toISOString() })
-      .eq("id", 1) // adjust row ID if needed
-      .then(({ error }) => {
-        if (error) console.error("Error updating scan status:", error.message);
-      });
-  }, []);
 
   // ✅ Automatically start scanning on page load
   useEffect(() => {
