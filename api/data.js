@@ -29,7 +29,6 @@ function broadcastRealtime() {
 // Main API Handler
 // -------------------------------------------
 export default function handler(req, res) {
-  
   // --------------------------------------------------
   // 1. Dashboard connects to realtime SSE stream
   // --------------------------------------------------
@@ -54,7 +53,14 @@ export default function handler(req, res) {
   }
 
   // --------------------------------------------------
-  // 2. ESP32 POSTS sensor data here
+  // 2. Regular GET for dashboard snapshot (non-SSE)
+  // --------------------------------------------------
+  if (req.method === "GET") {
+    return res.status(200).json({ success: true, data: latestData });
+  }
+
+  // --------------------------------------------------
+  // 3. ESP32 POSTS sensor data here
   // --------------------------------------------------
   if (req.method === "POST") {
     if (!req.body) {
@@ -78,7 +84,7 @@ export default function handler(req, res) {
       return res.status(200).json({
         success: true,
         message: "✅ Data received successfully!",
-        data: latestData, // <-- use `data` field for dashboard
+        latestData,
       });
 
     } catch (err) {
@@ -90,7 +96,7 @@ export default function handler(req, res) {
   }
 
   // --------------------------------------------------
-  // 3. Block other methods
+  // 4. Block other methods
   // --------------------------------------------------
   res.status(405).json({ message: "Method Not Allowed" });
 }
