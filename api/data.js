@@ -1,32 +1,32 @@
-// api/data.js — REALTIME VERSION (SSE + POST updates)
+// pages/api/data.js — REALTIME MIRROR VERSION
 
 let latestData = {
   ph: 7.0,
   temperature: 25.0,
-  tds: 2418.89,
-  turbidity: 2395.53,
+  tds: 0,
+  turbidity: 0,
 };
 
-// List of SSE clients
+// List of all SSE dashboard clients
 let clients = [];
 
-// Helper to push realtime data to all connected clients
+// Push latest data to all connected dashboards
 function broadcastRealtime() {
-  const dataString = `data: ${JSON.stringify(latestData)}\n\n`;
-  clients.forEach((client) => client.res.write(dataString));
+  const payload = `data: ${JSON.stringify(latestData)}\n\n`;
+  clients.forEach((client) => client.res.write(payload));
 }
 
 export default function handler(req, res) {
-  // ----------------------------
-  // 1. SERVER-SENT EVENTS (REALTIME STREAM)
-  // ----------------------------
+  // ---------------------------
+  // 1. REALTIME STREAM (SSE)
+  // ---------------------------
   if (req.method === "GET" && req.headers.accept === "text/event-stream") {
     res.setHeader("Cache-Control", "no-cache");
     res.setHeader("Content-Type", "text/event-stream");
     res.setHeader("Connection", "keep-alive");
     res.flushHeaders();
 
-    // send initial data immediately
+    // Send current data instantly
     res.write(`data: ${JSON.stringify(latestData)}\n\n`);
 
     const client = { id: Date.now(), res };
@@ -39,39 +39,32 @@ export default function handler(req, res) {
     return;
   }
 
-  // ----------------------------
-  // 2. NORMAL GET REQUEST (just get last data)
-  // ----------------------------
-  if (req.method === "GET") {
-    return res.status(200).json(latestData);
-  }
-
-  // ----------------------------
-  // 3. ESP32 POSTING SENSOR DATA
-  // ----------------------------
+  // ---------------------------
+  // 2. ESP32 POSTS NEW DATA
+  // ---------------------------
   if (req.method === "POST") {
     try {
       const { ph, temperature, tds, turbidity } = req.body;
 
+      // Update memory
       latestData = {
-        ph: ph !== undefined ? parseFloat(ph) : latestData.ph,
-        temperature: temperature !== undefined ? parseFloat(temperature) : latestData.temperature,
-        tds: tds !== undefined ? parseFloat(tds) : latestData.tds,
-        turbidity: turbidity !== undefined ? parseFloat(turbidity) : latestData.turbidity,
+        ph: parseFloat(ph),
+        temperature: parseFloat(temperature),
+        tds: parseFloat(tds),
+        turbidity: parseFloat(turbidity),
       };
 
-      // 🔥 broadcast real-time update to all dashboards
+      // Broadcast immediately to dashboards
       broadcastRealtime();
 
       return res.status(200).json({
-        message: "✅ Sensor data updated",
+        success: true,
         latestData,
       });
-    } catch (error) {
-      return res.status(400).json({ message: "❌ Invalid data format" });
+    } catch (err) {
+      return res.status(400).json({ error: "Invalid data format" });
     }
   }
 
-  // Method not allowed
-  return res.status(405).json({ message: "Method not allowed" });
+  return res.status(405).json({ message: "Method Not Allowed" });
 }
