@@ -1,5 +1,5 @@
 import React, { createContext, useState, useRef, useEffect, useCallback } from "react";
-import { supabase } from "../supabaseClient.js";
+import { supabase } from "../supabaseClient";
 
 export const AutoScanContext = createContext();
 
@@ -30,22 +30,6 @@ export const AutoScanProvider = ({ children }) => {
     }
   }, []);
 
-  // ✅ Stop Auto Scan (manual admin stop)
-  const stopAutoScan = useCallback(() => {
-    if (intervalRef.current) clearInterval(intervalRef.current);
-    intervalRef.current = null;
-    setAutoScanRunning(false);
-
-    // Update Supabase to mark as stopped
-    supabase
-      .from("device_scanning")
-      .update({ status: 0, updated_at: new Date().toISOString() })
-      .eq("id", 1) // adjust row ID if needed
-      .then(({ error }) => {
-        if (error) console.error("Error updating scan status:", error.message);
-      });
-  }, []);
-
   // ✅ Start Auto Scan
   const startAutoScan = useCallback(
     async (fetchSensorData) => {
@@ -68,14 +52,32 @@ export const AutoScanProvider = ({ children }) => {
           fetchSensorData();
         } else {
           console.log("Auto scan stopped by admin.");
-          stopAutoScan(); // call stop safely
+          clearInterval(intervalRef.current);
+          intervalRef.current = null;
+          setAutoScanRunning(false);
         }
       }, intervalTime);
 
       setAutoScanRunning(true);
     },
-    [fetchScanStatus, intervalTime, stopAutoScan] // ✅ include stopAutoScan
+    [fetchScanStatus, intervalTime]
   );
+
+  // ✅ Stop Auto Scan (manual admin stop)
+  const stopAutoScan = useCallback(() => {
+    if (intervalRef.current) clearInterval(intervalRef.current);
+    intervalRef.current = null;
+    setAutoScanRunning(false);
+
+    // Update Supabase to mark as stopped
+    supabase
+      .from("device_scanning")
+      .update({ status: 0, updated_at: new Date().toISOString() })
+      .eq("id", 1) // adjust row ID if needed
+      .then(({ error }) => {
+        if (error) console.error("Error updating scan status:", error.message);
+      });
+  }, []);
 
   // ✅ Automatically start scanning on page load
   useEffect(() => {
