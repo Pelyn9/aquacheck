@@ -1,4 +1,5 @@
-// api/data.js
+// api/data.js — REALTIME VERSION (SSE + POST updates)
+
 let latestData = {
   ph: 7.0,
   temperature: 25.0,
@@ -6,33 +7,67 @@ let latestData = {
   turbidity: 2395.53,
 };
 
-export default async function handler(req, res) {
+// List of SSE clients
+let clients = [];
+
+// Helper to push realtime data to all connected clients
+function broadcastRealtime() {
+  const dataString = `data: ${JSON.stringify(latestData)}\n\n`;
+  clients.forEach((client) => client.res.write(dataString));
+}
+
+export default function handler(req, res) {
+  // ----------------------------
+  // 1. SERVER-SENT EVENTS (REALTIME STREAM)
+  // ----------------------------
+  if (req.method === "GET" && req.headers.accept === "text/event-stream") {
+    res.setHeader("Cache-Control", "no-cache");
+    res.setHeader("Content-Type", "text/event-stream");
+    res.setHeader("Connection", "keep-alive");
+    res.flushHeaders();
+
+    // send initial data immediately
+    res.write(`data: ${JSON.stringify(latestData)}\n\n`);
+
+    const client = { id: Date.now(), res };
+    clients.push(client);
+
+    req.on("close", () => {
+      clients = clients.filter((c) => c.id !== client.id);
+    });
+
+    return;
+  }
+
+  // ----------------------------
+  // 2. NORMAL GET REQUEST (just get last data)
+  // ----------------------------
   if (req.method === "GET") {
-    // Return latest sensor data
     return res.status(200).json(latestData);
   }
 
+  // ----------------------------
+  // 3. ESP32 POSTING SENSOR DATA
+  // ----------------------------
   if (req.method === "POST") {
     try {
-      // Ensure JSON body is parsed
-      const body = req.body;
-
-      if (!body) {
-        return res.status(400).json({ message: "❌ No data received" });
-      }
-
-      const { ph, temperature, tds, turbidity } = body;
+      const { ph, temperature, tds, turbidity } = req.body;
 
       latestData = {
-        ph: ph !== undefined && !isNaN(ph) ? parseFloat(ph) : latestData.ph,
-        temperature: temperature !== undefined && !isNaN(temperature) ? parseFloat(temperature) : latestData.temperature,
-        tds: tds !== undefined && !isNaN(tds) ? parseFloat(tds) : latestData.tds,
-        turbidity: turbidity !== undefined && !isNaN(turbidity) ? parseFloat(turbidity) : latestData.turbidity,
+        ph: ph !== undefined ? parseFloat(ph) : latestData.ph,
+        temperature: temperature !== undefined ? parseFloat(temperature) : latestData.temperature,
+        tds: tds !== undefined ? parseFloat(tds) : latestData.tds,
+        turbidity: turbidity !== undefined ? parseFloat(turbidity) : latestData.turbidity,
       };
 
-      return res.status(200).json({ message: "✅ Data received successfully!", latestData });
-    } catch (err) {
-      console.error("❌ Error processing data:", err);
+      // 🔥 broadcast real-time update to all dashboards
+      broadcastRealtime();
+
+      return res.status(200).json({
+        message: "✅ Sensor data updated",
+        latestData,
+      });
+    } catch (error) {
       return res.status(400).json({ message: "❌ Invalid data format" });
     }
   }
