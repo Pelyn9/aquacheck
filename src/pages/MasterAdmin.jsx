@@ -6,12 +6,14 @@ import { AdminContext } from "../App";
 import "../assets/masteradmin.css";
 import { FaBars } from "react-icons/fa";
 
+// ---------------- API BASE ----------------
+// Use environment variable if set; otherwise default
 const API_BASE =
   process.env.REACT_APP_API_URL && process.env.REACT_APP_API_URL.trim() !== ""
     ? `${process.env.REACT_APP_API_URL}/api/admin`
     : window.location.hostname === "localhost"
     ? "http://localhost:4000/api/admin"
-    : "https://aquachecklive.vercel.app/api/admin";
+    : "https://aquachecklive.vercel.app/api/admin"; // <-- Replace with your actual backend
 
 const MasterAdmin = () => {
   const { isAdmin } = useContext(AdminContext);
@@ -36,14 +38,9 @@ const MasterAdmin = () => {
   const [masterMessage, setMasterMessage] = useState("");
 
   const [showMenu, setShowMenu] = useState(false);
-
   const navigate = useNavigate();
 
-  const handleManualScanClick = () => {
-    navigate("/manual-scan");
-    setShowMenu(false);
-  };
-
+  // ---------------- Initialize Master Password ----------------
   const initializeMasterPassword = async () => {
     const localPass = localStorage.getItem("masterPassword");
     if (!localPass) {
@@ -65,18 +62,21 @@ const MasterAdmin = () => {
     initializeMasterPassword();
   }, []);
 
+  // ---------------- Safe Date ----------------
   const safeDate = (d) => {
     if (!d) return "—";
     const t = new Date(d);
     return isNaN(t.getTime()) ? "—" : t.toLocaleString();
   };
 
+  // ---------------- Fetch Users ----------------
   const fetchUsers = useCallback(async () => {
     if (!isAdmin) return;
     setLoading(true);
     setError("");
 
     try {
+      console.log("Fetching users from:", `${API_BASE}/users`);
       const res = await fetch(`${API_BASE}/users`, {
         method: "GET",
         headers: { "Content-Type": "application/json" },
@@ -92,6 +92,7 @@ const MasterAdmin = () => {
     } catch (e) {
       console.error("Error fetching users:", e);
       setError("Failed to fetch users: " + e.message);
+      setUsers([]);
     } finally {
       setLoading(false);
     }
@@ -101,6 +102,7 @@ const MasterAdmin = () => {
     if (isAdmin) fetchUsers();
   }, [isAdmin, fetchUsers]);
 
+  // ---------------- Delete User ----------------
   const handleDelete = async (userId) => {
     if (!window.confirm("Delete this user?")) return;
     setOpId(userId);
@@ -116,6 +118,7 @@ const MasterAdmin = () => {
     }
   };
 
+  // ---------------- Toggle User ----------------
   const handleToggleUser = async (userId, currentlyDisabled) => {
     setOpId(userId);
     try {
@@ -134,6 +137,7 @@ const MasterAdmin = () => {
     }
   };
 
+  // ---------------- Secret Admin Password Change ----------------
   const handlePasswordChange = async () => {
     if (!newPassword.trim()) return setPasswordMessage("Password cannot be empty.");
     if (!currentKeyInput.trim()) return setPasswordMessage("Current key is required.");
@@ -160,6 +164,7 @@ const MasterAdmin = () => {
     }
   };
 
+  // ---------------- Master Password Update ----------------
   const handleMasterUpdate = async () => {
     if (!editedMasterPassword.trim())
       return setMasterMessage("Please enter a new master password.");
@@ -185,6 +190,11 @@ const MasterAdmin = () => {
       console.error("Failed to save master password", e);
       setMasterMessage("Error: " + e.message);
     }
+  };
+
+  const handleManualScanClick = () => {
+    navigate("/manual-scan");
+    setShowMenu(false);
   };
 
   if (!isAdmin)
@@ -216,7 +226,6 @@ const MasterAdmin = () => {
 
         {showMenu && (
           <div className="card" style={{ marginTop: "10px" }}>
-            {/* Manual Scan button styled like Master Admin Access */}
             <button className="btn-primary" onClick={handleManualScanClick}>
               🛠 Manual Scan
             </button>
