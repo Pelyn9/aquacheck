@@ -18,14 +18,41 @@ const AdminDashboard = () => {
   const isScanning = useRef(false);
   const hasSaved = useRef(false);
 
-  const esp32Url =
-    window.location.protocol === "https:"
-      ? "/api/data" // Vercel
-      : "http://aquacheck.local:5000/data"; // Local ESP32
+  // --- Choose ESP32 URL ---
+  const esp32Url = process.env.NODE_ENV === "production"
+    ? "/api/data" // Vercel
+    : "http://aquacheck.local:5000/data"; // Local LAN ESP32
+
+  // --- Compute overall safety ---
+  const computeOverallSafety = useCallback((data) => {
+    if (!data || Object.values(data).every(v => v === "N/A")) {
+      setOverallSafety("N/A");
+      return;
+    }
+
+    const safetyScores = Object.entries(data).map(([key, value]) => {
+      if (value === "N/A") return 0;
+      const val = parseFloat(value);
+      switch (key) {
+        case "ph": return val >= 6.5 && val <= 8.5 ? 2 : 0;
+        case "turbidity": return val <= 5 ? 2 : val <= 10 ? 1 : 0;
+        case "temp": return val >= 24 && val <= 32 ? 2 : 0;
+        case "tds": return val <= 500 ? 2 : 0;
+        default: return 0;
+      }
+    });
+
+    const totalScore = safetyScores.reduce((a, b) => a + b, 0);
+
+    if (totalScore >= 7) setOverallSafety("Safe");
+    else if (totalScore >= 4) setOverallSafety("Moderate");
+    else setOverallSafety("Unsafe");
+  }, []);
 
   // --- Fetch sensor data ---
   const fetchSensorData = useCallback(async () => {
     try {
+      // First try ESP32 (local)
       const response = await fetch(esp32Url);
       if (!response.ok) throw new Error("ESP32 not reachable");
       const localData = await response.json();
@@ -45,13 +72,14 @@ const AdminDashboard = () => {
       console.warn("⚠️ Primary source failed, trying Vercel backup...");
       try {
         const cloudResponse = await fetch("/api/data");
-        const data = await cloudResponse.json();
+        const resData = await cloudResponse.json();
+        const cloudData = resData.data || {};
 
         const newData = {
-          ph: data.ph ? parseFloat(data.ph).toFixed(2) : "N/A",
-          turbidity: data.turbidity ? parseFloat(data.turbidity).toFixed(1) : "N/A",
-          temp: data.temperature ? parseFloat(data.temperature).toFixed(1) : "N/A",
-          tds: data.tds ? parseFloat(data.tds).toFixed(0) : "N/A",
+          ph: cloudData.ph ? parseFloat(cloudData.ph).toFixed(2) : "N/A",
+          turbidity: cloudData.turbidity ? parseFloat(cloudData.turbidity).toFixed(1) : "N/A",
+          temp: cloudData.temperature ? parseFloat(cloudData.temperature).toFixed(1) : "N/A",
+          tds: cloudData.tds ? parseFloat(cloudData.tds).toFixed(0) : "N/A",
         };
 
         setSensorData(newData);
@@ -65,34 +93,11 @@ const AdminDashboard = () => {
         return null;
       }
     }
-  }, [esp32Url]);
+  }, [esp32Url, computeOverallSafety]);
 
-  // --- Compute overall safety ---
-  const computeOverallSafety = (data) => {
-    if (!data) return setOverallSafety("N/A");
-
-    const safetyScores = Object.entries(data).map(([key, value]) => {
-      if (value === "N/A") return 0; // treat missing as unsafe
-      const val = parseFloat(value);
-      switch (key) {
-        case "ph": return val >= 6.5 && val <= 8.5 ? 2 : 0;
-        case "turbidity": return val <= 5 ? 2 : val <= 10 ? 1 : 0;
-        case "temp": return val >= 24 && val <= 32 ? 2 : 0;
-        case "tds": return val <= 500 ? 2 : 0;
-        default: return 0;
-      }
-    });
-
-    const totalScore = safetyScores.reduce((acc, val) => acc + val, 0);
-
-    if (totalScore >= 7) setOverallSafety("Safe");
-    else if (totalScore >= 4) setOverallSafety("Moderate");
-    else setOverallSafety("Unsafe");
-  };
-
-  // --- Save manually ---
+  // --- Manual save ---
   const handleSave = useCallback(async () => {
-    if (Object.values(sensorData).every((v) => v === "N/A")) {
+    if (Object.values(sensorData).every(v => v === "N/A")) {
       setStatus("⚠ No valid data to save. Please scan first.");
       return;
     }
@@ -119,20 +124,25 @@ const AdminDashboard = () => {
     }
   }, [sensorData]);
 
-  // --- Auto-save during continuous scan ---
+  // --- Auto-save ---
   const handleAutoSave = useCallback(async () => {
     if (!isScanning.current || hasSaved.current) return;
     hasSaved.current = true;
 
     const newData = await fetchSensorData();
-    if (!newData || Object.values(newData).every((v) => v === "N/A")) {
+    if (!newData || Object.values(newData).every(v => v === "N/A")) {
       setStatus("⚠ No valid data to auto-save.");
+      hasSaved.current = false;
       return;
     }
 
     try {
       const { data: { user }, error: userError } = await supabase.auth.getUser();
-      if (userError || !user) return setStatus("⚠ User not authenticated. Auto-save skipped.");
+      if (userError || !user) {
+        setStatus("⚠ User not authenticated. Auto-save skipped.");
+        hasSaved.current = false;
+        return;
+      }
 
       const saveData = {
         user_id: user.id,
@@ -149,6 +159,8 @@ const AdminDashboard = () => {
     } catch (err) {
       console.error("❌ Auto-save error:", err);
       setStatus("❌ Auto-save failed.");
+    } finally {
+      hasSaved.current = false; // Reset after save
     }
   }, [fetchSensorData]);
 
@@ -176,17 +188,17 @@ const AdminDashboard = () => {
     setCountdown(FIXED_INTERVAL / 1000);
 
     countdownRef.current = setInterval(() => {
-      setCountdown((prev) => {
+      setCountdown(prev => {
         if (prev <= 1) {
           handleAutoSave();
-          setTimeout(() => { hasSaved.current = false; }, 1000);
           return FIXED_INTERVAL / 1000;
         }
         return prev - 1;
       });
     }, 1000);
 
-    liveIntervalRef.current = setInterval(fetchSensorData, 1000);
+    // Live fetch every 5 seconds instead of 1s
+    liveIntervalRef.current = setInterval(fetchSensorData, 5000);
     setStatus("🔄 Auto Scan started (every 15 minutes).");
     localStorage.setItem("autoScanRunning", "true");
   }, [fetchSensorData, handleAutoSave, stopContinuousAutoScan]);
@@ -202,7 +214,7 @@ const AdminDashboard = () => {
     }
   }, [autoScanRunning, stopAutoScan, stopContinuousAutoScan, startAutoScan, startContinuousAutoScan, handleAutoSave]);
 
-  // --- Sensor status based on WHO/EPA guidelines ---
+  // --- Sensor status ---
   const getSensorStatus = (type, value) => {
     if (value === "N/A") return "";
     const val = parseFloat(value);
@@ -217,9 +229,7 @@ const AdminDashboard = () => {
 
   // --- Auto-start scan if persisted ---
   useEffect(() => {
-    if (localStorage.getItem("autoScanRunning") === "true") {
-      startContinuousAutoScan();
-    }
+    if (localStorage.getItem("autoScanRunning") === "true") startContinuousAutoScan();
     return () => stopContinuousAutoScan();
   }, [startContinuousAutoScan, stopContinuousAutoScan]);
 
@@ -248,13 +258,11 @@ const AdminDashboard = () => {
         </section>
 
         <section className="sensor-grid">
-          {["ph", "turbidity", "temp", "tds"].map((key) => (
+          {["ph", "turbidity", "temp", "tds"].map(key => (
             <div key={key} className={`sensor-card ${getSensorStatus(key, sensorData[key])}`}>
               <h3>{key.toUpperCase()}</h3>
               <p>{sensorData[key]} {key === "turbidity" ? "NTU" : key === "temp" ? "°C" : key === "tds" ? "ppm" : ""}</p>
-              <p className={`status-label ${getSensorStatus(key, sensorData[key])}`}>
-                {getSensorStatus(key, sensorData[key]).toUpperCase()}
-              </p>
+              <p className={`status-label ${getSensorStatus(key, sensorData[key])}`}>{getSensorStatus(key, sensorData[key]).toUpperCase()}</p>
             </div>
           ))}
         </section>
