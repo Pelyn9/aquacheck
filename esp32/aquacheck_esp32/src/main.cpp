@@ -144,9 +144,9 @@ void uploadToServers() {
   };
 
   ServerTarget servers[] = {
-    {"Local Flask", "http://aquacheck.local:5000/api/upload"},
-    {"Cloud Vercel", "https://aquachecklive.vercel.app/api/upload"}
-  };
+     {"Local ESP32 API", "http://aquacheck.local:5000/api/data"},       // POST here
+    {"Cloud Vercel", "https://aquachecklive.vercel.app/api/data"}       // POST here
+};
 
   String jsonData = "{\"ph\":" + String(phValue, 2) +
                     ",\"turbidity\":" + String(turbidityValue, 2) +

@@ -1,12 +1,10 @@
 export const config = {
   api: {
-    bodyParser: true, // allow ESP32 JSON body
+    bodyParser: true, // allow ESP32 JSON
   },
 };
 
-// -------------------------------------------
-// In-memory latest sensor data
-// -------------------------------------------
+// Latest in-memory sensor data
 let latestData = {
   ph: 7.0,
   temperature: 25.0,
@@ -14,63 +12,45 @@ let latestData = {
   turbidity: 0,
 };
 
-// Store all SSE dashboard clients
+// SSE clients
 let clients = [];
 
-// -------------------------------------------
-// Push data to all SSE clients
-// -------------------------------------------
+// Push updates to SSE dashboards
 function broadcastRealtime() {
   const payload = `data: ${JSON.stringify(latestData)}\n\n`;
-  clients.forEach((client) => client.res.write(payload));
+  clients.forEach(c => c.res.write(payload));
 }
 
-// -------------------------------------------
-// Main API Handler
-// -------------------------------------------
 export default function handler(req, res) {
-  // --------------------------------------------------
-  // 1. Dashboard connects to realtime SSE stream
-  // --------------------------------------------------
+  // ---------------- SSE connection ----------------
   if (req.method === "GET" && req.headers.accept === "text/event-stream") {
-    res.setHeader("Cache-Control", "no-cache");
     res.setHeader("Content-Type", "text/event-stream");
+    res.setHeader("Cache-Control", "no-cache");
     res.setHeader("Connection", "keep-alive");
     res.flushHeaders();
 
-    // Send the current data immediately
     res.write(`data: ${JSON.stringify(latestData)}\n\n`);
-
     const client = { id: Date.now(), res };
     clients.push(client);
 
-    // Remove client when disconnected
     req.on("close", () => {
-      clients = clients.filter((c) => c.id !== client.id);
+      clients = clients.filter(c => c.id !== client.id);
     });
-
     return;
   }
 
-  // --------------------------------------------------
-  // 2. Regular GET for dashboard snapshot (non-SSE)
-  // --------------------------------------------------
+  // ---------------- Dashboard snapshot ----------------
   if (req.method === "GET") {
-    return res.status(200).json({ success: true, data: latestData });
+    return res.status(200).json({ success: true, latestData });
   }
 
-  // --------------------------------------------------
-  // 3. ESP32 POSTS sensor data here
-  // --------------------------------------------------
+  // ---------------- ESP32 POST ----------------
   if (req.method === "POST") {
-    if (!req.body) {
-      return res.status(400).json({ error: "Missing JSON body" });
-    }
+    if (!req.body) return res.status(400).json({ error: "Missing JSON body" });
 
     try {
       const { ph, temperature, tds, turbidity } = req.body;
 
-      // Update memory safely
       latestData = {
         ph: parseFloat(ph ?? 0),
         temperature: parseFloat(temperature ?? 0),
@@ -78,7 +58,6 @@ export default function handler(req, res) {
         turbidity: parseFloat(turbidity ?? 0),
       };
 
-      // Push update to all connected dashboards
       broadcastRealtime();
 
       return res.status(200).json({
@@ -86,17 +65,11 @@ export default function handler(req, res) {
         message: "✅ Data received successfully!",
         latestData,
       });
-
     } catch (err) {
-      return res.status(400).json({
-        error: "Invalid JSON payload",
-        details: err.message,
-      });
+      return res.status(400).json({ error: "Invalid JSON", details: err.message });
     }
   }
 
-  // --------------------------------------------------
-  // 4. Block other methods
-  // --------------------------------------------------
+  // ---------------- Block others ----------------
   res.status(405).json({ message: "Method Not Allowed" });
 }
