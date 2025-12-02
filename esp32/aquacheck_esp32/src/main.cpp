@@ -42,20 +42,16 @@ void calibratePH(float voltageAtPH7, float voltageAtPH4) {
 float readTDS() {
   const int samples = 10;
   float sum = 0;
-
   for (int i = 0; i < samples; i++) {
     int raw = analogRead(TDS_PIN);
     float voltage = raw * (3.3 / 4095.0);
-
     float tds = (133.42 * pow(voltage, 3)
                - 255.86 * pow(voltage, 2)
                + 857.39 * voltage) * 0.5;
-
     if (tds < 0) tds = 0;
     sum += tds;
     delay(5);
   }
-
   return sum / samples;
 }
 
@@ -63,22 +59,17 @@ float readTDS() {
 float readTurbidity() {
   const int samples = 10;
   float sumVoltage = 0;
-
   for (int i = 0; i < samples; i++) {
     int raw = analogRead(TURBIDITY_PIN);
     float voltage = raw * (3.3 / 4095.0);
     sumVoltage += voltage;
     delay(5);
   }
-
   float avgVoltage = sumVoltage / samples;
-
   float turbidity = -1120.4 * sq(avgVoltage)
                     + 5742.3 * avgVoltage
                     - 4352.9;
-
   if (turbidity < 0) turbidity = 0;
-
   return turbidity;
 }
 
@@ -86,47 +77,26 @@ float readTurbidity() {
 void checkControlCommand() {
   if (WiFi.status() != WL_CONNECTED) return;
 
-  struct ServerTarget {
-    const char* name;
-    const char* url;
-  };
+  // Only Cloud Vercel
+  const char* url = "https://aquachecklive.vercel.app/api/control";
 
-  ServerTarget servers[] = {
-    {"Local Flask", "http://aquacheck.local:5000/api/control"},
-    {"Cloud Vercel", "https://aquachecklive.vercel.app/api/control"}
-  };
+  HTTPClient http;
+  http.begin(url);
+  int code = http.GET();
 
-  bool success = false;
-
-  for (auto &target : servers) {
-    HTTPClient http;
-    http.begin(target.url);
-    int code = http.GET();
-
-    if (code == 200) {
-      String payload = http.getString();
-      Serial.printf("📥 %s Control Response: %s\n", target.name, payload.c_str());
-
-      if (payload.indexOf("\"scan\":true") >= 0) allowScanning = true;
-      else if (payload.indexOf("\"scan\":false") >= 0) allowScanning = false;
-
-      success = true;
-      http.end();
-      break; // stop after first successful server
-    } else {
-      Serial.printf("⚠️ Failed %s, HTTP code: %d\n", target.name, code);
-    }
-
-    http.end();
+  if (code == 200) {
+    String payload = http.getString();
+    Serial.printf("📥 Cloud Vercel Control Response: %s\n", payload.c_str());
+    if (payload.indexOf("\"scan\":true") >= 0) allowScanning = true;
+    else if (payload.indexOf("\"scan\":false") >= 0) allowScanning = false;
+  } else {
+    Serial.printf("⚠️ Failed Cloud Vercel control, HTTP code: %d\n", code);
   }
 
-  if (!success) {
-    Serial.println("⚠️ No control server reachable. Continuing scan anyway.");
-    // Do NOT stop scanning
-  }
+  http.end();
 }
 
-// ---------------- UPLOAD TO SERVERS ----------------
+// ---------------- UPLOAD TO CLOUD VERCEL ----------------
 void uploadToServers() {
   if (!allowScanning) {
     Serial.println("⏸️ Scanning disabled — no upload.");
@@ -138,37 +108,26 @@ void uploadToServers() {
     return;
   }
 
-  struct ServerTarget {
-    const char* name;
-    const char* url;
-  };
-
-  ServerTarget servers[] = {
-     {"Local ESP32 API", "http://aquacheck.local:5000/api/data"},       // POST here
-    {"Cloud Vercel", "https://aquachecklive.vercel.app/api/data"}       // POST here
-};
+  const char* url = "https://aquachecklive.vercel.app/api/data";
 
   String jsonData = "{\"ph\":" + String(phValue, 2) +
                     ",\"turbidity\":" + String(turbidityValue, 2) +
                     ",\"temperature\":" + String(temperature, 2) +
                     ",\"tds\":" + String(tdsValue, 2) + "}";
 
-  for (auto &target : servers) {
-    HTTPClient http;
-    http.begin(target.url);
-    http.addHeader("Content-Type", "application/json");
+  HTTPClient http;
+  http.begin(url);
+  http.addHeader("Content-Type", "application/json");
 
-    int code = http.POST(jsonData);
-    if (code > 0) {
-      String resp = http.getString();
-      Serial.printf("➡ %s -> HTTP %d | Response: %s\n",
-                    target.name, code, resp.c_str());
-    } else {
-      Serial.printf("⚠️ Failed %s, HTTP code: %d\n", target.name, code);
-    }
-
-    http.end();
+  int code = http.POST(jsonData);
+  if (code > 0) {
+    String resp = http.getString();
+    Serial.printf("➡ Cloud Vercel -> HTTP %d | Response: %s\n", code, resp.c_str());
+  } else {
+    Serial.printf("⚠️ Failed Cloud Vercel, HTTP code: %d\n", code);
   }
+
+  http.end();
 }
 
 // ---------------- WIFI MANAGER ----------------
@@ -201,7 +160,6 @@ void setup() {
   ph.begin();
 
   setupWiFiManager();
-
   calibratePH(2.06, 2.50);
 }
 
@@ -209,7 +167,7 @@ void setup() {
 void loop() {
   checkControlCommand();
 
-  // Always scan and read sensors
+  // Scan sensors
   sensors.requestTemperatures();
   temperature = sensors.getTempCByIndex(0);
   if (temperature == -127.0 || isnan(temperature)) temperature = 25.0;
@@ -224,7 +182,7 @@ void loop() {
   tdsValue = readTDS();
   turbidityValue = readTurbidity();
 
-  // ---------------- PRINT READINGS ----------------
+  // Print readings
   Serial.println("-------------------------------------------------");
   Serial.printf("🌡 Temperature: %.2f °C\n", temperature);
   Serial.printf("💧 pH Value: %.2f\n", phValue);
@@ -232,6 +190,7 @@ void loop() {
   Serial.printf("🌫 Turbidity: %.2f NTU\n", turbidityValue);
   Serial.println("-------------------------------------------------\n");
 
+  // Upload to cloud only
   uploadToServers();
 
   delay(1000); // 1 second loop
