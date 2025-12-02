@@ -34,8 +34,24 @@ export default async function handler(req, res) {
       return res.status(200).json({ success: true });
     }
 
+    // TOGGLE a user (enable/disable)
+    if (req.method === "POST" && req.url.includes("/toggle")) {
+      const { id } = req.query;
+      const { enable } = req.body;
+      if (!id || typeof enable !== "boolean") {
+        return res.status(400).json({ error: "Invalid parameters" });
+      }
+
+      const { error } = await supabaseAdmin.auth.admin.updateUserById(id, {
+        disabled: !enable,
+      });
+
+      if (error) return res.status(400).json({ error: error.message });
+      return res.status(200).json({ success: true });
+    }
+
     // Method not allowed
-    res.setHeader("Allow", ["GET", "DELETE"]);
+    res.setHeader("Allow", ["GET", "DELETE", "POST"]);
     return res.status(405).end(`Method ${req.method} Not Allowed`);
   } catch (err) {
     console.error("❌ Admin API error:", err);
