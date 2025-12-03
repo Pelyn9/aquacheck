@@ -84,6 +84,7 @@ const AdminDashboard = () => {
       const { data: { user } } = await supabase.auth.getUser();
       if(!user) { hasSaved.current=false; return; }
 
+      // save sensor data
       const saveData = {
         user_id: user.id,
         ph: parseFloat(newData.ph)||null,
@@ -93,6 +94,7 @@ const AdminDashboard = () => {
       };
       await supabase.from("dataset_history").insert([saveData]);
 
+      // update next_auto_save_ts in DB
       const nextTs = Date.now() + intervalMs;
       await supabase.from("device_scanning").update({ next_auto_save_ts: nextTs }).eq("id", 1);
       setNextAutoSaveTs(nextTs);
@@ -131,6 +133,7 @@ const AdminDashboard = () => {
   useEffect(() => {
     window.fetchSensorData = fetchSensorData;
 
+    // get current scanning state from DB
     const init = async () => {
       const { data } = await supabase.from("device_scanning").select("*").eq("id", 1).single();
       if(data){
@@ -143,6 +146,7 @@ const AdminDashboard = () => {
     };
     init();
 
+    // Supabase Realtime for multi-device sync
     const channel = supabase
       .channel("scan_status_live")
       .on(
