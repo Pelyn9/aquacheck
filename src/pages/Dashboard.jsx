@@ -9,6 +9,7 @@ const AdminDashboard = () => {
   const [status, setStatus] = useState("Awaiting sensor data...");
   const [countdown, setCountdown] = useState(FIXED_INTERVAL / 1000);
   const [overallSafety, setOverallSafety] = useState("N/A");
+  const [manualStopped, setManualStopped] = useState(false);
 
   const esp32Url = process.env.NODE_ENV === "production"
     ? "/api/data"
@@ -101,8 +102,6 @@ const AdminDashboard = () => {
   }, [sensorData]);
 
   const handleAutoSave = useCallback(async () => {
-    const lastTime = parseInt(localStorage.getItem("lastAutoSave") || "0");
-    if(Date.now() - lastTime < FIXED_INTERVAL) return; // prevent double save
     const data = await fetchSensorData();
     if(!data) return;
     try {
@@ -137,30 +136,38 @@ const AdminDashboard = () => {
     }
   };
 
+  // Auto scan + countdown
   useEffect(()=>{
     let interval = null;
-    if(localStorage.getItem("autoScanRunning")==="true"){
+    if(localStorage.getItem("autoScanRunning")==="true" && !manualStopped){
       const startTime = parseInt(localStorage.getItem("autoScanStartTime") || Date.now());
       localStorage.setItem("autoScanStartTime", startTime);
+
       interval = setInterval(async ()=>{
         const elapsed = Date.now() - startTime;
         const remaining = FIXED_INTERVAL - (elapsed % FIXED_INTERVAL);
         setCountdown(Math.floor(remaining/1000));
         if(remaining <= 1000) await handleAutoSave();
       }, 1000);
-      fetchSensorData(); // fetch immediately on load
+
+      fetchSensorData();
     }
-    return ()=>interval && clearInterval(interval);
-  }, [fetchSensorData, handleAutoSave]);
+    return ()=> interval && clearInterval(interval);
+  }, [fetchSensorData, handleAutoSave, manualStopped]);
 
   const toggleAutoScan = useCallback(()=>{
     const running = localStorage.getItem("autoScanRunning")==="true";
     if(running){
+      // Manual stop: everything stops, countdown resets
       localStorage.setItem("autoScanRunning","false");
+      setManualStopped(true);
+      setCountdown(FIXED_INTERVAL/1000);
       setStatus("🛑 Auto Scan stopped.");
     } else {
+      // Start auto scan
       localStorage.setItem("autoScanRunning","true");
       localStorage.setItem("autoScanStartTime", Date.now());
+      setManualStopped(false);
       setStatus("🔄 Auto Scan started (every 15 minutes).");
       fetchSensorData();
     }
@@ -182,7 +189,9 @@ const AdminDashboard = () => {
               {localStorage.getItem("autoScanRunning")==="true"?"Stop Auto Scan":"Start Auto Scan"}
             </button>
           </div>
-          {localStorage.getItem("autoScanRunning")==="true" && <div className="countdown-timer">⏱ Next auto-save in: {Math.floor(countdown/60)}m {countdown%60}s</div>}
+          {localStorage.getItem("autoScanRunning")==="true" && !manualStopped &&
+            <div className="countdown-timer">⏱ Next auto-save in: {Math.floor(countdown/60)}m {countdown%60}s</div>
+          }
         </section>
         <section className="sensor-grid">
           {["ph","turbidity","temp","tds"].map(key=>(
