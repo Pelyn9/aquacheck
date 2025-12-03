@@ -4,9 +4,8 @@ import Sidebar from "../components/Sidebar";
 import "../assets/databoard.css";
 import { supabase } from "../supabaseClient";
 
-const FIXED_INTERVAL = 900000; // 15 minutes
-
 const AdminDashboard = () => {
+  const FIXED_INTERVAL = 900000; // 15 minutes
   const intervalRef = useRef(null);
 
   const [sensorData, setSensorData] = useState({
@@ -37,11 +36,16 @@ const AdminDashboard = () => {
       if (value === "N/A") return 0;
       const val = parseFloat(value);
       switch (key) {
-        case "ph": return val >= 6.5 && val <= 8.5 ? 2 : 0;
-        case "turbidity": return val <= 5 ? 2 : val <= 10 ? 1 : 0;
-        case "temp": return val >= 24 && val <= 32 ? 2 : 0;
-        case "tds": return val <= 500 ? 2 : 0;
-        default: return 0;
+        case "ph":
+          return val >= 6.5 && val <= 8.5 ? 2 : 0;
+        case "turbidity":
+          return val <= 5 ? 2 : val <= 10 ? 1 : 0;
+        case "temp":
+          return val >= 24 && val <= 32 ? 2 : 0;
+        case "tds":
+          return val <= 500 ? 2 : 0;
+        default:
+          return 0;
       }
     });
     const total = scores.reduce((a, b) => a + b, 0);
@@ -118,6 +122,7 @@ const AdminDashboard = () => {
       const { error } = await supabase.from("dataset_history").insert([saveData]);
       if (error) throw error;
 
+      // Update device_scanning next_auto_save_ts
       const nextTS = Date.now() + FIXED_INTERVAL;
       await supabase.from("device_scanning")
         .update({ last_scan_time: new Date().toISOString(), next_auto_save_ts: nextTS })
@@ -131,13 +136,14 @@ const AdminDashboard = () => {
   }, [fetchSensorData]);
 
   // --------------------------
-  // Countdown
+  // Smooth Countdown
   // --------------------------
   const startCountdown = useCallback((nextTS) => {
     if (intervalRef.current) clearInterval(intervalRef.current);
     intervalRef.current = setInterval(async () => {
       const remaining = nextTS - Date.now();
       setCountdown(Math.max(Math.floor(remaining / 1000), 0));
+
       if (remaining <= 0 && autoScanRunning) {
         await handleAutoSave();
       }
@@ -148,38 +154,32 @@ const AdminDashboard = () => {
   // Toggle Auto Scan
   // --------------------------
   const toggleAutoScan = useCallback(async () => {
+    const newStatus = !autoScanRunning;
+    setAutoScanRunning(newStatus);
+
     try {
-      // Flip current status
-      const newStatus = !autoScanRunning;
       const nextTS = newStatus ? Date.now() + FIXED_INTERVAL : null;
 
-      // Update Supabase row (all devices listen to this)
-      await supabase.from("device_scanning").update({
+      await supabase.from("device_scanning").upsert({
+        id: 1,
         status: newStatus ? 1 : 0,
-        next_auto_save_ts: nextTS
-      }).eq("id", 1);
+        next_auto_save_ts: nextTS,
+      });
 
-      // Locally update for this device
-      setAutoScanRunning(newStatus);
       if (nextTS) startCountdown(nextTS);
-      else {
-        setCountdown(0);
-        if (intervalRef.current) clearInterval(intervalRef.current);
-      }
-
     } catch (err) {
-      console.error("Failed to toggle auto-scan:", err);
-      setStatus("❌ Failed to start/stop auto-scan.");
+      console.error("Failed to update scan status:", err);
     }
   }, [autoScanRunning, startCountdown]);
 
   // --------------------------
-  // Real-time listener
+  // Real-time Supabase listener
   // --------------------------
   useEffect(() => {
     const fetchInitial = async () => {
       const { data } = await supabase.from("device_scanning").select("*").eq("id", 1).single();
       if (!data) return;
+
       setAutoScanRunning(data.status === 1);
       if (data.next_auto_save_ts) startCountdown(data.next_auto_save_ts);
     };

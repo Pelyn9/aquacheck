@@ -7,7 +7,6 @@ export const AutoScanProvider = ({ children }) => {
   const [autoScanRunning, setAutoScanRunning] = useState(false);
   const [intervalTime, setIntervalTime] = useState(900000); // default 15 min
   const intervalRef = useRef(null);
-
   // Start auto-scan globally
   const startAutoScan = useCallback(async (fetchSensorData, updateDB = true) => {
     if (!fetchSensorData) return;
