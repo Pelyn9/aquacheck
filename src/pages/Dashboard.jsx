@@ -116,12 +116,10 @@ const AdminDashboard = () => {
       const { error } = await supabase.from("dataset_history").insert([saveData]);
       if (error) throw error;
 
-      // Update next_auto_save_ts for real-time countdown sync
+      // Update device_scanning next_auto_save_ts and last_scan_time
+      const nextTS = Date.now() + FIXED_INTERVAL;
       await supabase.from("device_scanning")
-        .update({
-          last_scan_time: new Date().toISOString(),
-          next_auto_save_ts: Date.now() + FIXED_INTERVAL
-        })
+        .update({ last_scan_time: new Date().toISOString(), next_auto_save_ts: nextTS })
         .eq("id", 1);
 
       setStatus(`💾 Auto-saved at ${new Date().toLocaleTimeString()}`);
@@ -132,79 +130,49 @@ const AdminDashboard = () => {
   }, [fetchSensorData]);
 
   // --------------------------
-  // Smooth Countdown Logic
+  // Smooth Countdown
   // --------------------------
-  const startCountdown = useCallback((nextSaveTimestamp) => {
+  const startCountdown = useCallback((nextTS) => {
     if (intervalRef.current) clearInterval(intervalRef.current);
-
-    const updateCountdown = () => {
-      const remaining = nextSaveTimestamp - Date.now();
+    intervalRef.current = setInterval(async () => {
+      const remaining = nextTS - Date.now();
       setCountdown(Math.max(Math.floor(remaining / 1000), 0));
 
       if (remaining <= 0 && autoScanRunning) {
-        handleAutoSave();
+        await handleAutoSave();
       }
-    };
-
-    updateCountdown(); // initial immediate update
-    intervalRef.current = setInterval(updateCountdown, 1000);
+    }, 1000);
   }, [autoScanRunning, handleAutoSave]);
-
-  const stopCountdown = useCallback(() => {
-    if (intervalRef.current) clearInterval(intervalRef.current);
-    intervalRef.current = null;
-    setCountdown(FIXED_INTERVAL / 1000);
-  }, []);
 
   // --------------------------
   // Toggle Auto Scan
   // --------------------------
   const toggleAutoScan = useCallback(async () => {
-  const newStatus = !autoScanRunning;
-  setAutoScanRunning(newStatus);
+    const newStatus = !autoScanRunning;
+    setAutoScanRunning(newStatus);
 
-  try {
-    if (newStatus) {
-      // Starting auto scan: set next_auto_save_ts if not set
-      const nextTs = Date.now() + FIXED_INTERVAL;
+    try {
+      const nextTS = Date.now() + FIXED_INTERVAL;
       await supabase.from("device_scanning").upsert({
         id: 1,
-        status: 1,
-        next_auto_save_ts: nextTs
+        status: newStatus ? 1 : 0,
+        next_auto_save_ts: newStatus ? nextTS : null,
       });
-
-      startCountdown(nextTs); // start countdown from 15 minutes
-    } else {
-      // Stopping auto scan
-      await supabase.from("device_scanning").upsert({
-        id: 1,
-        status: 0
-      });
-      stopCountdown();
+    } catch (err) {
+      console.error("Failed to update scan status:", err);
     }
-  } catch (err) {
-    console.error("Failed to update scan status:", err);
-  }
-}, [autoScanRunning, startCountdown, stopCountdown]);
-
+  }, [autoScanRunning]);
 
   // --------------------------
-  // Real-time Listener
+  // Real-time Supabase listener
   // --------------------------
   useEffect(() => {
     const fetchInitial = async () => {
-      const { data } = await supabase
-        .from("device_scanning")
-        .select("*")
-        .eq("id", 1)
-        .single();
+      const { data } = await supabase.from("device_scanning").select("*").eq("id", 1).single();
+      if (!data) return;
 
-      if (data) {
-        setAutoScanRunning(data.status === 1);
-        if (data.next_auto_save_ts) {
-          startCountdown(data.next_auto_save_ts);
-        }
-      }
+      setAutoScanRunning(data.status === 1);
+      if (data.next_auto_save_ts) startCountdown(data.next_auto_save_ts);
     };
     fetchInitial();
 
@@ -216,18 +184,13 @@ const AdminDashboard = () => {
         (payload) => {
           const isRunning = payload.new.status === 1;
           setAutoScanRunning(isRunning);
-
-          if (payload.new.next_auto_save_ts) {
-            startCountdown(payload.new.next_auto_save_ts);
-          } else {
-            stopCountdown();
-          }
+          if (payload.new.next_auto_save_ts) startCountdown(payload.new.next_auto_save_ts);
         }
       )
       .subscribe();
 
     return () => supabase.removeChannel(channel);
-  }, [startCountdown, stopCountdown]);
+  }, [startCountdown]);
 
   // --------------------------
   // Sensor Status Color
