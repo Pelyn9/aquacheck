@@ -1,5 +1,5 @@
 import React, { createContext, useState, useRef, useEffect, useCallback } from "react";
-import { supabase } from "../supabaseClient";
+import { supabase } from "../supabaseClient.js";
 
 export const AutoScanContext = createContext();
 
