@@ -1,11 +1,12 @@
 // src/pages/AdminDashboard.jsx
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
 import Sidebar from "../components/Sidebar";
 import "../assets/databoard.css";
 import { supabase } from "../supabaseClient";
 
 const AdminDashboard = () => {
   const FIXED_INTERVAL = 900000; // 15 minutes
+  const intervalRef = useRef(null);
 
   const [sensorData, setSensorData] = useState({
     ph: "N/A",
@@ -17,7 +18,6 @@ const AdminDashboard = () => {
   const [countdown, setCountdown] = useState(FIXED_INTERVAL / 1000);
   const [overallSafety, setOverallSafety] = useState("N/A");
   const [autoScanRunning, setAutoScanRunning] = useState(false);
-  const [nextAutoSaveTs, setNextAutoSaveTs] = useState(null);
 
   const esp32Url =
     process.env.NODE_ENV === "production"
@@ -36,11 +36,16 @@ const AdminDashboard = () => {
       if (value === "N/A") return 0;
       const val = parseFloat(value);
       switch (key) {
-        case "ph": return val >= 6.5 && val <= 8.5 ? 2 : 0;
-        case "turbidity": return val <= 5 ? 2 : val <= 10 ? 1 : 0;
-        case "temp": return val >= 24 && val <= 32 ? 2 : 0;
-        case "tds": return val <= 500 ? 2 : 0;
-        default: return 0;
+        case "ph":
+          return val >= 6.5 && val <= 8.5 ? 2 : 0;
+        case "turbidity":
+          return val <= 5 ? 2 : val <= 10 ? 1 : 0;
+        case "temp":
+          return val >= 24 && val <= 32 ? 2 : 0;
+        case "tds":
+          return val <= 500 ? 2 : 0;
+        default:
+          return 0;
       }
     });
     const total = scores.reduce((a, b) => a + b, 0);
@@ -96,21 +101,57 @@ const AdminDashboard = () => {
   }, [esp32Url, computeOverallSafety]);
 
   // --------------------------
-  // Countdown (display only)
+  // Auto Save
   // --------------------------
-  useEffect(() => {
-    let timer;
-    if (nextAutoSaveTs) {
-      timer = setInterval(() => {
-        const remaining = Math.max(Math.floor((nextAutoSaveTs - Date.now()) / 1000), 0);
-        setCountdown(remaining);
-      }, 1000);
+  const handleAutoSave = useCallback(async () => {
+    const data = await fetchSensorData();
+    if (!data) return;
+
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      const saveData = {
+        user_id: user.id,
+        ph: parseFloat(data.ph) || null,
+        turbidity: parseFloat(data.turbidity) || null,
+        temperature: parseFloat(data.temp) || null,
+        tds: parseFloat(data.tds) || null,
+      };
+
+      const { error } = await supabase.from("dataset_history").insert([saveData]);
+      if (error) throw error;
+
+      // Update device_scanning next_auto_save_ts
+      const nextTS = Date.now() + FIXED_INTERVAL;
+      await supabase.from("device_scanning")
+        .update({ last_scan_time: new Date().toISOString(), next_auto_save_ts: nextTS })
+        .eq("id", 1);
+
+      setStatus(`💾 Auto-saved at ${new Date().toLocaleTimeString()}`);
+    } catch (err) {
+      console.error(err);
+      setStatus("❌ Auto-save failed.");
     }
-    return () => clearInterval(timer);
-  }, [nextAutoSaveTs]);
+  }, [fetchSensorData]);
 
   // --------------------------
-  // Toggle Auto Scan (DB only)
+  // Smooth Countdown
+  // --------------------------
+  const startCountdown = useCallback((nextTS) => {
+    if (intervalRef.current) clearInterval(intervalRef.current);
+    intervalRef.current = setInterval(async () => {
+      const remaining = nextTS - Date.now();
+      setCountdown(Math.max(Math.floor(remaining / 1000), 0));
+
+      if (remaining <= 0 && autoScanRunning) {
+        await handleAutoSave();
+      }
+    }, 1000);
+  }, [autoScanRunning, handleAutoSave]);
+
+  // --------------------------
+  // Toggle Auto Scan
   // --------------------------
   const toggleAutoScan = useCallback(async () => {
     const newStatus = !autoScanRunning;
@@ -118,18 +159,21 @@ const AdminDashboard = () => {
 
     try {
       const nextTS = newStatus ? Date.now() + FIXED_INTERVAL : null;
+
       await supabase.from("device_scanning").upsert({
         id: 1,
         status: newStatus ? 1 : 0,
         next_auto_save_ts: nextTS,
       });
+
+      if (nextTS) startCountdown(nextTS);
     } catch (err) {
       console.error("Failed to update scan status:", err);
     }
-  }, [autoScanRunning]);
+  }, [autoScanRunning, startCountdown]);
 
   // --------------------------
-  // Real-time listener
+  // Real-time Supabase listener
   // --------------------------
   useEffect(() => {
     const fetchInitial = async () => {
@@ -137,7 +181,7 @@ const AdminDashboard = () => {
       if (!data) return;
 
       setAutoScanRunning(data.status === 1);
-      setNextAutoSaveTs(data.next_auto_save_ts);
+      if (data.next_auto_save_ts) startCountdown(data.next_auto_save_ts);
     };
     fetchInitial();
 
@@ -147,14 +191,16 @@ const AdminDashboard = () => {
         "postgres_changes",
         { event: "UPDATE", schema: "public", table: "device_scanning", filter: "id=eq.1" },
         (payload) => {
-          setAutoScanRunning(payload.new.status === 1);
-          setNextAutoSaveTs(payload.new.next_auto_save_ts);
+          const isRunning = payload.new.status === 1;
+          setAutoScanRunning(isRunning);
+          if (payload.new.next_auto_save_ts) startCountdown(payload.new.next_auto_save_ts);
+          else setCountdown(0);
         }
       )
       .subscribe();
 
     return () => supabase.removeChannel(channel);
-  }, []);
+  }, [startCountdown]);
 
   // --------------------------
   // Sensor Status Color
@@ -179,7 +225,7 @@ const AdminDashboard = () => {
 
         <section className="scan-controls">
           <div className="button-group">
-            <button className="save-btn" onClick={fetchSensorData}>Fetch Data</button>
+            <button className="save-btn" onClick={handleAutoSave}>Save Now</button>
             <button
               className={`start-stop-btn ${autoScanRunning ? "stop" : "start"}`}
               onClick={toggleAutoScan}
@@ -187,7 +233,7 @@ const AdminDashboard = () => {
               {autoScanRunning ? "Stop Auto Scan" : "Start Auto Scan"}
             </button>
           </div>
-          {autoScanRunning && nextAutoSaveTs && (
+          {autoScanRunning && (
             <div className="countdown-timer">
               ⏱ Next auto-save in: <strong>{Math.floor(countdown / 60)}m {countdown % 60}s</strong>
             </div>
