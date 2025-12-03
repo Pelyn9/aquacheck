@@ -96,7 +96,7 @@ const AdminDashboard = () => {
   }, [esp32Url, computeOverallSafety]);
 
   // --------------------------
-  // Countdown calculation (client-side only for display)
+  // Countdown (display only)
   // --------------------------
   useEffect(() => {
     let timer;
@@ -110,7 +110,7 @@ const AdminDashboard = () => {
   }, [nextAutoSaveTs]);
 
   // --------------------------
-  // Toggle Auto Scan (updates DB only)
+  // Toggle Auto Scan (DB only)
   // --------------------------
   const toggleAutoScan = useCallback(async () => {
     const newStatus = !autoScanRunning;
@@ -129,7 +129,7 @@ const AdminDashboard = () => {
   }, [autoScanRunning]);
 
   // --------------------------
-  // Real-time listener for DB changes
+  // Real-time listener
   // --------------------------
   useEffect(() => {
     const fetchInitial = async () => {
