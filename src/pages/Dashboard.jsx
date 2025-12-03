@@ -9,6 +9,7 @@ const AdminDashboard = () => {
   const [status, setStatus] = useState("Awaiting sensor data...");
   const [countdown, setCountdown] = useState(FIXED_INTERVAL / 1000);
   const [overallSafety, setOverallSafety] = useState("N/A");
+  const [autoScanRunning, setAutoScanRunning] = useState(localStorage.getItem("autoScanRunning") === "true");
 
   const esp32Url = process.env.NODE_ENV === "production"
     ? "/api/data"
@@ -153,12 +154,14 @@ const AdminDashboard = () => {
 
   // ----------------- Countdown & Auto Save -----------------
   useEffect(() => {
-    if (!localStorage.getItem("autoScanStartTime")) {
+    if (autoScanRunning && !localStorage.getItem("autoScanStartTime")) {
       localStorage.setItem("autoScanStartTime", Date.now());
       localStorage.setItem("autoScanRunning", "true");
     }
 
     const interval = setInterval(async () => {
+      if (!autoScanRunning) return;
+
       const startTime = parseInt(localStorage.getItem("autoScanStartTime"));
       const elapsed = Date.now() - startTime;
       const remaining = FIXED_INTERVAL - (elapsed % FIXED_INTERVAL);
@@ -171,23 +174,48 @@ const AdminDashboard = () => {
     }, 1000);
 
     return () => clearInterval(interval);
-  }, [fetchSensorData, handleSaveAuto]);
+  }, [fetchSensorData, handleSaveAuto, autoScanRunning]);
+
+  // ----------------- Start/Stop Handlers -----------------
+  const handleStartScan = () => {
+    setAutoScanRunning(true);
+    localStorage.setItem("autoScanRunning", "true");
+    if (!localStorage.getItem("autoScanStartTime")) {
+      localStorage.setItem("autoScanStartTime", Date.now());
+    }
+  };
+
+  const handleStopScan = () => {
+    setAutoScanRunning(false);
+    localStorage.setItem("autoScanRunning", "false");
+  };
 
   return (
     <div className="dashboard-container">
       <Sidebar />
       <main className="main-content">
         <header className="topbar"><h1>Admin Dashboard</h1></header>
+
         <section className="scan-controls">
           <div className="interval-setting">
             <label>Auto Scan Interval:</label>
             <select disabled><option>Every 15 Minutes</option></select>
           </div>
+
           <div className="button-group">
             <button className="save-btn" onClick={handleSave}>Save</button>
+            {!autoScanRunning ? (
+              <button className="start-stop-btn start" onClick={handleStartScan}>Start Auto Scan</button>
+            ) : (
+              <button className="start-stop-btn stop" onClick={handleStopScan}>Stop Auto Scan</button>
+            )}
           </div>
-          <div className="countdown-timer">⏱ Next auto-save in: {Math.floor(countdown / 60)}m {countdown % 60}s</div>
+
+          <div className="countdown-timer">
+            ⏱ Next auto-save in: {Math.floor(countdown / 60)}m {countdown % 60}s
+          </div>
         </section>
+
         <section className="sensor-grid">
           {["ph", "turbidity", "temp", "tds"].map(key => (
             <div key={key} className={`sensor-card ${getSensorStatus(key, sensorData[key])}`}>
@@ -197,9 +225,11 @@ const AdminDashboard = () => {
             </div>
           ))}
         </section>
+
         <section className={`overall-safety ${overallSafety.toLowerCase()}`}>
           <h2>Swimming Safety: {overallSafety}</h2>
         </section>
+
         <div className="status-card">{status}</div>
       </main>
     </div>
