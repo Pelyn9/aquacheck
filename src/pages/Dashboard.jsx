@@ -92,15 +92,30 @@ const AdminDashboard = () => {
 
   // ------------------ Fetch AutoScan State -------------------
   const fetchAutoScanState = useCallback(async () => {
-    const { data } = await supabase.from("device_scanning").select("*").limit(1).single();
-    if (data) {
+    try {
+      const { data, error } = await supabase.from("device_scanning").select("*").limit(1).single();
+      if (error || !data) {
+        // Insert default row if missing
+        await supabase.from("device_scanning").insert({
+          id: 1,
+          running: false,
+          start_time: Date.now(),
+          last_data: { ph:"N/A", turbidity:"N/A", temp:"N/A", tds:"N/A" }
+        });
+        setAutoScanRunning(false);
+        setSensorData({ ph:"N/A", turbidity:"N/A", temp:"N/A", tds:"N/A" });
+        setStartTime(Date.now());
+        return;
+      }
       setAutoScanRunning(data.running);
       setStartTime(data.start_time || Date.now());
-      if (data.last_data) setSensorData(data.last_data);
-      else setSensorData({ ph: "N/A", turbidity: "N/A", temp: "N/A", tds: "N/A" });
+      setSensorData(data.last_data || { ph:"N/A", turbidity:"N/A", temp:"N/A", tds:"N/A" });
+    } catch (err) {
+      console.error(err);
     }
   }, []);
 
+  // ------------------ Real-time subscription -------------------
   useEffect(() => {
     fetchAutoScanState();
 
@@ -111,7 +126,7 @@ const AdminDashboard = () => {
         setAutoScanRunning(updated.running);
         setStartTime(updated.start_time || Date.now());
         if (!updated.running) {
-          setSensorData({ ph: "N/A", turbidity: "N/A", temp: "N/A", tds: "N/A" });
+          setSensorData({ ph:"N/A", turbidity:"N/A", temp:"N/A", tds:"N/A" });
         } else if (updated.last_data) {
           setSensorData(updated.last_data);
         }
@@ -135,29 +150,36 @@ const AdminDashboard = () => {
       }, 1000);
     } else {
       setCountdown(FIXED_INTERVAL / 1000);
-      setSensorData({ ph: "N/A", turbidity: "N/A", temp: "N/A", tds: "N/A" });
+      setSensorData({ ph:"N/A", turbidity:"N/A", temp:"N/A", tds:"N/A" });
     }
     return () => interval && clearInterval(interval);
   }, [autoScanRunning, handleAutoSave, startTime]);
 
   // ------------------ Toggle Auto Scan -------------------
   const toggleAutoScan = useCallback(async () => {
-    const newState = !autoScanRunning;
-    setAutoScanRunning(newState);
-    if (newState) {
-      await supabase.from("device_scanning").update({
-        running: true,
-        start_time: Date.now(),
-      }).eq("id", 1);
-      setStatus("🔄 Auto Scan started (every 15 minutes).");
-      handleAutoSave();
-    } else {
-      await supabase.from("device_scanning").update({
-        running: false,
-        last_data: null,
-      }).eq("id", 1);
-      setStatus("🛑 Auto Scan stopped.");
-      setSensorData({ ph: "N/A", turbidity: "N/A", temp: "N/A", tds: "N/A" });
+    try {
+      const newState = !autoScanRunning;
+      setAutoScanRunning(newState);
+      if (newState) {
+        await supabase.from("device_scanning").upsert({
+          id: 1,
+          running: true,
+          start_time: Date.now(),
+        });
+        setStatus("🔄 Auto Scan started (every 15 minutes).");
+        handleAutoSave();
+      } else {
+        await supabase.from("device_scanning").upsert({
+          id: 1,
+          running: false,
+          last_data: null,
+        });
+        setStatus("🛑 Auto Scan stopped.");
+        setSensorData({ ph:"N/A", turbidity:"N/A", temp:"N/A", tds:"N/A" });
+      }
+    } catch(err) {
+      console.error(err);
+      setStatus("❌ Failed to toggle auto scan.");
     }
   }, [autoScanRunning, handleAutoSave]);
 
