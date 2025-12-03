@@ -36,16 +36,11 @@ const AdminDashboard = () => {
       if (value === "N/A") return 0;
       const val = parseFloat(value);
       switch (key) {
-        case "ph":
-          return val >= 6.5 && val <= 8.5 ? 2 : 0;
-        case "turbidity":
-          return val <= 5 ? 2 : val <= 10 ? 1 : 0;
-        case "temp":
-          return val >= 24 && val <= 32 ? 2 : 0;
-        case "tds":
-          return val <= 500 ? 2 : 0;
-        default:
-          return 0;
+        case "ph": return val >= 6.5 && val <= 8.5 ? 2 : 0;
+        case "turbidity": return val <= 5 ? 2 : val <= 10 ? 1 : 0;
+        case "temp": return val >= 24 && val <= 32 ? 2 : 0;
+        case "tds": return val <= 500 ? 2 : 0;
+        default: return 0;
       }
     });
     const total = scores.reduce((a, b) => a + b, 0);
@@ -75,8 +70,7 @@ const AdminDashboard = () => {
       computeOverallSafety(formatted);
       setStatus("✅ ESP32 data fetched.");
       return formatted;
-    } catch (err) {
-      console.warn("ESP32 fetch failed, trying cloud backup...");
+    } catch {
       try {
         const cloudRes = await fetch("/api/data", { cache: "no-store" });
         const cloudJson = await cloudRes.json();
@@ -91,8 +85,7 @@ const AdminDashboard = () => {
         computeOverallSafety(formatted);
         setStatus("🌐 Cloud backup used.");
         return formatted;
-      } catch (err2) {
-        console.error("Both ESP32 & Cloud failed:", err2);
+      } catch {
         setStatus("❌ Failed to fetch data");
         setOverallSafety("N/A");
         return null;
@@ -122,28 +115,25 @@ const AdminDashboard = () => {
       const { error } = await supabase.from("dataset_history").insert([saveData]);
       if (error) throw error;
 
-      // Update device_scanning next_auto_save_ts
       const nextTS = Date.now() + FIXED_INTERVAL;
       await supabase.from("device_scanning")
         .update({ last_scan_time: new Date().toISOString(), next_auto_save_ts: nextTS })
         .eq("id", 1);
 
       setStatus(`💾 Auto-saved at ${new Date().toLocaleTimeString()}`);
-    } catch (err) {
-      console.error(err);
+    } catch {
       setStatus("❌ Auto-save failed.");
     }
   }, [fetchSensorData]);
 
   // --------------------------
-  // Smooth Countdown
+  // Countdown synced to DB
   // --------------------------
   const startCountdown = useCallback((nextTS) => {
     if (intervalRef.current) clearInterval(intervalRef.current);
     intervalRef.current = setInterval(async () => {
       const remaining = nextTS - Date.now();
       setCountdown(Math.max(Math.floor(remaining / 1000), 0));
-
       if (remaining <= 0 && autoScanRunning) {
         await handleAutoSave();
       }
@@ -154,36 +144,35 @@ const AdminDashboard = () => {
   // Toggle Auto Scan
   // --------------------------
   const toggleAutoScan = useCallback(async () => {
-    const newStatus = !autoScanRunning;
-    setAutoScanRunning(newStatus);
-
     try {
+      const { data: { user } } = await supabase.auth.getUser();
+      const newStatus = !autoScanRunning;
       const nextTS = newStatus ? Date.now() + FIXED_INTERVAL : null;
 
       await supabase.from("device_scanning").upsert({
         id: 1,
         status: newStatus ? 1 : 0,
         next_auto_save_ts: nextTS,
+        started_by: user?.id || null
       });
 
-      if (nextTS) startCountdown(nextTS);
+      // No local setAutoScanRunning needed — real-time listener will update all devices
     } catch (err) {
-      console.error("Failed to update scan status:", err);
+      console.error("Failed to toggle scan:", err);
     }
-  }, [autoScanRunning, startCountdown]);
+  }, [autoScanRunning]);
 
   // --------------------------
-  // Real-time Supabase listener
+  // Initialize & Real-time Sync
   // --------------------------
   useEffect(() => {
-    const fetchInitial = async () => {
+    const init = async () => {
       const { data } = await supabase.from("device_scanning").select("*").eq("id", 1).single();
       if (!data) return;
-
       setAutoScanRunning(data.status === 1);
       if (data.next_auto_save_ts) startCountdown(data.next_auto_save_ts);
     };
-    fetchInitial();
+    init();
 
     const channel = supabase
       .channel("scan_status_live")
