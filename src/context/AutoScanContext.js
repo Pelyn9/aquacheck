@@ -5,37 +5,36 @@ export const AutoScanContext = createContext();
 
 export const AutoScanProvider = ({ children }) => {
   const [autoScanRunning, setAutoScanRunning] = useState(false);
-  const [intervalTime, setIntervalTime] = useState(900000); // 15 min
+  const [intervalTime, setIntervalTime] = useState(900000); // default 15 min
   const intervalRef = useRef(null);
 
-  // Start Auto Scan
+  // Start auto-scan globally
   const startAutoScan = useCallback(async (fetchSensorData, updateDB = true) => {
     if (!fetchSensorData) return;
     window.fetchSensorData = fetchSensorData;
 
     if (intervalRef.current) clearInterval(intervalRef.current);
 
-    fetchSensorData(); // run immediately
+    fetchSensorData(); // immediate fetch
     intervalRef.current = setInterval(fetchSensorData, intervalTime);
 
     setAutoScanRunning(true);
-    localStorage.setItem("autoScanRunning", "true");
 
     if (updateDB) {
+      const { data: { user } } = await supabase.auth.getUser();
       await supabase
         .from("device_scanning")
-        .update({ status: 1, interval_ms: intervalTime })
+        .update({ status: 1, interval_ms: intervalTime, started_by: user?.id || null })
         .eq("id", 1);
     }
   }, [intervalTime]);
 
-  // Stop Auto Scan
+  // Stop auto-scan globally
   const stopAutoScan = useCallback(async (updateDB = true) => {
     if (intervalRef.current) clearInterval(intervalRef.current);
     intervalRef.current = null;
 
     setAutoScanRunning(false);
-    localStorage.setItem("autoScanRunning", "false");
 
     if (updateDB) {
       await supabase
@@ -45,7 +44,7 @@ export const AutoScanProvider = ({ children }) => {
     }
   }, []);
 
-  // Resume scan on page load if previously running
+  // Initialize scan status on mount
   useEffect(() => {
     const init = async () => {
       const { data } = await supabase
@@ -57,11 +56,13 @@ export const AutoScanProvider = ({ children }) => {
       if (data?.status === 1 && typeof window.fetchSensorData === "function") {
         startAutoScan(window.fetchSensorData, false);
       }
+      setIntervalTime(data?.interval_ms || 900000);
+      setAutoScanRunning(data?.status === 1);
     };
     init();
   }, [startAutoScan]);
 
-  // Live sync across users
+  // Real-time listener across all users
   useEffect(() => {
     const channel = supabase
       .channel("scan_status_live")
