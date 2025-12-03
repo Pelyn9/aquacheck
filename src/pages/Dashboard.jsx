@@ -136,23 +136,43 @@ const AdminDashboard = () => {
   // =============================================
   // AUTO SCAN LOOP (COUNTDOWN)
   // =============================================
-  const startAutoScanLoop = useCallback(() => {
+  const startAutoScanLoop = useCallback(async () => {
     if (intervalRef.current) clearInterval(intervalRef.current);
 
-    let start = parseInt(localStorage.getItem("autoScanStartTime") || Date.now());
-    localStorage.setItem("autoScanStartTime", start);
+    // Always read the REAL start time from Supabase
+    const { data } = await supabase
+      .from("device_scanning")
+      .select("last_scan_time")
+      .eq("id", 1)
+      .single();
+
+    let lastScan = data?.last_scan_time
+      ? new Date(data.last_scan_time).getTime()
+      : Date.now();
 
     intervalRef.current = setInterval(async () => {
-      const elapsed = Date.now() - start;
+      const elapsed = Date.now() - lastScan;
       const remaining = FIXED_INTERVAL - (elapsed % FIXED_INTERVAL);
 
       setCountdown(Math.floor(remaining / 1000));
 
-      if (remaining <= 1000) await handleAutoSave();
+      // When countdown finishes
+      if (remaining <= 1000) {
+        await handleAutoSave();
+
+        lastScan = Date.now();
+
+        // Update global time for ALL devices
+        await supabase
+          .from("device_scanning")
+          .update({ last_scan_time: new Date().toISOString() })
+          .eq("id", 1);
+      }
     }, 1000);
 
     fetchSensorData();
   }, [fetchSensorData, handleAutoSave]);
+
 
   const stopAutoScanLoop = useCallback(() => {
     if (intervalRef.current) clearInterval(intervalRef.current);
@@ -169,17 +189,12 @@ const AdminDashboard = () => {
     const newState = !autoScanRunning;
     setAutoScanRunning(newState);
 
-    try {
-      await supabase.from("device_scanning").upsert({
-        id: 1,
-        status: newState ? 1 : 0,
-        interval_ms: FIXED_INTERVAL,
-      });
-
-      if (!newState) localStorage.removeItem("autoScanStartTime");
-    } catch (err) {
-      console.error("Failed to update auto scan:", err);
-    }
+    await supabase.from("device_scanning").upsert({
+      id: 1,
+      status: newState ? 1 : 0,
+      last_scan_time: new Date().toISOString(),   // <-- IMPORTANT
+      interval_ms: FIXED_INTERVAL,
+    });
   }, [autoScanRunning]);
 
   // =============================================
