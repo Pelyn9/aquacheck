@@ -120,34 +120,17 @@ const AdminDashboard = () => {
   }, [fetchSensorData]);
 
   // --------------------------
-  // Start Auto Scan Loop with persistent countdown
+  // Start Auto Scan Loop
   // --------------------------
   const startAutoScanLoop = useCallback(async () => {
-    // Fetch startTime from Supabase (or create if missing)
-    let startTime = Date.now();
-    try {
-      const { data } = await supabase
-        .from("device_scanning")
-        .select("*")
-        .eq("id", 1)
-        .single();
-      if (data?.start_time) startTime = new Date(data.start_time).getTime();
-      else {
-        await supabase.from("device_scanning").upsert({
-          id: 1,
-          status: 1,
-          start_time: new Date().toISOString(),
-          interval_ms: FIXED_INTERVAL,
-        });
-      }
-    } catch (err) {
-      console.error("Failed to get startTime:", err);
-    }
-
     if (intervalRef.current) clearInterval(intervalRef.current);
 
+    // get or set startTime from localStorage
+    let currentStartTime = parseInt(localStorage.getItem("autoScanStartTime") || Date.now());
+    localStorage.setItem("autoScanStartTime", currentStartTime);
+
     intervalRef.current = setInterval(async () => {
-      const elapsed = Date.now() - startTime;
+      const elapsed = Date.now() - currentStartTime;
       const remaining = FIXED_INTERVAL - (elapsed % FIXED_INTERVAL);
       setCountdown(Math.floor(remaining / 1000));
       if (remaining <= 1000) await handleAutoSave();
@@ -161,11 +144,10 @@ const AdminDashboard = () => {
     intervalRef.current = null;
     setSensorData({ ph: "N/A", turbidity: "N/A", temp: "N/A", tds: "N/A" });
     setOverallSafety("N/A");
-    setCountdown(FIXED_INTERVAL / 1000);
   }, []);
 
   // --------------------------
-  // Toggle Auto Scan (manual)
+  // Toggle Auto Scan
   // --------------------------
   const toggleAutoScan = useCallback(async () => {
     const newStatus = !autoScanRunning;
@@ -175,9 +157,9 @@ const AdminDashboard = () => {
       await supabase.from("device_scanning").upsert({
         id: 1,
         status: newStatus ? 1 : 0,
-        start_time: newStatus ? new Date().toISOString() : null,
         interval_ms: FIXED_INTERVAL,
       });
+      if (!newStatus) localStorage.removeItem("autoScanStartTime"); // reset countdown only on stop
     } catch (err) {
       console.error("Failed to update scan status:", err);
     }
