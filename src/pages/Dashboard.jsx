@@ -84,6 +84,7 @@ const AdminDashboard = () => {
       const { data: { user } } = await supabase.auth.getUser();
       if(!user) { hasSaved.current=false; return; }
 
+      // save sensor data
       const saveData = {
         user_id: user.id,
         ph: parseFloat(newData.ph)||null,
@@ -93,10 +94,10 @@ const AdminDashboard = () => {
       };
       await supabase.from("dataset_history").insert([saveData]);
 
+      // update next_auto_save_ts in DB
       const nextTs = Date.now() + intervalMs;
       await supabase.from("device_scanning").update({ next_auto_save_ts: nextTs }).eq("id", 1);
       setNextAutoSaveTs(nextTs);
-
     } catch(err){ console.error(err); }
     finally { hasSaved.current=false; }
   }, [fetchSensorData, intervalMs]);
@@ -110,14 +111,15 @@ const AdminDashboard = () => {
     isScanning.current = false;
     hasSaved.current = false;
     localStorage.setItem("autoScanRunning","false");
+    // Do not reset sensorData
   }, []);
 
   const startContinuousAutoScan = useCallback(() => {
+    if(!nextAutoSaveTs) return; // ensure next timestamp is loaded
     stopContinuousAutoScan();
     isScanning.current = true;
 
     countdownRef.current = setInterval(() => {
-      if(!nextAutoSaveTs) return;
       const remaining = Math.max(Math.floor((nextAutoSaveTs - Date.now())/1000), 0);
       setCountdown(remaining);
       if(remaining <= 0) handleAutoSave();
@@ -129,13 +131,12 @@ const AdminDashboard = () => {
 
   // ---------------- INIT & SYNC ----------------
   useEffect(() => {
-    window.fetchSensorData = fetchSensorData;
-
     const init = async () => {
       const { data } = await supabase.from("device_scanning").select("*").eq("id", 1).single();
       if(data){
         setIntervalMs(data.interval_ms || 900000);
-        setNextAutoSaveTs(data.next_auto_save_ts || (Date.now() + (data.interval_ms || 900000)));
+        const ts = data.next_auto_save_ts || (Date.now() + (data.interval_ms || 900000));
+        setNextAutoSaveTs(ts);
         if(data.status === 1){
           startContinuousAutoScan();
         }
@@ -143,6 +144,7 @@ const AdminDashboard = () => {
     };
     init();
 
+    // Supabase Realtime for multi-device sync
     const channel = supabase
       .channel("scan_status_live")
       .on(
@@ -199,7 +201,9 @@ const AdminDashboard = () => {
               {autoScanRunning?"Stop Auto Scan":"Start Auto Scan"}
             </button>
           </div>
-          {autoScanRunning && <div className="countdown-timer">⏱ Next auto-save in: {Math.floor(countdown/60)}m {countdown%60}s</div>}
+          {nextAutoSaveTs && <div className="countdown-timer">
+            ⏱ Next auto-save in: {Math.floor(countdown/60)}m {countdown%60}s
+          </div>}
         </section>
         <section className="sensor-grid">
           {["ph","turbidity","temp","tds"].map(key=>(
