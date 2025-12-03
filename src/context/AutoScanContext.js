@@ -5,16 +5,20 @@ export const AutoScanContext = createContext();
 
 export const AutoScanProvider = ({ children }) => {
   const [autoScanRunning, setAutoScanRunning] = useState(false);
-  const [intervalTime, setIntervalTime] = useState(900000);
+  const [intervalTime, setIntervalTime] = useState(900000); // default 15 minutes
   const intervalRef = useRef(null);
 
-  // Wrap startAutoScan in useCallback to avoid missing dependency warning
+  // -------------------------------
+  // 1. Start AutoScan
+  // -------------------------------
   const startAutoScan = useCallback(async (fetchSensorData, updateDB = true) => {
+    if (typeof window === "undefined") return; // ✅ client only
+
     window.fetchSensorData = fetchSensorData;
 
     if (intervalRef.current) clearInterval(intervalRef.current);
 
-    fetchSensorData();
+    fetchSensorData(); // run immediately
     intervalRef.current = setInterval(fetchSensorData, intervalTime);
 
     setAutoScanRunning(true);
@@ -22,15 +26,17 @@ export const AutoScanProvider = ({ children }) => {
     if (updateDB) {
       await supabase
         .from("device_scanning")
-        .update({
-          status: 1,
-          interval_ms: intervalTime,
-        })
+        .update({ status: 1, interval_ms: intervalTime })
         .eq("id", 1);
     }
-  }, [intervalTime]); // ✅ depends only on intervalTime
+  }, [intervalTime]);
 
+  // -------------------------------
+  // 2. Stop AutoScan
+  // -------------------------------
   const stopAutoScan = useCallback(async (updateDB = true) => {
+    if (typeof window === "undefined") return;
+
     if (intervalRef.current) clearInterval(intervalRef.current);
     intervalRef.current = null;
 
@@ -44,28 +50,48 @@ export const AutoScanProvider = ({ children }) => {
     }
   }, []);
 
-  // useEffect to load state on mount
+  // -------------------------------
+  // 3. Initialize fetchSensorData globally (client-only)
+  // -------------------------------
   useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (!window.fetchSensorData) window.fetchSensorData = () => {};
+  }, []);
+
+  // -------------------------------
+  // 4. Load state from Supabase on mount (client-only)
+  // -------------------------------
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
     const loadState = async () => {
       const { data, error } = await supabase
         .from("device_scanning")
         .select("status, interval_ms")
         .eq("id", 1)
         .single();
+
       if (!error && data) {
         setIntervalTime(data.interval_ms ?? 900000);
+
         const running = data.status === 1;
         setAutoScanRunning(running);
+
         if (running && typeof window.fetchSensorData === "function") {
-          startAutoScan(window.fetchSensorData, false); // ✅ safe, included in deps
+          startAutoScan(window.fetchSensorData, false); // resume without DB write
         }
       }
     };
-    loadState();
-  }, [startAutoScan]); // ✅ add startAutoScan here
 
-  // Realtime effect
+    loadState();
+  }, [startAutoScan]);
+
+  // -------------------------------
+  // 5. Realtime subscription (client-only)
+  // -------------------------------
   useEffect(() => {
+    if (typeof window === "undefined") return;
+
     const channel = supabase
       .channel("scan_status_live")
       .on(
@@ -75,6 +101,7 @@ export const AutoScanProvider = ({ children }) => {
           const isRunning = payload.new.status === 1;
           setAutoScanRunning(isRunning);
           setIntervalTime(payload.new.interval_ms);
+
           if (isRunning) startAutoScan(window.fetchSensorData, false);
           else stopAutoScan(false);
         }
@@ -82,11 +109,17 @@ export const AutoScanProvider = ({ children }) => {
       .subscribe();
 
     return () => supabase.removeChannel(channel);
-  }, [startAutoScan, stopAutoScan]); // ✅ include callbacks
+  }, [startAutoScan, stopAutoScan]);
 
   return (
     <AutoScanContext.Provider
-      value={{ autoScanRunning, startAutoScan, stopAutoScan, intervalTime, setIntervalTime }}
+      value={{
+        autoScanRunning,
+        startAutoScan,
+        stopAutoScan,
+        intervalTime,
+        setIntervalTime,
+      }}
     >
       {children}
     </AutoScanContext.Provider>
