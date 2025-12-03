@@ -17,7 +17,7 @@ export const AutoScanProvider = ({ children }) => {
 
     if (intervalRef.current) clearInterval(intervalRef.current);
 
-    fetchSensorData();
+    fetchSensorData(); // run immediately
     intervalRef.current = setInterval(fetchSensorData, intervalTime);
 
     setAutoScanRunning(true);
@@ -58,7 +58,7 @@ export const AutoScanProvider = ({ children }) => {
   }, []);
 
   // -------------------------------
-  // 4. Load scan state from Supabase (client-only)
+  // 4. Load last scan state from Supabase
   // -------------------------------
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -85,7 +85,7 @@ export const AutoScanProvider = ({ children }) => {
   }, [startAutoScan]);
 
   // -------------------------------
-  // 5. Realtime subscription (client-only)
+  // 5. Realtime subscription
   // -------------------------------
   useEffect(() => {
     if (typeof window === "undefined") return;
