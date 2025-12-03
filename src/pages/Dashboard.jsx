@@ -123,31 +123,31 @@ const AdminDashboard = () => {
   // Start Auto Scan Loop
   // --------------------------
   const startAutoScanLoop = useCallback(async () => {
-    if (intervalRef.current) clearInterval(intervalRef.current);
+  if (intervalRef.current) clearInterval(intervalRef.current);
 
-    // fetch last_scan_time from Supabase
-    const { data } = await supabase
-      .from("device_scanning")
-      .select("last_scan_time")
-      .eq("id", 1)
-      .single();
+  // fetch last_scan_time from Supabase
+  const { data } = await supabase
+    .from("device_scanning")
+    .select("last_scan_time")
+    .eq("id", 1)
+    .single();
 
-    let lastScan = data?.last_scan_time ? new Date(data.last_scan_time).getTime() : Date.now();
+  let lastScan = data?.last_scan_time ? new Date(data.last_scan_time).getTime() : Date.now();
 
-    intervalRef.current = setInterval(async () => {
-      const elapsed = Date.now() - lastScan;
-      const remaining = FIXED_INTERVAL - (elapsed % FIXED_INTERVAL);
-      setCountdown(Math.floor(remaining / 1000));
-      if (remaining <= 1000) {
-        await handleAutoSave();
-        lastScan = Date.now();
-        // update central last_scan_time
-        await supabase.from("device_scanning").update({ last_scan_time: new Date().toISOString() }).eq("id", 1);
-      }
-    }, 1000);
+  intervalRef.current = setInterval(async () => {
+    const elapsed = Date.now() - lastScan;
+    const remaining = FIXED_INTERVAL - (elapsed % FIXED_INTERVAL);
+    setCountdown(Math.floor(remaining / 1000));
+    if (remaining <= 1000) {
+      await handleAutoSave();
+      lastScan = Date.now();
+      // update central last_scan_time
+      await supabase.from("device_scanning").update({ last_scan_time: new Date().toISOString() }).eq("id", 1);
+    }
+  }, 1000);
 
-    fetchSensorData();
-  }, [fetchSensorData, handleAutoSave]);
+  fetchSensorData();
+}, [fetchSensorData, handleAutoSave]);
 
 
   const stopAutoScanLoop = useCallback(() => {
@@ -252,12 +252,12 @@ const AdminDashboard = () => {
         </section>
 
         <section className="sensor-grid">
-          {["ph", "turbidity", "temp", "tds"].map(key => (
+          {["ph","turbidity","temp","tds"].map(key => (
             <div key={key} className={`sensor-card ${getSensorStatus(key, sensorData[key])}`}>
               <h3>{key.toUpperCase()}</h3>
-              <p>{sensorData[key]} {key === "turbidity" ? "NTU" : key === "temp" ? "°C" : key === "tds" ? "ppm" : ""}</p>
+              <p>{sensorData[key]} {key==="turbidity"?"NTU":key==="temp"?"°C":key==="tds"?"ppm":""}</p>
               <p className={`status-label ${getSensorStatus(key, sensorData[key])}`}>
-                {sensorData[key] === "N/A" ? "NO DATA" : getSensorStatus(key, sensorData[key]).toUpperCase()}
+                {sensorData[key]==="N/A"?"NO DATA":getSensorStatus(key,sensorData[key]).toUpperCase()}
               </p>
             </div>
           ))}
