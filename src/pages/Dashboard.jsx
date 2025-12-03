@@ -4,8 +4,9 @@ import Sidebar from "../components/Sidebar";
 import "../assets/databoard.css";
 import { supabase } from "../supabaseClient";
 
+const FIXED_INTERVAL = 900000; // 15 minutes
+
 const AdminDashboard = () => {
-  const FIXED_INTERVAL = 900000; // 15 minutes
   const intervalRef = useRef(null);
 
   const [sensorData, setSensorData] = useState({
@@ -36,16 +37,11 @@ const AdminDashboard = () => {
       if (value === "N/A") return 0;
       const val = parseFloat(value);
       switch (key) {
-        case "ph":
-          return val >= 6.5 && val <= 8.5 ? 2 : 0;
-        case "turbidity":
-          return val <= 5 ? 2 : val <= 10 ? 1 : 0;
-        case "temp":
-          return val >= 24 && val <= 32 ? 2 : 0;
-        case "tds":
-          return val <= 500 ? 2 : 0;
-        default:
-          return 0;
+        case "ph": return val >= 6.5 && val <= 8.5 ? 2 : 0;
+        case "turbidity": return val <= 5 ? 2 : val <= 10 ? 1 : 0;
+        case "temp": return val >= 24 && val <= 32 ? 2 : 0;
+        case "tds": return val <= 500 ? 2 : 0;
+        default: return 0;
       }
     });
     const total = scores.reduce((a, b) => a + b, 0);
@@ -122,7 +118,6 @@ const AdminDashboard = () => {
       const { error } = await supabase.from("dataset_history").insert([saveData]);
       if (error) throw error;
 
-      // Update device_scanning next_auto_save_ts
       const nextTS = Date.now() + FIXED_INTERVAL;
       await supabase.from("device_scanning")
         .update({ last_scan_time: new Date().toISOString(), next_auto_save_ts: nextTS })
@@ -136,7 +131,7 @@ const AdminDashboard = () => {
   }, [fetchSensorData]);
 
   // --------------------------
-  // Smooth Countdown
+  // Countdown Timer
   // --------------------------
   const startCountdown = useCallback((nextTS) => {
     if (intervalRef.current) clearInterval(intervalRef.current);
@@ -171,6 +166,13 @@ const AdminDashboard = () => {
       console.error("Failed to update scan status:", err);
     }
   }, [autoScanRunning, startCountdown]);
+
+  // --------------------------
+  // Fetch initial data on mount
+  // --------------------------
+  useEffect(() => {
+    fetchSensorData(); // fetch immediately
+  }, [fetchSensorData]);
 
   // --------------------------
   // Real-time Supabase listener
