@@ -160,20 +160,33 @@ const AdminDashboard = () => {
   // Toggle Auto Scan
   // --------------------------
   const toggleAutoScan = useCallback(async () => {
-    const newStatus = !autoScanRunning;
-    setAutoScanRunning(newStatus);
+  const newStatus = !autoScanRunning;
+  setAutoScanRunning(newStatus);
 
-    try {
+  try {
+    if (newStatus) {
+      // Starting auto scan: set next_auto_save_ts if not set
+      const nextTs = Date.now() + FIXED_INTERVAL;
       await supabase.from("device_scanning").upsert({
         id: 1,
-        status: newStatus ? 1 : 0
+        status: 1,
+        next_auto_save_ts: nextTs
       });
 
-      if (!newStatus) stopCountdown();
-    } catch (err) {
-      console.error("Failed to update scan status:", err);
+      startCountdown(nextTs); // start countdown from 15 minutes
+    } else {
+      // Stopping auto scan
+      await supabase.from("device_scanning").upsert({
+        id: 1,
+        status: 0
+      });
+      stopCountdown();
     }
-  }, [autoScanRunning, stopCountdown]);
+  } catch (err) {
+    console.error("Failed to update scan status:", err);
+  }
+}, [autoScanRunning, startCountdown, stopCountdown]);
+
 
   // --------------------------
   // Real-time Listener
