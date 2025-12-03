@@ -98,62 +98,62 @@ const AdminDashboard = () => {
   // Auto Save
   // --------------------------
   const handleAutoSave = useCallback(async () => {
-  const data = await fetchSensorData();
-  if (!data) return;
+    const data = await fetchSensorData();
+    if (!data) return;
 
-  try {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return;
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
 
-    const saveData = {
-      user_id: user.id,
-      ph: parseFloat(data.ph) || null,
-      turbidity: parseFloat(data.turbidity) || null,
-      temperature: parseFloat(data.temp) || null,
-      tds: parseFloat(data.tds) || null,
+      const saveData = {
+        user_id: user.id,
+        ph: parseFloat(data.ph) || null,
+        turbidity: parseFloat(data.turbidity) || null,
+        temperature: parseFloat(data.temp) || null,
+        tds: parseFloat(data.tds) || null,
+      };
+
+      const { error } = await supabase.from("dataset_history").insert([saveData]);
+      if (error) throw error;
+
+      // Update next_auto_save_ts for real-time countdown sync
+      await supabase.from("device_scanning")
+        .update({
+          last_scan_time: new Date().toISOString(),
+          next_auto_save_ts: Date.now() + FIXED_INTERVAL
+        })
+        .eq("id", 1);
+
+      setStatus(`💾 Auto-saved at ${new Date().toLocaleTimeString()}`);
+    } catch (err) {
+      console.error(err);
+      setStatus("❌ Auto-save failed.");
+    }
+  }, [fetchSensorData]);
+
+  // --------------------------
+  // Smooth Countdown Logic
+  // --------------------------
+  const startCountdown = useCallback((nextSaveTimestamp) => {
+    if (intervalRef.current) clearInterval(intervalRef.current);
+
+    const updateCountdown = () => {
+      const remaining = nextSaveTimestamp - Date.now();
+      setCountdown(Math.max(Math.floor(remaining / 1000), 0));
+
+      if (remaining <= 0 && autoScanRunning) {
+        handleAutoSave();
+      }
     };
 
-    const { error } = await supabase.from("dataset_history").insert([saveData]);
-    if (error) throw error;
+    updateCountdown(); // initial immediate update
+    intervalRef.current = setInterval(updateCountdown, 1000);
+  }, [autoScanRunning, handleAutoSave]);
 
-    // UPDATE last_scan_time para synced sa tanan users
-    await supabase.from("device_scanning")
-      .update({ last_scan_time: new Date().toISOString() })
-      .eq("id", 1);
-
-    setStatus(`💾 Auto-saved at ${new Date().toLocaleTimeString()}`);
-  } catch (err) {
-    console.error(err);
-    setStatus("❌ Auto-save failed.");
-  }
-}, [fetchSensorData]);
-
-
-  // --------------------------
-  // Start Auto Scan Loop
-  // --------------------------
-  const startAutoScanLoop = useCallback(async () => {
-    if (intervalRef.current) clearInterval(intervalRef.current);
-
-    // get or set startTime from localStorage
-    let currentStartTime = parseInt(localStorage.getItem("autoScanStartTime") || Date.now());
-    localStorage.setItem("autoScanStartTime", currentStartTime);
-
-    intervalRef.current = setInterval(async () => {
-      const elapsed = Date.now() - currentStartTime;
-      const remaining = FIXED_INTERVAL - (elapsed % FIXED_INTERVAL);
-      setCountdown(Math.floor(remaining / 1000));
-      if (remaining <= 1000) await handleAutoSave();
-    }, 1000);
-
-    fetchSensorData();
-  }, [fetchSensorData, handleAutoSave]);
-
-  const stopAutoScanLoop = useCallback(() => {
+  const stopCountdown = useCallback(() => {
     if (intervalRef.current) clearInterval(intervalRef.current);
     intervalRef.current = null;
-    setSensorData({ ph: "N/A", turbidity: "N/A", temp: "N/A", tds: "N/A" });
-    setOverallSafety("N/A");
+    setCountdown(FIXED_INTERVAL / 1000);
   }, []);
 
   // --------------------------
@@ -166,70 +166,55 @@ const AdminDashboard = () => {
     try {
       await supabase.from("device_scanning").upsert({
         id: 1,
-        status: newStatus ? 1 : 0,
-        interval_ms: FIXED_INTERVAL,
+        status: newStatus ? 1 : 0
       });
-      if (!newStatus) localStorage.removeItem("autoScanStartTime"); // reset countdown only on stop
+
+      if (!newStatus) stopCountdown();
     } catch (err) {
       console.error("Failed to update scan status:", err);
     }
-  }, [autoScanRunning]);
+  }, [autoScanRunning, stopCountdown]);
 
   // --------------------------
-  // Real-time Supabase listener
-  // --------------------------
-  // --------------------------
-// Real-time Supabase listener
-// --------------------------
-useEffect(() => {
-  const fetchInitialStatus = async () => {
-    const { data } = await supabase
-      .from("device_scanning")
-      .select("*")
-      .eq("id", 1)
-      .single();
-
-    if (data?.status === 1) setAutoScanRunning(true);
-
-    if (data?.last_scan_time) {
-      const lastScanTime = new Date(data.last_scan_time).getTime();
-      const elapsed = Date.now() - lastScanTime;
-      setCountdown(Math.max(FIXED_INTERVAL / 1000 - Math.floor(elapsed / 1000), 0));
-    }
-  };
-  fetchInitialStatus();
-
-  const channel = supabase
-    .channel("scan_status_live")
-    .on(
-      "postgres_changes",
-      { event: "UPDATE", schema: "public", table: "device_scanning", filter: "id=eq.1" },
-      (payload) => {
-        const isRunning = payload.new.status === 1;
-        setAutoScanRunning(isRunning);
-
-        if (payload.new.last_scan_time) {
-          const lastScanTime = new Date(payload.new.last_scan_time).getTime();
-          const elapsed = Date.now() - lastScanTime;
-          setCountdown(Math.max(FIXED_INTERVAL / 1000 - Math.floor(elapsed / 1000), 0));
-        } else {
-          setCountdown(FIXED_INTERVAL / 1000);
-        }
-      }
-    )
-    .subscribe();
-
-  return () => supabase.removeChannel(channel);
-}, []);
-
-
-  // --------------------------
-  // Start/stop loop whenever autoScanRunning changes
+  // Real-time Listener
   // --------------------------
   useEffect(() => {
-    if (autoScanRunning) startAutoScanLoop();
-    else stopAutoScanLoop();
-  }, [autoScanRunning, startAutoScanLoop, stopAutoScanLoop]);
+    const fetchInitial = async () => {
+      const { data } = await supabase
+        .from("device_scanning")
+        .select("*")
+        .eq("id", 1)
+        .single();
+
+      if (data) {
+        setAutoScanRunning(data.status === 1);
+        if (data.next_auto_save_ts) {
+          startCountdown(data.next_auto_save_ts);
+        }
+      }
+    };
+    fetchInitial();
+
+    const channel = supabase
+      .channel("scan_status_live")
+      .on(
+        "postgres_changes",
+        { event: "UPDATE", schema: "public", table: "device_scanning", filter: "id=eq.1" },
+        (payload) => {
+          const isRunning = payload.new.status === 1;
+          setAutoScanRunning(isRunning);
+
+          if (payload.new.next_auto_save_ts) {
+            startCountdown(payload.new.next_auto_save_ts);
+          } else {
+            stopCountdown();
+          }
+        }
+      )
+      .subscribe();
+
+    return () => supabase.removeChannel(channel);
+  }, [startCountdown, stopCountdown]);
 
   // --------------------------
   // Sensor Status Color
