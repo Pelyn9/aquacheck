@@ -7,9 +7,15 @@ export const AutoScanProvider = ({ children }) => {
   const [autoScanRunning, setAutoScanRunning] = useState(false);
   const [intervalTime, setIntervalTime] = useState(900000); // 15 min
   const intervalRef = useRef(null);
+  const pendingStart = useRef(false);
 
   const startAutoScan = useCallback(async (fetchSensorData, updateDB = true) => {
     if (typeof window === "undefined") return;
+    if (!fetchSensorData) {
+      pendingStart.current = true;
+      return;
+    }
+    pendingStart.current = false;
     window.fetchSensorData = fetchSensorData;
 
     if (intervalRef.current) clearInterval(intervalRef.current);
@@ -46,12 +52,19 @@ export const AutoScanProvider = ({ children }) => {
   useEffect(() => {
     if (typeof window === "undefined") return;
     const running = localStorage.getItem("autoScanRunning") === "true";
-    if (running && typeof window.fetchSensorData === "function") {
-      startAutoScan(window.fetchSensorData, false);
+
+    if (running) {
+      // Wait for fetchSensorData to be defined
+      const checkFn = setInterval(() => {
+        if (typeof window.fetchSensorData === "function") {
+          startAutoScan(window.fetchSensorData, false);
+          clearInterval(checkFn);
+        }
+      }, 100);
     }
   }, [startAutoScan]);
 
-  // Optional: subscribe to Supabase for cross-admin sync
+  // Subscribe to Supabase for cross-admin sync
   useEffect(() => {
     if (typeof window === "undefined") return;
     const channel = supabase
