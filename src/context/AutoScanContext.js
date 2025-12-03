@@ -7,15 +7,15 @@ export const AutoScanProvider = ({ children }) => {
   const [autoScanRunning, setAutoScanRunning] = useState(false);
   const [intervalTime, setIntervalTime] = useState(900000); // 15 min
   const intervalRef = useRef(null);
-  const pendingStart = useRef(false);
+  const pendingFetch = useRef(null);
 
   const startAutoScan = useCallback(async (fetchSensorData, updateDB = true) => {
-    if (typeof window === "undefined") return;
     if (!fetchSensorData) {
-      pendingStart.current = true;
+      // Save the function and retry later
+      pendingFetch.current = startAutoScan;
       return;
     }
-    pendingStart.current = false;
+    pendingFetch.current = null;
     window.fetchSensorData = fetchSensorData;
 
     if (intervalRef.current) clearInterval(intervalRef.current);
@@ -23,7 +23,7 @@ export const AutoScanProvider = ({ children }) => {
     intervalRef.current = setInterval(fetchSensorData, intervalTime);
 
     setAutoScanRunning(true);
-    localStorage.setItem("autoScanRunning", "true"); // persist in browser
+    localStorage.setItem("autoScanRunning", "true");
 
     if (updateDB) {
       await supabase
@@ -38,7 +38,7 @@ export const AutoScanProvider = ({ children }) => {
     intervalRef.current = null;
 
     setAutoScanRunning(false);
-    localStorage.setItem("autoScanRunning", "false"); // persist stop
+    localStorage.setItem("autoScanRunning", "false");
 
     if (updateDB) {
       await supabase
@@ -50,23 +50,29 @@ export const AutoScanProvider = ({ children }) => {
 
   // Resume scan on page reload if previously running
   useEffect(() => {
-    if (typeof window === "undefined") return;
     const running = localStorage.getItem("autoScanRunning") === "true";
+    if (!running) return;
 
-    if (running) {
-      // Wait for fetchSensorData to be defined
-      const checkFn = setInterval(() => {
-        if (typeof window.fetchSensorData === "function") {
-          startAutoScan(window.fetchSensorData, false);
-          clearInterval(checkFn);
-        }
-      }, 100);
-    }
+    const checkFn = setInterval(() => {
+      if (typeof window.fetchSensorData === "function") {
+        startAutoScan(window.fetchSensorData, false);
+        clearInterval(checkFn);
+      }
+    }, 100);
+
+    return () => clearInterval(checkFn);
   }, [startAutoScan]);
 
-  // Subscribe to Supabase for cross-admin sync
+  // Retry pending fetchSensorData
   useEffect(() => {
-    if (typeof window === "undefined") return;
+    if (pendingFetch.current && typeof window.fetchSensorData === "function") {
+      pendingFetch.current(window.fetchSensorData, false);
+      pendingFetch.current = null;
+    }
+  }, [autoScanRunning]);
+
+  // Supabase sync for multi-admin
+  useEffect(() => {
     const channel = supabase
       .channel("scan_status_live")
       .on(
@@ -77,8 +83,11 @@ export const AutoScanProvider = ({ children }) => {
           setAutoScanRunning(isRunning);
           setIntervalTime(payload.new.interval_ms);
 
-          if (isRunning) startAutoScan(window.fetchSensorData, false);
-          else stopAutoScan(false);
+          if (isRunning && typeof window.fetchSensorData === "function") {
+            startAutoScan(window.fetchSensorData, false);
+          } else if (!isRunning) {
+            stopAutoScan(false);
+          }
         }
       )
       .subscribe();
