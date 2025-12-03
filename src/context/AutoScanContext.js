@@ -10,15 +10,14 @@ export const AutoScanProvider = ({ children }) => {
 
   const startAutoScan = useCallback(async (fetchSensorData, updateDB = true) => {
     if (typeof window === "undefined") return;
-
     window.fetchSensorData = fetchSensorData;
 
     if (intervalRef.current) clearInterval(intervalRef.current);
-
     fetchSensorData(); // run immediately
     intervalRef.current = setInterval(fetchSensorData, intervalTime);
 
     setAutoScanRunning(true);
+    localStorage.setItem("autoScanRunning", "true"); // persist in browser
 
     if (updateDB) {
       await supabase
@@ -33,6 +32,7 @@ export const AutoScanProvider = ({ children }) => {
     intervalRef.current = null;
 
     setAutoScanRunning(false);
+    localStorage.setItem("autoScanRunning", "false"); // persist stop
 
     if (updateDB) {
       await supabase
@@ -42,38 +42,18 @@ export const AutoScanProvider = ({ children }) => {
     }
   }, []);
 
+  // Resume scan on page reload if previously running
   useEffect(() => {
     if (typeof window === "undefined") return;
-    if (!window.fetchSensorData) window.fetchSensorData = () => {};
-  }, []);
-
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-
-    const loadState = async () => {
-      const { data, error } = await supabase
-        .from("device_scanning")
-        .select("status, interval_ms")
-        .eq("id", 1)
-        .single();
-
-      if (!error && data) {
-        setIntervalTime(data.interval_ms ?? 900000);
-
-        if (data.status === 1 && typeof window.fetchSensorData === "function") {
-          startAutoScan(window.fetchSensorData, false);
-        }
-
-        setAutoScanRunning(data.status === 1);
-      }
-    };
-
-    loadState();
+    const running = localStorage.getItem("autoScanRunning") === "true";
+    if (running && typeof window.fetchSensorData === "function") {
+      startAutoScan(window.fetchSensorData, false);
+    }
   }, [startAutoScan]);
 
+  // Optional: subscribe to Supabase for cross-admin sync
   useEffect(() => {
     if (typeof window === "undefined") return;
-
     const channel = supabase
       .channel("scan_status_live")
       .on(
