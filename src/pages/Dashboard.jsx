@@ -4,8 +4,9 @@ import Sidebar from "../components/Sidebar";
 import "../assets/databoard.css";
 import { supabase } from "../supabaseClient";
 
+const FIXED_INTERVAL = 900000; // 15 minutes
+
 const AdminDashboard = () => {
-  const FIXED_INTERVAL = 900000; // 15 minutes
   const intervalRef = useRef(null);
 
   const [sensorData, setSensorData] = useState({
@@ -70,7 +71,8 @@ const AdminDashboard = () => {
       computeOverallSafety(formatted);
       setStatus("✅ ESP32 data fetched.");
       return formatted;
-    } catch {
+    } catch (err) {
+      console.warn("ESP32 fetch failed, trying cloud backup...");
       try {
         const cloudRes = await fetch("/api/data", { cache: "no-store" });
         const cloudJson = await cloudRes.json();
@@ -85,7 +87,8 @@ const AdminDashboard = () => {
         computeOverallSafety(formatted);
         setStatus("🌐 Cloud backup used.");
         return formatted;
-      } catch {
+      } catch (err2) {
+        console.error("Both ESP32 & Cloud failed:", err2);
         setStatus("❌ Failed to fetch data");
         setOverallSafety("N/A");
         return null;
@@ -121,13 +124,14 @@ const AdminDashboard = () => {
         .eq("id", 1);
 
       setStatus(`💾 Auto-saved at ${new Date().toLocaleTimeString()}`);
-    } catch {
+    } catch (err) {
+      console.error(err);
       setStatus("❌ Auto-save failed.");
     }
   }, [fetchSensorData]);
 
   // --------------------------
-  // Countdown synced to DB
+  // Countdown
   // --------------------------
   const startCountdown = useCallback((nextTS) => {
     if (intervalRef.current) clearInterval(intervalRef.current);
@@ -145,34 +149,41 @@ const AdminDashboard = () => {
   // --------------------------
   const toggleAutoScan = useCallback(async () => {
     try {
-      const { data: { user } } = await supabase.auth.getUser();
+      // Flip current status
       const newStatus = !autoScanRunning;
       const nextTS = newStatus ? Date.now() + FIXED_INTERVAL : null;
 
-      await supabase.from("device_scanning").upsert({
-        id: 1,
+      // Update Supabase row (all devices listen to this)
+      await supabase.from("device_scanning").update({
         status: newStatus ? 1 : 0,
-        next_auto_save_ts: nextTS,
-        started_by: user?.id || null
-      });
+        next_auto_save_ts: nextTS
+      }).eq("id", 1);
 
-      // No local setAutoScanRunning needed — real-time listener will update all devices
+      // Locally update for this device
+      setAutoScanRunning(newStatus);
+      if (nextTS) startCountdown(nextTS);
+      else {
+        setCountdown(0);
+        if (intervalRef.current) clearInterval(intervalRef.current);
+      }
+
     } catch (err) {
-      console.error("Failed to toggle scan:", err);
+      console.error("Failed to toggle auto-scan:", err);
+      setStatus("❌ Failed to start/stop auto-scan.");
     }
-  }, [autoScanRunning]);
+  }, [autoScanRunning, startCountdown]);
 
   // --------------------------
-  // Initialize & Real-time Sync
+  // Real-time listener
   // --------------------------
   useEffect(() => {
-    const init = async () => {
+    const fetchInitial = async () => {
       const { data } = await supabase.from("device_scanning").select("*").eq("id", 1).single();
       if (!data) return;
       setAutoScanRunning(data.status === 1);
       if (data.next_auto_save_ts) startCountdown(data.next_auto_save_ts);
     };
-    init();
+    fetchInitial();
 
     const channel = supabase
       .channel("scan_status_live")
