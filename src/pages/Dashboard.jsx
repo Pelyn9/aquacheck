@@ -35,16 +35,11 @@ const AdminDashboard = () => {
       if (value === "N/A") return 0;
       const val = parseFloat(value);
       switch (key) {
-        case "ph":
-          return val >= 6.5 && val <= 8.5 ? 2 : 0;
-        case "turbidity":
-          return val <= 5 ? 2 : val <= 10 ? 1 : 0;
-        case "temp":
-          return val >= 24 && val <= 32 ? 2 : 0;
-        case "tds":
-          return val <= 500 ? 2 : 0;
-        default:
-          return 0;
+        case "ph": return val >= 6.5 && val <= 8.5 ? 2 : 0;
+        case "turbidity": return val <= 5 ? 2 : val <= 10 ? 1 : 0;
+        case "temp": return val >= 24 && val <= 32 ? 2 : 0;
+        case "tds": return val <= 500 ? 2 : 0;
+        default: return 0;
       }
     });
     const total = scores.reduce((a, b) => a + b, 0);
@@ -121,7 +116,6 @@ const AdminDashboard = () => {
       const { error } = await supabase.from("dataset_history").insert([saveData]);
       if (error) throw error;
 
-      // UPDATE last_scan_time for all devices in real-time
       await supabase.from("device_scanning")
         .update({ last_scan_time: new Date().toISOString() })
         .eq("id", 1);
@@ -134,12 +128,11 @@ const AdminDashboard = () => {
   }, [fetchSensorData]);
 
   // --------------------------
-  // Start Auto Scan Loop
+  // Start / Stop Auto Scan Loop
   // --------------------------
   const startAutoScanLoop = useCallback(async () => {
     if (intervalRef.current) clearInterval(intervalRef.current);
 
-    // get or set startTime from localStorage
     let currentStartTime = parseInt(localStorage.getItem("autoScanStartTime") || Date.now());
     localStorage.setItem("autoScanStartTime", currentStartTime);
 
@@ -180,7 +173,7 @@ const AdminDashboard = () => {
   }, [autoScanRunning]);
 
   // --------------------------
-  // Real-time Supabase listener (mirror across devices/accounts)
+  // Real-time Sync Across Devices
   // --------------------------
   useEffect(() => {
     const fetchInitialStatus = async () => {
@@ -189,6 +182,7 @@ const AdminDashboard = () => {
         .select("*")
         .eq("id", 1)
         .single();
+
       if (data?.status === 1) setAutoScanRunning(true);
 
       if (data?.last_scan_time) {
@@ -223,7 +217,7 @@ const AdminDashboard = () => {
   }, [FIXED_INTERVAL]);
 
   // --------------------------
-  // Start/stop loop whenever autoScanRunning changes
+  // Start / Stop loop when autoScanRunning changes
   // --------------------------
   useEffect(() => {
     if (autoScanRunning) startAutoScanLoop();
@@ -231,7 +225,7 @@ const AdminDashboard = () => {
   }, [autoScanRunning, startAutoScanLoop, stopAutoScanLoop]);
 
   // --------------------------
-  // Sensor Status Color
+  // Sensor Status
   // --------------------------
   const getSensorStatus = (type, value) => {
     if (value === "N/A") return "";
