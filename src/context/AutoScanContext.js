@@ -5,17 +5,19 @@ export const AutoScanContext = createContext();
 
 export const AutoScanProvider = ({ children }) => {
   const [autoScanRunning, setAutoScanRunning] = useState(false);
-  const [intervalTime, setIntervalTime] = useState(900000); // default 15 minutes
+  const [intervalTime, setIntervalTime] = useState(900000); // default 15 min
   const intervalRef = useRef(null);
 
+  // -------------------------------
   // 1. Start AutoScan
+  // -------------------------------
   const startAutoScan = useCallback(async (fetchSensorData, updateDB = true) => {
     if (typeof window === "undefined") return; // client-only
     window.fetchSensorData = fetchSensorData;
 
     if (intervalRef.current) clearInterval(intervalRef.current);
 
-    fetchSensorData(); // run immediately
+    fetchSensorData();
     intervalRef.current = setInterval(fetchSensorData, intervalTime);
 
     setAutoScanRunning(true);
@@ -28,7 +30,9 @@ export const AutoScanProvider = ({ children }) => {
     }
   }, [intervalTime]);
 
+  // -------------------------------
   // 2. Stop AutoScan
+  // -------------------------------
   const stopAutoScan = useCallback(async (updateDB = true) => {
     if (typeof window === "undefined") return;
 
@@ -45,13 +49,17 @@ export const AutoScanProvider = ({ children }) => {
     }
   }, []);
 
+  // -------------------------------
   // 3. Initialize fetchSensorData globally (client-only)
+  // -------------------------------
   useEffect(() => {
     if (typeof window === "undefined") return;
     if (!window.fetchSensorData) window.fetchSensorData = () => {};
   }, []);
 
-  // 4. Load state from Supabase on mount (client-only)
+  // -------------------------------
+  // 4. Load scan state from Supabase (client-only)
+  // -------------------------------
   useEffect(() => {
     if (typeof window === "undefined") return;
 
@@ -66,15 +74,19 @@ export const AutoScanProvider = ({ children }) => {
         setIntervalTime(data.interval_ms ?? 900000);
         const running = data.status === 1;
         setAutoScanRunning(running);
+
         if (running && typeof window.fetchSensorData === "function") {
           startAutoScan(window.fetchSensorData, false); // resume without DB write
         }
       }
     };
+
     loadState();
   }, [startAutoScan]);
 
+  // -------------------------------
   // 5. Realtime subscription (client-only)
+  // -------------------------------
   useEffect(() => {
     if (typeof window === "undefined") return;
 
