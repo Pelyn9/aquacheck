@@ -116,6 +116,7 @@ const AdminDashboard = () => {
       const { error } = await supabase.from("dataset_history").insert([saveData]);
       if (error) throw error;
 
+      // Update last_scan_time so other devices sync
       await supabase.from("device_scanning")
         .update({ last_scan_time: new Date().toISOString() })
         .eq("id", 1);
@@ -128,7 +129,7 @@ const AdminDashboard = () => {
   }, [fetchSensorData]);
 
   // --------------------------
-  // Start / Stop Auto Scan Loop
+  // Start Auto Scan Loop
   // --------------------------
   const startAutoScanLoop = useCallback(async () => {
     if (intervalRef.current) clearInterval(intervalRef.current);
@@ -173,7 +174,7 @@ const AdminDashboard = () => {
   }, [autoScanRunning]);
 
   // --------------------------
-  // Real-time Sync Across Devices
+  // Real-time Supabase listener for cross-device mirroring
   // --------------------------
   useEffect(() => {
     const fetchInitialStatus = async () => {
@@ -183,7 +184,10 @@ const AdminDashboard = () => {
         .eq("id", 1)
         .single();
 
-      if (data?.status === 1) setAutoScanRunning(true);
+      if (data?.status === 1) {
+        setAutoScanRunning(true);
+        startAutoScanLoop();
+      }
 
       if (data?.last_scan_time) {
         const lastScanTime = new Date(data.last_scan_time).getTime();
@@ -198,9 +202,15 @@ const AdminDashboard = () => {
       .on(
         "postgres_changes",
         { event: "UPDATE", schema: "public", table: "device_scanning", filter: "id=eq.1" },
-        (payload) => {
+        async (payload) => {
           const isRunning = payload.new.status === 1;
           setAutoScanRunning(isRunning);
+
+          if (isRunning) {
+            await startAutoScanLoop();
+          } else {
+            stopAutoScanLoop();
+          }
 
           if (payload.new.last_scan_time) {
             const lastScanTime = new Date(payload.new.last_scan_time).getTime();
@@ -214,18 +224,10 @@ const AdminDashboard = () => {
       .subscribe();
 
     return () => supabase.removeChannel(channel);
-  }, [FIXED_INTERVAL]);
+  }, [startAutoScanLoop, stopAutoScanLoop]);
 
   // --------------------------
-  // Start / Stop loop when autoScanRunning changes
-  // --------------------------
-  useEffect(() => {
-    if (autoScanRunning) startAutoScanLoop();
-    else stopAutoScanLoop();
-  }, [autoScanRunning, startAutoScanLoop, stopAutoScanLoop]);
-
-  // --------------------------
-  // Sensor Status
+  // Sensor Status Color
   // --------------------------
   const getSensorStatus = (type, value) => {
     if (value === "N/A") return "";
