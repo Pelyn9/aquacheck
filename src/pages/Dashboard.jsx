@@ -1,3 +1,4 @@
+// src/pages/AdminDashboard.jsx
 import React, { useState, useEffect, useCallback, useRef } from "react";
 import Sidebar from "../components/Sidebar";
 import "../assets/databoard.css";
@@ -35,11 +36,16 @@ const AdminDashboard = () => {
       if (value === "N/A") return 0;
       const val = parseFloat(value);
       switch (key) {
-        case "ph": return val >= 6.5 && val <= 8.5 ? 2 : 0;
-        case "turbidity": return val <= 5 ? 2 : val <= 10 ? 1 : 0;
-        case "temp": return val >= 24 && val <= 32 ? 2 : 0;
-        case "tds": return val <= 500 ? 2 : 0;
-        default: return 0;
+        case "ph":
+          return val >= 6.5 && val <= 8.5 ? 2 : 0;
+        case "turbidity":
+          return val <= 5 ? 2 : val <= 10 ? 1 : 0;
+        case "temp":
+          return val >= 24 && val <= 32 ? 2 : 0;
+        case "tds":
+          return val <= 500 ? 2 : 0;
+        default:
+          return 0;
       }
     });
     const total = scores.reduce((a, b) => a + b, 0);
@@ -116,7 +122,7 @@ const AdminDashboard = () => {
       const { error } = await supabase.from("dataset_history").insert([saveData]);
       if (error) throw error;
 
-      // Update device_scanning next_auto_save_ts and last_scan_time
+      // Update device_scanning next_auto_save_ts
       const nextTS = Date.now() + FIXED_INTERVAL;
       await supabase.from("device_scanning")
         .update({ last_scan_time: new Date().toISOString(), next_auto_save_ts: nextTS })
@@ -152,16 +158,19 @@ const AdminDashboard = () => {
     setAutoScanRunning(newStatus);
 
     try {
-      const nextTS = Date.now() + FIXED_INTERVAL;
+      const nextTS = newStatus ? Date.now() + FIXED_INTERVAL : null;
+
       await supabase.from("device_scanning").upsert({
         id: 1,
         status: newStatus ? 1 : 0,
-        next_auto_save_ts: newStatus ? nextTS : null,
+        next_auto_save_ts: nextTS,
       });
+
+      if (nextTS) startCountdown(nextTS);
     } catch (err) {
       console.error("Failed to update scan status:", err);
     }
-  }, [autoScanRunning]);
+  }, [autoScanRunning, startCountdown]);
 
   // --------------------------
   // Real-time Supabase listener
@@ -185,6 +194,7 @@ const AdminDashboard = () => {
           const isRunning = payload.new.status === 1;
           setAutoScanRunning(isRunning);
           if (payload.new.next_auto_save_ts) startCountdown(payload.new.next_auto_save_ts);
+          else setCountdown(0);
         }
       )
       .subscribe();
