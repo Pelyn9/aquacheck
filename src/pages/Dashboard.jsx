@@ -189,10 +189,33 @@ const AdminDashboard = () => {
     }
   };
 
-  useEffect(()=>{
-    if(localStorage.getItem("autoScanRunning")==="true") startContinuousAutoScan();
-    return ()=>stopContinuousAutoScan();
-  },[startContinuousAutoScan, stopContinuousAutoScan]);
+  useEffect(() => {
+  // Only run on client
+  if (typeof window === "undefined") return;
+
+  const resumeScan = async () => {
+    // Load current status from Supabase
+    const { data, error } = await supabase
+      .from("device_scanning")
+      .select("status")
+      .eq("id", 1)
+      .single();
+
+    if (!error && data.status === 1) {
+      // Ensure fetchSensorData is defined globally
+      window.fetchSensorData = fetchSensorData;
+      // Resume auto-scanning
+      startAutoScan(fetchSensorData, false);
+      startContinuousAutoScan(); // your local countdown + auto-save
+    }
+  };
+
+  resumeScan();
+
+  // Clean up on unmount
+  return () => stopContinuousAutoScan();
+}, [fetchSensorData, startAutoScan, startContinuousAutoScan, stopContinuousAutoScan]);
+
 
   return (
     <div className="dashboard-container">
