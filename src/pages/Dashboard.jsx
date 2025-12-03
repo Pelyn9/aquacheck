@@ -9,12 +9,15 @@ const AdminDashboard = () => {
   const [status, setStatus] = useState("Awaiting sensor data...");
   const [countdown, setCountdown] = useState(FIXED_INTERVAL / 1000);
   const [overallSafety, setOverallSafety] = useState("N/A");
-  const [manualStopped, setManualStopped] = useState(false);
+  const [autoScanRunning, setAutoScanRunning] = useState(false);
 
   const esp32Url = process.env.NODE_ENV === "production"
     ? "/api/data"
     : "http://aquacheck.local:5000/data";
 
+  // -------------------------
+  // Compute overall safety
+  // -------------------------
   const computeOverallSafety = useCallback((data) => {
     if (!data || Object.values(data).every(v => v === "N/A")) {
       setOverallSafety("N/A");
@@ -37,6 +40,9 @@ const AdminDashboard = () => {
     else setOverallSafety("Unsafe");
   }, []);
 
+  // -------------------------
+  // Fetch sensor data
+  // -------------------------
   const fetchSensorData = useCallback(async () => {
     try {
       const response = await fetch(esp32Url);
@@ -77,30 +83,9 @@ const AdminDashboard = () => {
     }
   }, [esp32Url, computeOverallSafety]);
 
-  const handleSave = useCallback(async () => {
-    if (Object.values(sensorData).every(v=>"N/A")) {
-      setStatus("⚠ No valid data to save.");
-      return;
-    }
-    try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return setStatus("⚠ User not authenticated.");
-      const saveData = {
-        user_id: user.id,
-        ph: parseFloat(sensorData.ph)||null,
-        turbidity: parseFloat(sensorData.turbidity)||null,
-        temperature: parseFloat(sensorData.temp)||null,
-        tds: parseFloat(sensorData.tds)||null
-      };
-      const { error } = await supabase.from("dataset_history").insert([saveData]);
-      if(error) throw error;
-      setStatus("✅ Data saved successfully!");
-    } catch(err){
-      console.error(err);
-      setStatus("❌ Error saving data.");
-    }
-  }, [sensorData]);
-
+  // -------------------------
+  // Auto save data to Supabase
+  // -------------------------
   const handleAutoSave = useCallback(async () => {
     const data = await fetchSensorData();
     if(!data) return;
@@ -117,13 +102,67 @@ const AdminDashboard = () => {
       const { error } = await supabase.from("dataset_history").insert([saveData]);
       if(error) throw error;
       setStatus(`✅ Auto-saved at ${new Date().toLocaleTimeString()}`);
-      localStorage.setItem("lastAutoSave", Date.now().toString());
     } catch(err){
       console.error(err);
       setStatus("❌ Auto-save failed.");
     }
   }, [fetchSensorData]);
 
+  // -------------------------
+  // Countdown and auto-scan effect
+  // -------------------------
+  useEffect(() => {
+    let interval = null;
+
+    const initializeScan = async () => {
+      try {
+        const res = await fetch("/api/admin/scan-status");
+        const json = await res.json();
+        setAutoScanRunning(json.status === 1);
+
+        if(json.status === 1){
+          const startTime = Date.now() - (FIXED_INTERVAL - (json.remainingMs || FIXED_INTERVAL));
+          interval = setInterval(async () => {
+            const elapsed = Date.now() - startTime;
+            const remaining = FIXED_INTERVAL - (elapsed % FIXED_INTERVAL);
+            setCountdown(Math.floor(remaining / 1000));
+            if(remaining <= 1000) await handleAutoSave();
+          }, 1000);
+          fetchSensorData();
+        }
+      } catch(err){
+        console.error("Failed to fetch scan status", err);
+      }
+    };
+
+    initializeScan();
+    return () => interval && clearInterval(interval);
+  }, [fetchSensorData, handleAutoSave]);
+
+  // -------------------------
+  // Start/Stop auto-scan
+  // -------------------------
+  const toggleAutoScan = useCallback(async () => {
+    try {
+      if(autoScanRunning){
+        await fetch("/api/admin/stop-scan", { method: "POST" });
+        setAutoScanRunning(false);
+        setStatus("🛑 Auto Scan stopped globally.");
+        setCountdown(FIXED_INTERVAL / 1000);
+      } else {
+        await fetch("/api/admin/start-scan", { method: "POST" });
+        setAutoScanRunning(true);
+        setStatus("🔄 Auto Scan started globally (every 15 minutes).");
+      }
+    } catch(err){
+      console.error(err);
+      setStatus("❌ Failed to toggle auto-scan.");
+    }
+  }, [autoScanRunning]);
+
+  // -------------------------
+  // Sensor status helper
+  // -------------------------
   const getSensorStatus = (type, value) => {
     if(value==="N/A") return "";
     const val=parseFloat(value);
@@ -136,43 +175,6 @@ const AdminDashboard = () => {
     }
   };
 
-  // Auto scan + countdown
-  useEffect(()=>{
-    let interval = null;
-    if(localStorage.getItem("autoScanRunning")==="true" && !manualStopped){
-      const startTime = parseInt(localStorage.getItem("autoScanStartTime") || Date.now());
-      localStorage.setItem("autoScanStartTime", startTime);
-
-      interval = setInterval(async ()=>{
-        const elapsed = Date.now() - startTime;
-        const remaining = FIXED_INTERVAL - (elapsed % FIXED_INTERVAL);
-        setCountdown(Math.floor(remaining/1000));
-        if(remaining <= 1000) await handleAutoSave();
-      }, 1000);
-
-      fetchSensorData();
-    }
-    return ()=> interval && clearInterval(interval);
-  }, [fetchSensorData, handleAutoSave, manualStopped]);
-
-  const toggleAutoScan = useCallback(()=>{
-    const running = localStorage.getItem("autoScanRunning")==="true";
-    if(running){
-      // Manual stop: everything stops, countdown resets
-      localStorage.setItem("autoScanRunning","false");
-      setManualStopped(true);
-      setCountdown(FIXED_INTERVAL/1000);
-      setStatus("🛑 Auto Scan stopped.");
-    } else {
-      // Start auto scan
-      localStorage.setItem("autoScanRunning","true");
-      localStorage.setItem("autoScanStartTime", Date.now());
-      setManualStopped(false);
-      setStatus("🔄 Auto Scan started (every 15 minutes).");
-      fetchSensorData();
-    }
-  }, [fetchSensorData]);
-
   return (
     <div className="dashboard-container">
       <Sidebar />
@@ -184,12 +186,12 @@ const AdminDashboard = () => {
             <select disabled><option>Every 15 Minutes</option></select>
           </div>
           <div className="button-group">
-            <button className="save-btn" onClick={handleSave}>Save</button>
-            <button className={`start-stop-btn ${localStorage.getItem("autoScanRunning")==="true"?"stop":"start"}`} onClick={toggleAutoScan}>
-              {localStorage.getItem("autoScanRunning")==="true"?"Stop Auto Scan":"Start Auto Scan"}
+            <button className="save-btn" onClick={handleAutoSave}>Save Now</button>
+            <button className={`start-stop-btn ${autoScanRunning?"stop":"start"}`} onClick={toggleAutoScan}>
+              {autoScanRunning?"Stop Auto Scan":"Start Auto Scan"}
             </button>
           </div>
-          {localStorage.getItem("autoScanRunning")==="true" && !manualStopped &&
+          {autoScanRunning &&
             <div className="countdown-timer">⏱ Next auto-save in: {Math.floor(countdown/60)}m {countdown%60}s</div>
           }
         </section>
