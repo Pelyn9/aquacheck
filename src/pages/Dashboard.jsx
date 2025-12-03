@@ -35,11 +35,16 @@ const AdminDashboard = () => {
       if (value === "N/A") return 0;
       const val = parseFloat(value);
       switch (key) {
-        case "ph": return val >= 6.5 && val <= 8.5 ? 2 : 0;
-        case "turbidity": return val <= 5 ? 2 : val <= 10 ? 1 : 0;
-        case "temp": return val >= 24 && val <= 32 ? 2 : 0;
-        case "tds": return val <= 500 ? 2 : 0;
-        default: return 0;
+        case "ph":
+          return val >= 6.5 && val <= 8.5 ? 2 : 0;
+        case "turbidity":
+          return val <= 5 ? 2 : val <= 10 ? 1 : 0;
+        case "temp":
+          return val >= 24 && val <= 32 ? 2 : 0;
+        case "tds":
+          return val <= 500 ? 2 : 0;
+        default:
+          return 0;
       }
     });
     const total = scores.reduce((a, b) => a + b, 0);
@@ -98,36 +103,35 @@ const AdminDashboard = () => {
   // Auto Save
   // --------------------------
   const handleAutoSave = useCallback(async () => {
-  const data = await fetchSensorData();
-  if (!data) return;
+    const data = await fetchSensorData();
+    if (!data) return;
 
-  try {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return;
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
 
-    const saveData = {
-      user_id: user.id,
-      ph: parseFloat(data.ph) || null,
-      turbidity: parseFloat(data.turbidity) || null,
-      temperature: parseFloat(data.temp) || null,
-      tds: parseFloat(data.tds) || null,
-    };
+      const saveData = {
+        user_id: user.id,
+        ph: parseFloat(data.ph) || null,
+        turbidity: parseFloat(data.turbidity) || null,
+        temperature: parseFloat(data.temp) || null,
+        tds: parseFloat(data.tds) || null,
+      };
 
-    const { error } = await supabase.from("dataset_history").insert([saveData]);
-    if (error) throw error;
+      const { error } = await supabase.from("dataset_history").insert([saveData]);
+      if (error) throw error;
 
-    // UPDATE last_scan_time para synced sa tanan users
-    await supabase.from("device_scanning")
-      .update({ last_scan_time: new Date().toISOString() })
-      .eq("id", 1);
+      // UPDATE last_scan_time for all devices in real-time
+      await supabase.from("device_scanning")
+        .update({ last_scan_time: new Date().toISOString() })
+        .eq("id", 1);
 
-    setStatus(`💾 Auto-saved at ${new Date().toLocaleTimeString()}`);
-  } catch (err) {
-    console.error(err);
-    setStatus("❌ Auto-save failed.");
-  }
-}, [fetchSensorData]);
-
+      setStatus(`💾 Auto-saved at ${new Date().toLocaleTimeString()}`);
+    } catch (err) {
+      console.error(err);
+      setStatus("❌ Auto-save failed.");
+    }
+  }, [fetchSensorData]);
 
   // --------------------------
   // Start Auto Scan Loop
@@ -169,59 +173,54 @@ const AdminDashboard = () => {
         status: newStatus ? 1 : 0,
         interval_ms: FIXED_INTERVAL,
       });
-      if (!newStatus) localStorage.removeItem("autoScanStartTime"); // reset countdown only on stop
+      if (!newStatus) localStorage.removeItem("autoScanStartTime");
     } catch (err) {
       console.error("Failed to update scan status:", err);
     }
   }, [autoScanRunning]);
 
   // --------------------------
-  // Real-time Supabase listener
+  // Real-time Supabase listener (mirror across devices/accounts)
   // --------------------------
-  // --------------------------
-// Real-time Supabase listener
-// --------------------------
-useEffect(() => {
-  const fetchInitialStatus = async () => {
-    const { data } = await supabase
-      .from("device_scanning")
-      .select("*")
-      .eq("id", 1)
-      .single();
+  useEffect(() => {
+    const fetchInitialStatus = async () => {
+      const { data } = await supabase
+        .from("device_scanning")
+        .select("*")
+        .eq("id", 1)
+        .single();
+      if (data?.status === 1) setAutoScanRunning(true);
 
-    if (data?.status === 1) setAutoScanRunning(true);
-
-    if (data?.last_scan_time) {
-      const lastScanTime = new Date(data.last_scan_time).getTime();
-      const elapsed = Date.now() - lastScanTime;
-      setCountdown(Math.max(FIXED_INTERVAL / 1000 - Math.floor(elapsed / 1000), 0));
-    }
-  };
-  fetchInitialStatus();
-
-  const channel = supabase
-    .channel("scan_status_live")
-    .on(
-      "postgres_changes",
-      { event: "UPDATE", schema: "public", table: "device_scanning", filter: "id=eq.1" },
-      (payload) => {
-        const isRunning = payload.new.status === 1;
-        setAutoScanRunning(isRunning);
-
-        if (payload.new.last_scan_time) {
-          const lastScanTime = new Date(payload.new.last_scan_time).getTime();
-          const elapsed = Date.now() - lastScanTime;
-          setCountdown(Math.max(FIXED_INTERVAL / 1000 - Math.floor(elapsed / 1000), 0));
-        } else {
-          setCountdown(FIXED_INTERVAL / 1000);
-        }
+      if (data?.last_scan_time) {
+        const lastScanTime = new Date(data.last_scan_time).getTime();
+        const elapsed = Date.now() - lastScanTime;
+        setCountdown(Math.max(FIXED_INTERVAL / 1000 - Math.floor(elapsed / 1000), 0));
       }
-    )
-    .subscribe();
+    };
+    fetchInitialStatus();
 
-  return () => supabase.removeChannel(channel);
-}, []);
+    const channel = supabase
+      .channel("scan_status_live")
+      .on(
+        "postgres_changes",
+        { event: "UPDATE", schema: "public", table: "device_scanning", filter: "id=eq.1" },
+        (payload) => {
+          const isRunning = payload.new.status === 1;
+          setAutoScanRunning(isRunning);
 
+          if (payload.new.last_scan_time) {
+            const lastScanTime = new Date(payload.new.last_scan_time).getTime();
+            const elapsed = Date.now() - lastScanTime;
+            setCountdown(Math.max(FIXED_INTERVAL / 1000 - Math.floor(elapsed / 1000), 0));
+          } else {
+            setCountdown(FIXED_INTERVAL / 1000);
+          }
+        }
+      )
+      .subscribe();
+
+    return () => supabase.removeChannel(channel);
+  }, [FIXED_INTERVAL]);
 
   // --------------------------
   // Start/stop loop whenever autoScanRunning changes
