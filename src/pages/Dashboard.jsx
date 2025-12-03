@@ -7,7 +7,7 @@ import { supabase } from "../supabaseClient";
 const AdminDashboard = () => {
   const { autoScanRunning, startAutoScan, stopAutoScan } = useContext(AutoScanContext);
 
-  const FIXED_INTERVAL = 900000; // 15 minutes
+  const FIXED_INTERVAL = 900000; // 15 min
   const [sensorData, setSensorData] = useState({ ph: "N/A", turbidity: "N/A", temp: "N/A", tds: "N/A" });
   const [status, setStatus] = useState("Awaiting sensor data...");
   const [countdown, setCountdown] = useState(FIXED_INTERVAL / 1000);
@@ -19,14 +19,11 @@ const AdminDashboard = () => {
   const hasSaved = useRef(false);
 
   const esp32Url = process.env.NODE_ENV === "production"
-    ? "/api/data" // Vercel
-    : "http://aquacheck.local:5000/data"; // Local ESP32
+    ? "/api/data"
+    : "http://aquacheck.local:5000/data";
 
   const computeOverallSafety = useCallback((data) => {
-    if (!data || Object.values(data).every(v => v === "N/A")) {
-      setOverallSafety("N/A");
-      return;
-    }
+    if (!data || Object.values(data).every(v => v === "N/A")) { setOverallSafety("N/A"); return; }
 
     const scores = Object.entries(data).map(([key, value]) => {
       if (value === "N/A") return 0;
@@ -51,7 +48,7 @@ const AdminDashboard = () => {
       const response = await fetch(esp32Url);
       if (!response.ok) throw new Error("Primary source failed");
       const data = await response.json();
-      const latest = data.latestData || data; // handle nested latestData
+      const latest = data.latestData || data;
 
       const formatted = {
         ph: latest.ph ? parseFloat(latest.ph).toFixed(2) : "N/A",
@@ -91,10 +88,7 @@ const AdminDashboard = () => {
   }, [esp32Url, computeOverallSafety]);
 
   const handleSave = useCallback(async () => {
-    if (Object.values(sensorData).every(v=>"N/A")) {
-      setStatus("⚠ No valid data to save.");
-      return;
-    }
+    if (Object.values(sensorData).every(v=>"N/A")) { setStatus("⚠ No valid data to save."); return; }
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return setStatus("⚠ User not authenticated.");
@@ -108,21 +102,14 @@ const AdminDashboard = () => {
       const { error } = await supabase.from("dataset_history").insert([saveData]);
       if(error) throw error;
       setStatus("✅ Data saved successfully!");
-    } catch(err){
-      console.error(err);
-      setStatus("❌ Error saving data.");
-    }
+    } catch(err){ console.error(err); setStatus("❌ Error saving data."); }
   }, [sensorData]);
 
   const handleAutoSave = useCallback(async () => {
     if(!isScanning.current || hasSaved.current) return;
     hasSaved.current = true;
     const newData = await fetchSensorData();
-    if(!newData || Object.values(newData).every(v=>"N/A")){
-      setStatus("⚠ No valid data to auto-save.");
-      hasSaved.current = false;
-      return;
-    }
+    if(!newData || Object.values(newData).every(v=>"N/A")){ setStatus("⚠ No valid data to auto-save."); hasSaved.current=false; return; }
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if(!user) { setStatus("⚠ User not authenticated."); hasSaved.current=false; return; }
@@ -136,10 +123,8 @@ const AdminDashboard = () => {
       const { error } = await supabase.from("dataset_history").insert([saveData]);
       if(error) throw error;
       setStatus(`✅ Auto-saved at ${new Date().toLocaleTimeString()}`);
-    } catch(err){
-      console.error(err);
-      setStatus("❌ Auto-save failed.");
-    } finally{ hasSaved.current=false; }
+    } catch(err){ console.error(err); setStatus("❌ Auto-save failed."); }
+    finally{ hasSaved.current=false; }
   }, [fetchSensorData]);
 
   const stopContinuousAutoScan = useCallback(()=>{
@@ -153,7 +138,6 @@ const AdminDashboard = () => {
     setSensorData({ph:"N/A",turbidity:"N/A",temp:"N/A",tds:"N/A"});
     setOverallSafety("N/A");
     setStatus("🛑 Auto Scan stopped.");
-    localStorage.setItem("autoScanRunning","false");
   },[]);
 
   const startContinuousAutoScan = useCallback(()=>{
@@ -161,15 +145,16 @@ const AdminDashboard = () => {
     isScanning.current=true;
     hasSaved.current=false;
     setCountdown(FIXED_INTERVAL/1000);
+
     countdownRef.current=setInterval(()=>{
       setCountdown(prev=>{
-        if(prev<=1){ handleAutoSave(); return FIXED_INTERVAL/1000;}
+        if(prev<=1){ handleAutoSave(); return FIXED_INTERVAL/1000; }
         return prev-1;
       });
     },1000);
+
     liveIntervalRef.current=setInterval(fetchSensorData,5000);
     setStatus("🔄 Auto Scan started (every 15 minutes).");
-    localStorage.setItem("autoScanRunning","true");
   },[fetchSensorData, handleAutoSave, stopContinuousAutoScan]);
 
   const toggleAutoScan = useCallback(()=>{
@@ -190,38 +175,24 @@ const AdminDashboard = () => {
   };
 
   useEffect(() => {
-  // Only run on client
-  if (typeof window === "undefined") return;
+    if (typeof window === "undefined") return;
 
-  const resumeScan = async () => {
-    // Load current status from Supabase
-    const { data, error } = await supabase
-      .from("device_scanning")
-      .select("status")
-      .eq("id", 1)
-      .single();
+    const checkFn = setInterval(() => {
+      if (typeof window.fetchSensorData === "function") {
+        startContinuousAutoScan();
+        clearInterval(checkFn);
+      }
+    }, 100);
 
-    if (!error && data.status === 1) {
-      // Ensure fetchSensorData is defined globally
-      window.fetchSensorData = fetchSensorData;
-      // Resume auto-scanning
-      startAutoScan(fetchSensorData, false);
-      startContinuousAutoScan(); // your local countdown + auto-save
-    }
-  };
-
-  resumeScan();
-
-  // Clean up on unmount
-  return () => stopContinuousAutoScan();
-}, [fetchSensorData, startAutoScan, startContinuousAutoScan, stopContinuousAutoScan]);
-
+    return () => stopContinuousAutoScan();
+  }, [startContinuousAutoScan, stopContinuousAutoScan]);
 
   return (
     <div className="dashboard-container">
       <Sidebar />
       <main className="main-content">
         <header className="topbar"><h1>Admin Dashboard</h1></header>
+
         <section className="scan-controls">
           <div className="interval-setting">
             <label>Auto Scan Interval:</label>
@@ -235,6 +206,7 @@ const AdminDashboard = () => {
           </div>
           {autoScanRunning && <div className="countdown-timer">⏱ Next auto-save in: {Math.floor(countdown/60)}m {countdown%60}s</div>}
         </section>
+
         <section className="sensor-grid">
           {["ph","turbidity","temp","tds"].map(key=>(
             <div key={key} className={`sensor-card ${getSensorStatus(key,sensorData[key])}`}>
@@ -244,9 +216,11 @@ const AdminDashboard = () => {
             </div>
           ))}
         </section>
+
         <section className={`overall-safety ${overallSafety.toLowerCase()}`}>
           <h2>Swimming Safety: {overallSafety}</h2>
         </section>
+
         <div className="status-card">{status}</div>
       </main>
     </div>

@@ -5,16 +5,12 @@ export const AutoScanContext = createContext();
 
 export const AutoScanProvider = ({ children }) => {
   const [autoScanRunning, setAutoScanRunning] = useState(false);
-  const [intervalTime, setIntervalTime] = useState(900000); // default 15 min
+  const [intervalTime, setIntervalTime] = useState(900000); // 15 min
   const intervalRef = useRef(null);
 
-  // -------------------------------
-  // Start AutoScan
-  // -------------------------------
   const startAutoScan = useCallback(async (fetchSensorData, updateDB = true) => {
     if (typeof window === "undefined") return;
 
-    // Save global reference
     window.fetchSensorData = fetchSensorData;
 
     if (intervalRef.current) clearInterval(intervalRef.current);
@@ -25,7 +21,6 @@ export const AutoScanProvider = ({ children }) => {
     setAutoScanRunning(true);
 
     if (updateDB) {
-      // Persist scan status in Supabase
       await supabase
         .from("device_scanning")
         .update({ status: 1, interval_ms: intervalTime })
@@ -33,12 +28,7 @@ export const AutoScanProvider = ({ children }) => {
     }
   }, [intervalTime]);
 
-  // -------------------------------
-  // Stop AutoScan (admins only)
-  // -------------------------------
   const stopAutoScan = useCallback(async (updateDB = true) => {
-    if (typeof window === "undefined") return;
-
     if (intervalRef.current) clearInterval(intervalRef.current);
     intervalRef.current = null;
 
@@ -52,17 +42,11 @@ export const AutoScanProvider = ({ children }) => {
     }
   }, []);
 
-  // -------------------------------
-  // Ensure fetchSensorData exists globally
-  // -------------------------------
   useEffect(() => {
     if (typeof window === "undefined") return;
     if (!window.fetchSensorData) window.fetchSensorData = () => {};
   }, []);
 
-  // -------------------------------
-  // Load scan state from Supabase on page load
-  // -------------------------------
   useEffect(() => {
     if (typeof window === "undefined") return;
 
@@ -76,9 +60,17 @@ export const AutoScanProvider = ({ children }) => {
       if (!error && data) {
         setIntervalTime(data.interval_ms ?? 900000);
 
-        // If scan was running, resume it
-        if (data.status === 1 && typeof window.fetchSensorData === "function") {
-          startAutoScan(window.fetchSensorData, false); // false = don't update DB
+        if (data.status === 1) {
+          if (typeof window.fetchSensorData === "function") {
+            startAutoScan(window.fetchSensorData, false);
+          } else {
+            const checkFn = setInterval(() => {
+              if (typeof window.fetchSensorData === "function") {
+                startAutoScan(window.fetchSensorData, false);
+                clearInterval(checkFn);
+              }
+            }, 100);
+          }
         }
 
         setAutoScanRunning(data.status === 1);
@@ -88,9 +80,6 @@ export const AutoScanProvider = ({ children }) => {
     loadState();
   }, [startAutoScan]);
 
-  // -------------------------------
-  // Real-time subscription: sync scan across admins
-  // -------------------------------
   useEffect(() => {
     if (typeof window === "undefined") return;
 
@@ -104,7 +93,6 @@ export const AutoScanProvider = ({ children }) => {
           setAutoScanRunning(isRunning);
           setIntervalTime(payload.new.interval_ms);
 
-          // Auto-start or stop scan based on DB
           if (isRunning) startAutoScan(window.fetchSensorData, false);
           else stopAutoScan(false);
         }
@@ -116,13 +104,7 @@ export const AutoScanProvider = ({ children }) => {
 
   return (
     <AutoScanContext.Provider
-      value={{
-        autoScanRunning,
-        startAutoScan,
-        stopAutoScan,
-        intervalTime,
-        setIntervalTime,
-      }}
+      value={{ autoScanRunning, startAutoScan, stopAutoScan, intervalTime, setIntervalTime }}
     >
       {children}
     </AutoScanContext.Provider>
