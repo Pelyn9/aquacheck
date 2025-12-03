@@ -5,14 +5,14 @@ import { supabase } from "../supabaseClient";
 
 /**
  * ======================================================================
- *  ADMIN DASHBOARD — CROSS-DEVICE AUTO SCAN
+ *  ADMIN DASHBOARD — ADVANCED VERSION
  *  - Auto scan (15 minutes)
- *  - Manual fetch & save
+ *  - Manual fetch
  *  - Auto save
  *  - Overall safety computation
- *  - ESP32 + Cloud fallback
- *  - Sensor reset on stop
- *  - Cross-device sync using Supabase
+ *  - ESP32 + Vercel fallback API
+ *  - Sensor reset to "N/A" when Auto Scan stops
+ *  - Cross-device auto-scan sync
  * ======================================================================
  */
 
@@ -181,7 +181,7 @@ const AdminDashboard = () => {
   }, [fetchSensorData]);
 
   // --------------------------
-  // Local Countdown / AutoScan Loop
+  // Auto Scan Loop (local countdown)
   // --------------------------
   useEffect(() => {
     let interval = null;
@@ -213,7 +213,6 @@ const AdminDashboard = () => {
     localStorage.setItem("autoScanStartTime", Date.now());
 
     if (!newStatus) {
-      // Reset sensors
       setSensorData({ ph: "N/A", turbidity: "N/A", temp: "N/A", tds: "N/A" });
       setOverallSafety("N/A");
       setStatus("🛑 Auto Scan stopped — all sensors reset.");
@@ -222,7 +221,6 @@ const AdminDashboard = () => {
       setStatus("🔄 Auto Scan started (15-minute interval).");
     }
 
-    // Update Supabase for cross-device sync
     try {
       await supabase.from("device_scanning").upsert({
         id: 1,
@@ -235,7 +233,7 @@ const AdminDashboard = () => {
   }, [autoScanRunning, fetchSensorData]);
 
   // --------------------------
-  // Cross-Device Sync
+  // Cross-Device Auto Scan Sync
   // --------------------------
   useEffect(() => {
     const channel = supabase
@@ -243,25 +241,16 @@ const AdminDashboard = () => {
       .on(
         "postgres_changes",
         { event: "UPDATE", schema: "public", table: "device_scanning" },
-        async (payload) => {
+        (payload) => {
           const isRunning = payload.new.status === 1;
           setAutoScanRunning(isRunning);
           setManualStopped(!isRunning);
-
-          if (isRunning) {
-            // Start the loop locally if not running
-            await toggleAutoScan();
-          } else {
-            // Reset sensors when stopped
-            setSensorData({ ph: "N/A", turbidity: "N/A", temp: "N/A", tds: "N/A" });
-            setOverallSafety("N/A");
-          }
         }
       )
       .subscribe();
 
     return () => supabase.removeChannel(channel);
-  }, [toggleAutoScan]);
+  }, []);
 
   // --------------------------
   // Sensor Status Color
@@ -283,9 +272,6 @@ const AdminDashboard = () => {
     }
   };
 
-  // --------------------------
-  // JSX Return
-  // --------------------------
   return (
     <div className="dashboard-container">
       <Sidebar />
@@ -296,20 +282,14 @@ const AdminDashboard = () => {
 
         <section className="scan-controls">
           <div className="button-group">
-            <button className="save-btn" onClick={handleSave}>
-              Save Manually
-            </button>
-            <button
-              className={`start-stop-btn ${autoScanRunning ? "stop" : "start"}`}
-              onClick={toggleAutoScan}
-            >
+            <button className="save-btn" onClick={handleSave}>Save Manually</button>
+            <button className={`start-stop-btn ${autoScanRunning ? "stop" : "start"}`} onClick={toggleAutoScan}>
               {autoScanRunning ? "Stop Auto Scan" : "Start Auto Scan"}
             </button>
           </div>
           {autoScanRunning && !manualStopped && (
             <div className="countdown-timer">
-              ⏱ Next auto-save in:{" "}
-              <strong>{Math.floor(countdown / 60)}m {countdown % 60}s</strong>
+              ⏱ Next auto-save in: <strong>{Math.floor(countdown / 60)}m {countdown % 60}s</strong>
             </div>
           )}
         </section>
@@ -318,10 +298,7 @@ const AdminDashboard = () => {
           {["ph", "turbidity", "temp", "tds"].map((key) => (
             <div key={key} className={`sensor-card ${getSensorStatus(key, sensorData[key])}`}>
               <h3>{key.toUpperCase()}</h3>
-              <p>
-                {sensorData[key]}{" "}
-                {key === "turbidity" ? "NTU" : key === "temp" ? "°C" : key === "tds" ? "ppm" : ""}
-              </p>
+              <p>{sensorData[key]} {key === "turbidity" ? "NTU" : key === "temp" ? "°C" : key === "tds" ? "ppm" : ""}</p>
               <p className={`status-label ${getSensorStatus(key, sensorData[key])}`}>
                 {sensorData[key] === "N/A" ? "NO DATA" : getSensorStatus(key, sensorData[key]).toUpperCase()}
               </p>
