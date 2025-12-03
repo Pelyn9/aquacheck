@@ -60,17 +60,8 @@ export const AutoScanProvider = ({ children }) => {
       if (!error && data) {
         setIntervalTime(data.interval_ms ?? 900000);
 
-        if (data.status === 1) {
-          if (typeof window.fetchSensorData === "function") {
-            startAutoScan(window.fetchSensorData, false);
-          } else {
-            const checkFn = setInterval(() => {
-              if (typeof window.fetchSensorData === "function") {
-                startAutoScan(window.fetchSensorData, false);
-                clearInterval(checkFn);
-              }
-            }, 100);
-          }
+        if (data.status === 1 && typeof window.fetchSensorData === "function") {
+          startAutoScan(window.fetchSensorData, false);
         }
 
         setAutoScanRunning(data.status === 1);

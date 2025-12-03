@@ -138,6 +138,7 @@ const AdminDashboard = () => {
     setSensorData({ph:"N/A",turbidity:"N/A",temp:"N/A",tds:"N/A"});
     setOverallSafety("N/A");
     setStatus("🛑 Auto Scan stopped.");
+    localStorage.setItem("autoScanRunning","false");
   },[]);
 
   const startContinuousAutoScan = useCallback(()=>{
@@ -155,6 +156,7 @@ const AdminDashboard = () => {
 
     liveIntervalRef.current=setInterval(fetchSensorData,5000);
     setStatus("🔄 Auto Scan started (every 15 minutes).");
+    localStorage.setItem("autoScanRunning","true");
   },[fetchSensorData, handleAutoSave, stopContinuousAutoScan]);
 
   const toggleAutoScan = useCallback(()=>{
@@ -174,16 +176,12 @@ const AdminDashboard = () => {
     }
   };
 
+  // -----------------------------
+  // Auto resume scan after refresh
+  // -----------------------------
   useEffect(() => {
-    if (typeof window === "undefined") return;
-
-    const checkFn = setInterval(() => {
-      if (typeof window.fetchSensorData === "function") {
-        startContinuousAutoScan();
-        clearInterval(checkFn);
-      }
-    }, 100);
-
+    const running = localStorage.getItem("autoScanRunning") === "true";
+    if (running) startContinuousAutoScan();
     return () => stopContinuousAutoScan();
   }, [startContinuousAutoScan, stopContinuousAutoScan]);
 
