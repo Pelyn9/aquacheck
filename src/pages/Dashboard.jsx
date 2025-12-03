@@ -17,7 +17,6 @@ const AdminDashboard = () => {
   const [countdown, setCountdown] = useState(FIXED_INTERVAL / 1000);
   const [overallSafety, setOverallSafety] = useState("N/A");
   const [autoScanRunning, setAutoScanRunning] = useState(false);
-  const [lastSaveTime, setLastSaveTime] = useState(Date.now());
 
   const esp32Url =
     process.env.NODE_ENV === "production"
@@ -101,11 +100,9 @@ const AdminDashboard = () => {
   const handleAutoSave = useCallback(async () => {
     const data = await fetchSensorData();
     if (!data) return;
-
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
-
       const saveData = {
         user_id: user.id,
         ph: parseFloat(data.ph) || null,
@@ -113,17 +110,8 @@ const AdminDashboard = () => {
         temperature: parseFloat(data.temp) || null,
         tds: parseFloat(data.tds) || null,
       };
-
       const { error } = await supabase.from("dataset_history").insert([saveData]);
       if (error) throw error;
-
-      // update last save timestamp in Supabase
-      await supabase.from("device_scanning").upsert({
-        id: 1,
-        last_save: Date.now()
-      });
-
-      setLastSaveTime(Date.now());
       setStatus(`💾 Auto-saved at ${new Date().toLocaleTimeString()}`);
     } catch (err) {
       console.error(err);
@@ -134,26 +122,28 @@ const AdminDashboard = () => {
   // --------------------------
   // Start Auto Scan Loop
   // --------------------------
-  const startAutoScanLoop = useCallback(() => {
+  const startAutoScanLoop = useCallback(async () => {
     if (intervalRef.current) clearInterval(intervalRef.current);
 
-    intervalRef.current = setInterval(() => {
-      const elapsed = Date.now() - lastSaveTime;
+    // get or set startTime from localStorage
+    let currentStartTime = parseInt(localStorage.getItem("autoScanStartTime") || Date.now());
+    localStorage.setItem("autoScanStartTime", currentStartTime);
+
+    intervalRef.current = setInterval(async () => {
+      const elapsed = Date.now() - currentStartTime;
       const remaining = FIXED_INTERVAL - (elapsed % FIXED_INTERVAL);
       setCountdown(Math.floor(remaining / 1000));
-
-      if (remaining <= 1000) handleAutoSave();
+      if (remaining <= 1000) await handleAutoSave();
     }, 1000);
 
     fetchSensorData();
-  }, [lastSaveTime, handleAutoSave, fetchSensorData]);
+  }, [fetchSensorData, handleAutoSave]);
 
   const stopAutoScanLoop = useCallback(() => {
     if (intervalRef.current) clearInterval(intervalRef.current);
     intervalRef.current = null;
     setSensorData({ ph: "N/A", turbidity: "N/A", temp: "N/A", tds: "N/A" });
     setOverallSafety("N/A");
-    setCountdown(FIXED_INTERVAL / 1000);
   }, []);
 
   // --------------------------
@@ -168,14 +158,12 @@ const AdminDashboard = () => {
         id: 1,
         status: newStatus ? 1 : 0,
         interval_ms: FIXED_INTERVAL,
-        last_save: lastSaveTime
       });
-
-      if (!newStatus) setCountdown(FIXED_INTERVAL / 1000); // reset countdown on stop
+      if (!newStatus) localStorage.removeItem("autoScanStartTime"); // reset countdown only on stop
     } catch (err) {
       console.error("Failed to update scan status:", err);
     }
-  }, [autoScanRunning, lastSaveTime]);
+  }, [autoScanRunning]);
 
   // --------------------------
   // Real-time Supabase listener
@@ -187,10 +175,7 @@ const AdminDashboard = () => {
         .select("*")
         .eq("id", 1)
         .single();
-      if (data) {
-        setAutoScanRunning(data.status === 1);
-        setLastSaveTime(data.last_save || Date.now());
-      }
+      if (data?.status === 1) setAutoScanRunning(true);
     };
     fetchInitialStatus();
 
@@ -202,7 +187,6 @@ const AdminDashboard = () => {
         (payload) => {
           const isRunning = payload.new.status === 1;
           setAutoScanRunning(isRunning);
-          setLastSaveTime(payload.new.last_save || Date.now());
         }
       )
       .subscribe();
