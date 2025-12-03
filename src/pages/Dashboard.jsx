@@ -47,26 +47,10 @@ const AdminDashboard = () => {
       computeOverallSafety(formatted);
       setStatus("✅ ESP32 data fetched.");
       return formatted;
-    } catch (err) {
-      try {
-        const cloudRes = await fetch("/api/data", { cache: "no-store" });
-        const cloudJson = await cloudRes.json();
-        const latest = cloudJson.latestData || {};
-        const formatted = {
-          ph: latest.ph ? parseFloat(latest.ph).toFixed(2) : "N/A",
-          turbidity: latest.turbidity ? parseFloat(latest.turbidity).toFixed(1) : "N/A",
-          temp: latest.temperature ? parseFloat(latest.temperature).toFixed(1) : "N/A",
-          tds: latest.tds ? parseFloat(latest.tds).toFixed(0) : "N/A",
-        };
-        setSensorData(formatted);
-        computeOverallSafety(formatted);
-        setStatus("🌐 Cloud backup used.");
-        return formatted;
-      } catch {
-        setStatus("❌ Failed to fetch data");
-        setOverallSafety("N/A");
-        return null;
-      }
+    } catch {
+      setStatus("❌ Failed to fetch data");
+      setOverallSafety("N/A");
+      return null;
     }
   }, [esp32Url, computeOverallSafety]);
 
@@ -86,7 +70,6 @@ const AdminDashboard = () => {
         tds: parseFloat(data.tds) || null,
       }]);
 
-      // Update last_scan_time in Supabase for cross-device sync
       await supabase.from("device_scanning")
         .update({ last_scan_time: new Date().toISOString() })
         .eq("id", 1);
@@ -98,39 +81,18 @@ const AdminDashboard = () => {
     }
   }, [fetchSensorData]);
 
-  // -------------------
-  // Countdown timer based on last_scan_time
-  // -------------------
   const updateCountdown = useCallback((lastScanTime) => {
     if (!lastScanTime) return setCountdown(FIXED_INTERVAL / 1000);
     const elapsed = Date.now() - new Date(lastScanTime).getTime();
     setCountdown(Math.max(Math.ceil((FIXED_INTERVAL - elapsed) / 1000), 0));
   }, []);
 
-  // -------------------
-  // Real-time listener & auto-save trigger
-  // -------------------
+  // ------------------- Real-time sync -------------------
   useEffect(() => {
-    let localInterval = null;
-
     const setup = async () => {
       const { data } = await supabase.from("device_scanning").select("*").eq("id", 1).single();
       if (data?.status === 1) setAutoScanRunning(true);
-
       updateCountdown(data?.last_scan_time);
-
-      localInterval = setInterval(async () => {
-        const { data: updated } = await supabase.from("device_scanning").select("*").eq("id", 1).single();
-        const lastTime = updated?.last_scan_time;
-        const isRunning = updated?.status === 1;
-        setAutoScanRunning(isRunning);
-        updateCountdown(lastTime);
-
-        if (isRunning && lastTime) {
-          const remaining = FIXED_INTERVAL - (Date.now() - new Date(lastTime).getTime());
-          if (remaining <= 1000) await handleAutoSave();
-        }
-      }, 1000);
     };
 
     setup();
@@ -138,19 +100,21 @@ const AdminDashboard = () => {
     const channel = supabase.channel("scan_status_live")
       .on("postgres_changes",
         { event: "UPDATE", schema: "public", table: "device_scanning", filter: "id=eq.1" },
-        payload => {
-          const lastTime = payload.new.last_scan_time;
+        async payload => {
           const isRunning = payload.new.status === 1;
           setAutoScanRunning(isRunning);
-          updateCountdown(lastTime);
+          updateCountdown(payload.new.last_scan_time);
+
+          // Trigger data fetch & auto-save immediately on all devices
+          if (isRunning) {
+            await fetchSensorData();
+            await handleAutoSave();
+          }
         }
       ).subscribe();
 
-    return () => {
-      if (localInterval) clearInterval(localInterval);
-      supabase.removeChannel(channel);
-    };
-  }, [handleAutoSave, updateCountdown]);
+    return () => supabase.removeChannel(channel);
+  }, [fetchSensorData, handleAutoSave, updateCountdown]);
 
   const toggleAutoScan = useCallback(async () => {
     const newStatus = !autoScanRunning;
@@ -188,7 +152,11 @@ const AdminDashboard = () => {
               {autoScanRunning ? "Stop Auto Scan" : "Start Auto Scan"}
             </button>
           </div>
-          {autoScanRunning && <div className="countdown-timer">⏱ Next auto-save in: <strong>{Math.floor(countdown / 60)}m {countdown % 60}s</strong></div>}
+          {autoScanRunning &&
+            <div className="countdown-timer">
+              ⏱ Next auto-save in: <strong>{Math.floor(countdown / 60)}m {countdown % 60}s</strong>
+            </div>
+          }
         </section>
         <section className="sensor-grid">
           {["ph","turbidity","temp","tds"].map(key => (
