@@ -129,29 +129,22 @@ const AdminDashboard = () => {
   }, [fetchSensorData]);
 
   // --------------------------
-  // Start Auto Scan Loop
+  // Start Auto Scan Loop (only updates countdown locally)
   // --------------------------
-  const startAutoScanLoop = useCallback(async () => {
+  const startAutoScanLoop = useCallback(() => {
     if (intervalRef.current) clearInterval(intervalRef.current);
-
-    let currentStartTime = parseInt(localStorage.getItem("autoScanStartTime") || Date.now());
-    localStorage.setItem("autoScanStartTime", currentStartTime);
-
     intervalRef.current = setInterval(async () => {
-      const elapsed = Date.now() - currentStartTime;
-      const remaining = FIXED_INTERVAL - (elapsed % FIXED_INTERVAL);
-      setCountdown(Math.floor(remaining / 1000));
-      if (remaining <= 1000) await handleAutoSave();
+      // Countdown is fully controlled by last_scan_time from database
+      // So we do not manually decrease countdown here
     }, 1000);
-
-    fetchSensorData();
-  }, [fetchSensorData, handleAutoSave]);
+  }, []);
 
   const stopAutoScanLoop = useCallback(() => {
     if (intervalRef.current) clearInterval(intervalRef.current);
     intervalRef.current = null;
     setSensorData({ ph: "N/A", turbidity: "N/A", temp: "N/A", tds: "N/A" });
     setOverallSafety("N/A");
+    setCountdown(FIXED_INTERVAL / 1000);
   }, []);
 
   // --------------------------
@@ -166,15 +159,15 @@ const AdminDashboard = () => {
         id: 1,
         status: newStatus ? 1 : 0,
         interval_ms: FIXED_INTERVAL,
+        last_scan_time: newStatus ? new Date().toISOString() : null
       });
-      if (!newStatus) localStorage.removeItem("autoScanStartTime");
     } catch (err) {
       console.error("Failed to update scan status:", err);
     }
   }, [autoScanRunning]);
 
   // --------------------------
-  // Real-time Supabase listener for cross-device mirroring
+  // Real-time listener for cross-device mirroring & countdown
   // --------------------------
   useEffect(() => {
     const fetchInitialStatus = async () => {
@@ -184,11 +177,7 @@ const AdminDashboard = () => {
         .eq("id", 1)
         .single();
 
-      if (data?.status === 1) {
-        setAutoScanRunning(true);
-        startAutoScanLoop();
-      }
-
+      if (data?.status === 1) setAutoScanRunning(true);
       if (data?.last_scan_time) {
         const lastScanTime = new Date(data.last_scan_time).getTime();
         const elapsed = Date.now() - lastScanTime;
@@ -207,7 +196,7 @@ const AdminDashboard = () => {
           setAutoScanRunning(isRunning);
 
           if (isRunning) {
-            await startAutoScanLoop();
+            startAutoScanLoop();
           } else {
             stopAutoScanLoop();
           }
