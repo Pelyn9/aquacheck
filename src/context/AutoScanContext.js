@@ -7,15 +7,9 @@ export const AutoScanProvider = ({ children }) => {
   const [autoScanRunning, setAutoScanRunning] = useState(false);
   const [intervalTime, setIntervalTime] = useState(900000); // 15 min
   const intervalRef = useRef(null);
-  const pendingFetch = useRef(null);
 
   const startAutoScan = useCallback(async (fetchSensorData, updateDB = true) => {
-    if (!fetchSensorData) {
-      // Save the function and retry later
-      pendingFetch.current = startAutoScan;
-      return;
-    }
-    pendingFetch.current = null;
+    if (!fetchSensorData) return;
     window.fetchSensorData = fetchSensorData;
 
     if (intervalRef.current) clearInterval(intervalRef.current);
@@ -48,30 +42,23 @@ export const AutoScanProvider = ({ children }) => {
     }
   }, []);
 
-  // Resume scan on page reload if previously running
+  // Resume scan on page load if previously running
   useEffect(() => {
-    const running = localStorage.getItem("autoScanRunning") === "true";
-    if (!running) return;
+    const init = async () => {
+      const { data } = await supabase
+        .from("device_scanning")
+        .select("*")
+        .eq("id", 1)
+        .single();
 
-    const checkFn = setInterval(() => {
-      if (typeof window.fetchSensorData === "function") {
+      if (data?.status === 1 && typeof window.fetchSensorData === "function") {
         startAutoScan(window.fetchSensorData, false);
-        clearInterval(checkFn);
       }
-    }, 100);
-
-    return () => clearInterval(checkFn);
+    };
+    init();
   }, [startAutoScan]);
 
-  // Retry pending fetchSensorData
-  useEffect(() => {
-    if (pendingFetch.current && typeof window.fetchSensorData === "function") {
-      pendingFetch.current(window.fetchSensorData, false);
-      pendingFetch.current = null;
-    }
-  }, [autoScanRunning]);
-
-  // Supabase sync for multi-admin
+  // Supabase live sync
   useEffect(() => {
     const channel = supabase
       .channel("scan_status_live")
