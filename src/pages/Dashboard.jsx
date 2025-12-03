@@ -120,17 +120,39 @@ const AdminDashboard = () => {
   }, [fetchSensorData]);
 
   // --------------------------
-  // Start Auto Scan Loop
+  // Start Auto Scan Loop with persistent countdown
   // --------------------------
-  const startAutoScanLoop = useCallback(() => {
+  const startAutoScanLoop = useCallback(async () => {
+    // Fetch startTime from Supabase (or create if missing)
+    let startTime = Date.now();
+    try {
+      const { data } = await supabase
+        .from("device_scanning")
+        .select("*")
+        .eq("id", 1)
+        .single();
+      if (data?.start_time) startTime = new Date(data.start_time).getTime();
+      else {
+        await supabase.from("device_scanning").upsert({
+          id: 1,
+          status: 1,
+          start_time: new Date().toISOString(),
+          interval_ms: FIXED_INTERVAL,
+        });
+      }
+    } catch (err) {
+      console.error("Failed to get startTime:", err);
+    }
+
     if (intervalRef.current) clearInterval(intervalRef.current);
-    const startTime = Date.now();
+
     intervalRef.current = setInterval(async () => {
       const elapsed = Date.now() - startTime;
       const remaining = FIXED_INTERVAL - (elapsed % FIXED_INTERVAL);
       setCountdown(Math.floor(remaining / 1000));
       if (remaining <= 1000) await handleAutoSave();
     }, 1000);
+
     fetchSensorData();
   }, [fetchSensorData, handleAutoSave]);
 
@@ -153,6 +175,7 @@ const AdminDashboard = () => {
       await supabase.from("device_scanning").upsert({
         id: 1,
         status: newStatus ? 1 : 0,
+        start_time: newStatus ? new Date().toISOString() : null,
         interval_ms: FIXED_INTERVAL,
       });
     } catch (err) {
