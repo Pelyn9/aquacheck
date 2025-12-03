@@ -8,11 +8,13 @@ export const AutoScanProvider = ({ children }) => {
   const [intervalTime, setIntervalTime] = useState(900000); // 15 min
   const intervalRef = useRef(null);
 
+  // Start Auto Scan
   const startAutoScan = useCallback(async (fetchSensorData, updateDB = true) => {
     if (!fetchSensorData) return;
     window.fetchSensorData = fetchSensorData;
 
     if (intervalRef.current) clearInterval(intervalRef.current);
+
     fetchSensorData(); // run immediately
     intervalRef.current = setInterval(fetchSensorData, intervalTime);
 
@@ -27,6 +29,7 @@ export const AutoScanProvider = ({ children }) => {
     }
   }, [intervalTime]);
 
+  // Stop Auto Scan
   const stopAutoScan = useCallback(async (updateDB = true) => {
     if (intervalRef.current) clearInterval(intervalRef.current);
     intervalRef.current = null;
@@ -58,7 +61,7 @@ export const AutoScanProvider = ({ children }) => {
     init();
   }, [startAutoScan]);
 
-  // Supabase live sync
+  // Live sync across users
   useEffect(() => {
     const channel = supabase
       .channel("scan_status_live")
