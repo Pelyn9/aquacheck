@@ -2,7 +2,6 @@
 import express from "express";
 import cors from "cors";
 import dotenv from "dotenv";
-import fetch from "node-fetch";
 import { supabaseAdmin } from "./supabaseAdminClient.js";
 
 dotenv.config();
@@ -99,131 +98,6 @@ app.post("/api/admin/users/:id/toggle", async (req, res) => {
     res.status(500).json({ success: false, message: "Failed to toggle user" });
   }
 });
-
-// ------------------------------
-// Global Auto Scan
-// ------------------------------
-let autoScanInterval = null;
-
-// Fetch sensor data from ESP32 or cloud fallback
-const fetchSensorData = async () => {
-  let sensorData = null;
-
-  try {
-    const response = await fetch(process.env.ESP32_URL || "http://aquacheck.local:5000/data");
-    const data = await response.json();
-    sensorData = data.latestData || data;
-  } catch {
-    try {
-      const cloudRes = await fetch("https://aquachecklive.vercel.app/api/data");
-      const cloudData = await cloudRes.json();
-      sensorData = cloudData.latestData || cloudData;
-    } catch {
-      console.error("❌ Failed to fetch sensor data");
-      return null;
-    }
-  }
-
-  return sensorData;
-};
-
-// Save sensor data to dataset_history
-const saveSensorData = async (sensorData) => {
-  if (!sensorData) return;
-  try {
-    await supabaseAdmin.from("dataset_history").insert([{
-      user_id: null,
-      ph: parseFloat(sensorData.ph) || null,
-      turbidity: parseFloat(sensorData.turbidity) || null,
-      temperature: parseFloat(sensorData.temperature) || null,
-      tds: parseFloat(sensorData.tds) || null,
-    }]);
-    console.log("✅ Auto-saved at", new Date().toLocaleTimeString());
-  } catch (err) {
-    console.error("❌ Failed to save sensor data", err);
-  }
-};
-
-// Start auto-scan
-app.post("/api/admin/start-scan", async (_req, res) => {
-  try {
-    await supabaseAdmin.from("device_scanning").update({ status: 1 }).eq("id", 1);
-
-    if (autoScanInterval) clearInterval(autoScanInterval);
-
-    const { data } = await supabaseAdmin.from("device_scanning").select("*").eq("id", 1).single();
-    const intervalMs = data?.interval_ms || 900000;
-
-    const fetchAndSave = async () => {
-      const sensorData = await fetchSensorData();
-      await saveSensorData(sensorData);
-
-      const nextTs = new Date(Date.now() + intervalMs);
-      await supabaseAdmin.from("device_scanning").update({ next_auto_save_ts: nextTs }).eq("id", 1);
-    };
-
-    autoScanInterval = setInterval(fetchAndSave, intervalMs);
-    fetchAndSave(); // run immediately
-
-    res.json({ success: true, message: "Global auto-scan started" });
-  } catch (err) {
-    console.error("❌ Start scan failed", err);
-    res.status(500).json({ success: false, message: "Failed to start auto-scan" });
-  }
-});
-
-// Stop auto-scan
-app.post("/api/admin/stop-scan", async (_req, res) => {
-  try {
-    if (autoScanInterval) {
-      clearInterval(autoScanInterval);
-      autoScanInterval = null;
-    }
-    await supabaseAdmin.from("device_scanning").update({ status: 0 }).eq("id", 1);
-    res.json({ success: true, message: "Global auto-scan stopped" });
-  } catch (err) {
-    console.error("❌ Stop scan failed", err);
-    res.status(500).json({ success: false, message: "Failed to stop auto-scan" });
-  }
-});
-
-// Get current scan status
-app.get("/api/admin/scan-status", async (_req, res) => {
-  try {
-    const { data } = await supabaseAdmin.from("device_scanning").select("*").eq("id", 1).single();
-    const remainingMs = data?.next_auto_save_ts ? new Date(data.next_auto_save_ts).getTime() - Date.now() : 0;
-    res.json({ status: data?.status || 0, remainingMs: Math.max(remainingMs, 0) });
-  } catch (err) {
-    console.error("❌ Failed to get scan status", err);
-    res.status(500).json({ success: false, message: "Failed to get scan status" });
-  }
-});
-
-// Initialize auto-scan if already running
-const initializeAutoScan = async () => {
-  try {
-    const { data } = await supabaseAdmin.from("device_scanning").select("*").eq("id", 1).single();
-    if (data?.status === 1) {
-      console.log("♻️ Auto-scan was already running. Restarting interval...");
-      const intervalMs = data?.interval_ms || 900000;
-
-      const fetchAndSave = async () => {
-        const sensorData = await fetchSensorData();
-        await saveSensorData(sensorData);
-
-        const nextTs = new Date(Date.now() + intervalMs);
-        await supabaseAdmin.from("device_scanning").update({ next_auto_save_ts: nextTs }).eq("id", 1);
-      };
-
-      autoScanInterval = setInterval(fetchAndSave, intervalMs);
-      fetchAndSave();
-    }
-  } catch (err) {
-    console.error("❌ Failed to initialize auto-scan", err);
-  }
-};
-
-initializeAutoScan();
 
 // ------------------------------
 // Server Start
