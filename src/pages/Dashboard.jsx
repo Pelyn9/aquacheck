@@ -16,7 +16,7 @@ const AdminDashboard = () => {
     ? "/api/data"
     : "http://aquacheck.local:5000/data";
 
-  // ------------------ Compute Safety -------------------
+  // ------------------ Compute Overall Safety -------------------
   const computeOverallSafety = useCallback((data) => {
     if (!data || Object.values(data).every(v => v === "N/A")) {
       setOverallSafety("N/A");
@@ -56,8 +56,11 @@ const AdminDashboard = () => {
       setSensorData(formatted);
       computeOverallSafety(formatted);
 
-      // Save last data to Supabase for real-time sync
-      await supabase.from("device_scanning").update({ last_data: formatted }).eq("id", 1);
+      // Update last data in Supabase for all users
+      await supabase.from("device_scanning").upsert({
+        id: 1,
+        last_data: formatted,
+      });
 
       setStatus("✅ Data fetched successfully.");
       return formatted;
@@ -74,50 +77,38 @@ const AdminDashboard = () => {
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
-      const saveData = {
+      await supabase.from("dataset_history").insert([{
         user_id: user.id,
         ph: parseFloat(data.ph) || null,
         turbidity: parseFloat(data.turbidity) || null,
         temperature: parseFloat(data.temp) || null,
         tds: parseFloat(data.tds) || null
-      };
-      const { error } = await supabase.from("dataset_history").insert([saveData]);
-      if (error) throw error;
+      }]);
       setStatus(`✅ Auto-saved at ${new Date().toLocaleTimeString()}`);
-    } catch (err) {
-      console.error(err);
+    } catch {
       setStatus("❌ Auto-save failed.");
     }
   }, [fetchSensorData]);
 
-  // ------------------ Fetch AutoScan State -------------------
-  const fetchAutoScanState = useCallback(async () => {
-    try {
-      const { data, error } = await supabase.from("device_scanning").select("*").limit(1).single();
-      if (error || !data) {
-        // Insert default row if missing
+  // ------------------ Real-time Device Scanning -------------------
+  useEffect(() => {
+    const initDeviceScanning = async () => {
+      const { data } = await supabase.from("device_scanning").select("*").eq("id", 1).single();
+      if (!data) {
         await supabase.from("device_scanning").insert({
           id: 1,
           running: false,
           start_time: Date.now(),
           last_data: { ph:"N/A", turbidity:"N/A", temp:"N/A", tds:"N/A" }
         });
-        setAutoScanRunning(false);
-        setSensorData({ ph:"N/A", turbidity:"N/A", temp:"N/A", tds:"N/A" });
-        setStartTime(Date.now());
-        return;
+      } else {
+        setAutoScanRunning(data.running);
+        setStartTime(data.start_time || Date.now());
+        setSensorData(data.last_data || { ph:"N/A", turbidity:"N/A", temp:"N/A", tds:"N/A" });
       }
-      setAutoScanRunning(data.running);
-      setStartTime(data.start_time || Date.now());
-      setSensorData(data.last_data || { ph:"N/A", turbidity:"N/A", temp:"N/A", tds:"N/A" });
-    } catch (err) {
-      console.error(err);
-    }
-  }, []);
+    };
 
-  // ------------------ Real-time subscription -------------------
-  useEffect(() => {
-    fetchAutoScanState();
+    initDeviceScanning();
 
     const subscription = supabase
       .from("device_scanning")
@@ -127,16 +118,16 @@ const AdminDashboard = () => {
         setStartTime(updated.start_time || Date.now());
         if (!updated.running) {
           setSensorData({ ph:"N/A", turbidity:"N/A", temp:"N/A", tds:"N/A" });
+          setStatus("🛑 Auto Scan stopped.");
         } else if (updated.last_data) {
           setSensorData(updated.last_data);
+          setStatus("🔄 Auto Scan running.");
         }
       })
       .subscribe();
 
-    return () => {
-      supabase.removeSubscription(subscription);
-    };
-  }, [fetchAutoScanState]);
+    return () => supabase.removeSubscription(subscription);
+  }, []);
 
   // ------------------ Auto Scan Interval -------------------
   useEffect(() => {
@@ -157,29 +148,24 @@ const AdminDashboard = () => {
 
   // ------------------ Toggle Auto Scan -------------------
   const toggleAutoScan = useCallback(async () => {
-    try {
-      const newState = !autoScanRunning;
-      setAutoScanRunning(newState);
-      if (newState) {
-        await supabase.from("device_scanning").upsert({
-          id: 1,
-          running: true,
-          start_time: Date.now(),
-        });
-        setStatus("🔄 Auto Scan started (every 15 minutes).");
-        handleAutoSave();
-      } else {
-        await supabase.from("device_scanning").upsert({
-          id: 1,
-          running: false,
-          last_data: null,
-        });
-        setStatus("🛑 Auto Scan stopped.");
-        setSensorData({ ph:"N/A", turbidity:"N/A", temp:"N/A", tds:"N/A" });
-      }
-    } catch(err) {
-      console.error(err);
-      setStatus("❌ Failed to toggle auto scan.");
+    const newState = !autoScanRunning;
+    setAutoScanRunning(newState);
+    if (newState) {
+      await supabase.from("device_scanning").upsert({
+        id: 1,
+        running: true,
+        start_time: Date.now(),
+      });
+      setStatus("🔄 Auto Scan started (every 15 minutes).");
+      handleAutoSave();
+    } else {
+      await supabase.from("device_scanning").upsert({
+        id: 1,
+        running: false,
+        last_data: null,
+      });
+      setStatus("🛑 Auto Scan stopped.");
+      setSensorData({ ph:"N/A", turbidity:"N/A", temp:"N/A", tds:"N/A" });
     }
   }, [autoScanRunning, handleAutoSave]);
 
@@ -192,23 +178,20 @@ const AdminDashboard = () => {
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return setStatus("⚠ User not authenticated.");
-      const saveData = {
+      await supabase.from("dataset_history").insert([{
         user_id: user.id,
         ph: parseFloat(sensorData.ph) || null,
         turbidity: parseFloat(sensorData.turbidity) || null,
         temperature: parseFloat(sensorData.temp) || null,
         tds: parseFloat(sensorData.tds) || null
-      };
-      const { error } = await supabase.from("dataset_history").insert([saveData]);
-      if (error) throw error;
+      }]);
       setStatus("✅ Data saved successfully!");
-    } catch (err) {
-      console.error(err);
+    } catch {
       setStatus("❌ Error saving data.");
     }
   }, [sensorData]);
 
-  // ------------------ Sensor Status Colors -------------------
+  // ------------------ Sensor Status -------------------
   const getSensorStatus = (type, value) => {
     if (value === "N/A") return "";
     const val = parseFloat(value);
@@ -221,7 +204,6 @@ const AdminDashboard = () => {
     }
   };
 
-  // ------------------ Render -------------------
   return (
     <div className="dashboard-container">
       <Sidebar />
