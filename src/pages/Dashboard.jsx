@@ -5,21 +5,18 @@ import { supabase } from "../supabaseClient";
 
 /**
  * ======================================================================
- *  ADMIN DASHBOARD — ADVANCED VERSION
- *  - Auto scan (15 minutes)
- *  - Manual fetch
- *  - Auto save
+ *  ADMIN DASHBOARD — GLOBAL AUTO SCAN VERSION
+ *  - Auto scan (15 minutes) shared globally
+ *  - Manual fetch & manual save
+ *  - Auto save persists in Supabase (server-side cron/edge function)
  *  - Overall safety computation
- *  - ESP32 + Vercel fallback API
- *  - Sensor reset to "N/A" when Auto Scan stops   <-- REQUIRED FEATURE
+ *  - Reset sensors when stopped
+ *  - Realtime sync for all users
  * ======================================================================
  */
 
 const AdminDashboard = () => {
-  /* ----------------------------------------------
-   * CONFIGURATION
-   * ---------------------------------------------- */
-  const FIXED_INTERVAL = 900000; // 15 minutes in milliseconds
+  const FIXED_INTERVAL = 900000; // 15 minutes
 
   /* ----------------------------------------------
    * STATE MANAGEMENT
@@ -32,9 +29,9 @@ const AdminDashboard = () => {
   });
 
   const [status, setStatus] = useState("Awaiting sensor data...");
-  const [countdown, setCountdown] = useState(FIXED_INTERVAL / 1000);
   const [overallSafety, setOverallSafety] = useState("N/A");
-  const [manualStopped, setManualStopped] = useState(false);
+  const [autoScan, setAutoScan] = useState({ running: false, nextAutoSave: null });
+  const [countdown, setCountdown] = useState(FIXED_INTERVAL / 1000);
 
   /* ----------------------------------------------
    * ESP32 URL DETECTION
@@ -60,35 +57,29 @@ const AdminDashboard = () => {
       switch (key) {
         case "ph":
           return val >= 6.5 && val <= 8.5 ? 2 : 0;
-
         case "turbidity":
           return val <= 5 ? 2 : val <= 10 ? 1 : 0;
-
         case "temp":
           return val >= 24 && val <= 32 ? 2 : 0;
-
         case "tds":
           return val <= 500 ? 2 : 0;
-
         default:
           return 0;
       }
     });
 
     const total = scores.reduce((a, b) => a + b, 0);
-
     if (total >= 7) setOverallSafety("Safe");
     else if (total >= 4) setOverallSafety("Moderate");
     else setOverallSafety("Unsafe");
   }, []);
 
   /* ----------------------------------------------
-   * FETCH SENSOR DATA FUNCTION (ESP32 + Vercel backup)
+   * FETCH SENSOR DATA (ESP32 + fallback)
    * ---------------------------------------------- */
   const fetchSensorData = useCallback(async () => {
     try {
       const response = await fetch(esp32Url, { cache: "no-store" });
-
       if (!response.ok) throw new Error("ESP32 fetch failed");
 
       const data = await response.json();
@@ -105,10 +96,8 @@ const AdminDashboard = () => {
       computeOverallSafety(formatted);
       setStatus("✅ ESP32 data fetched.");
       return formatted;
-
     } catch (err) {
       console.warn("ESP32 failed, trying cloud backup...");
-
       try {
         const cloudRes = await fetch("/api/data", { cache: "no-store" });
         const cloudJson = await cloudRes.json();
@@ -125,7 +114,6 @@ const AdminDashboard = () => {
         computeOverallSafety(formatted);
         setStatus("🌐 Cloud backup used.");
         return formatted;
-
       } catch (err2) {
         console.error("Both ESP32 & Cloud failed:", err2);
         setStatus("❌ Failed to fetch data");
@@ -143,12 +131,10 @@ const AdminDashboard = () => {
       setStatus("⚠ Cannot save—sensor data is empty.");
       return;
     }
-
     try {
       const {
         data: { user },
       } = await supabase.auth.getUser();
-
       if (!user) {
         setStatus("⚠ User authentication required.");
         return;
@@ -162,10 +148,7 @@ const AdminDashboard = () => {
         tds: parseFloat(sensorData.tds) || null,
       };
 
-      const { error } = await supabase
-        .from("dataset_history")
-        .insert([saveData]);
-
+      const { error } = await supabase.from("dataset_history").insert([saveData]);
       if (error) throw error;
 
       setStatus("💾 Saved successfully.");
@@ -176,123 +159,92 @@ const AdminDashboard = () => {
   }, [sensorData]);
 
   /* ----------------------------------------------
-   * AUTO SAVE FUNCTION
+   * TOGGLE AUTO SCAN (global)
    * ---------------------------------------------- */
-  const handleAutoSave = useCallback(async () => {
-    const data = await fetchSensorData();
-    if (!data) return;
-
+  const toggleAutoScan = useCallback(async () => {
     try {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
+      const row = await supabase.from("device_scanning").select("*").eq("id", 1).single();
+      if (!row.data) return;
 
-      if (!user) return;
+      const newStatus = row.data.status === 1 ? 0 : 1;
 
-      const saveData = {
-        user_id: user.id,
-        ph: parseFloat(data.ph) || null,
-        turbidity: parseFloat(data.turbidity) || null,
-        temperature: parseFloat(data.temp) || null,
-        tds: parseFloat(data.tds) || null,
-      };
+      if (newStatus === 0) {
+        // STOP → reset sensors
+        setSensorData({ ph: "N/A", turbidity: "N/A", temp: "N/A", tds: "N/A" });
+        setOverallSafety("N/A");
+        setStatus("🛑 Auto Scan stopped — sensors reset.");
+      } else {
+        fetchSensorData();
+        setStatus("🔄 Auto Scan started (15-minute interval).");
+      }
 
-      const { error } = await supabase
-        .from("dataset_history")
-        .insert([saveData]);
-
-      if (error) throw error;
-
-      setStatus(`💾 Auto-saved at ${new Date().toLocaleTimeString()}`);
-      localStorage.setItem("lastAutoSave", Date.now().toString());
+      // Update Supabase row
+      await supabase
+        .from("device_scanning")
+        .update({
+          status: newStatus,
+          next_auto_save_ts: Date.now() + FIXED_INTERVAL,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", 1);
     } catch (err) {
       console.error(err);
-      setStatus("❌ Auto-save failed.");
+      setStatus("❌ Failed to toggle Auto Scan.");
     }
   }, [fetchSensorData]);
 
   /* ----------------------------------------------
-   * AUTO SCAN LOOP
+   * Realtime subscription to device_scanning
    * ---------------------------------------------- */
   useEffect(() => {
-    let interval = null;
+    const fetchInitial = async () => {
+      const { data } = await supabase.from("device_scanning").select("*").eq("id", 1).single();
+      if (data) {
+        setAutoScan({ running: data.status === 1, nextAutoSave: data.next_auto_save_ts });
+      }
+    };
+    fetchInitial();
 
-    if (localStorage.getItem("autoScanRunning") === "true" && !manualStopped) {
-      const startTime = parseInt(
-        localStorage.getItem("autoScanStartTime") || Date.now()
-      );
-      localStorage.setItem("autoScanStartTime", startTime);
+    const subscription = supabase
+      .from("device_scanning:id=eq.1")
+      .on("UPDATE", (payload) => {
+        setAutoScan({ running: payload.new.status === 1, nextAutoSave: payload.new.next_auto_save_ts });
+      })
+      .subscribe();
 
-      interval = setInterval(async () => {
-        const elapsed = Date.now() - startTime;
-        const remaining = FIXED_INTERVAL - (elapsed % FIXED_INTERVAL);
-
-        setCountdown(Math.floor(remaining / 1000));
-
-        if (remaining <= 1000) await handleAutoSave();
-      }, 1000);
-
-      fetchSensorData();
-    }
-
-    return () => interval && clearInterval(interval);
-  }, [fetchSensorData, handleAutoSave, manualStopped]);
+    return () => supabase.removeSubscription(subscription);
+  }, []);
 
   /* ----------------------------------------------
-   * AUTO SCAN TOGGLE
-   * — Stop Auto Scan → CLEAR SENSOR DATA (YOUR REQUEST)
+   * Countdown timer
    * ---------------------------------------------- */
-  const toggleAutoScan = useCallback(() => {
-    const running = localStorage.getItem("autoScanRunning") === "true";
+  useEffect(() => {
+    if (!autoScan.running) return;
 
-    if (running) {
-      // STOPPING AUTOSCAN
-      localStorage.setItem("autoScanRunning", "false");
-      setManualStopped(true);
+    const interval = setInterval(() => {
+      if (!autoScan.nextAutoSave) return;
+      const remaining = Math.max(0, Math.floor((autoScan.nextAutoSave - Date.now()) / 1000));
+      setCountdown(remaining);
+    }, 1000);
 
-      // 🔥 REQUIRED FEATURE — Reset sensors on stop
-      setSensorData({
-        ph: "N/A",
-        turbidity: "N/A",
-        temp: "N/A",
-        tds: "N/A",
-      });
-
-      setOverallSafety("N/A");
-      setStatus("🛑 Auto Scan stopped — all sensors reset.");
-      return;
-    }
-
-    // START AUTO SCAN
-    localStorage.setItem("autoScanRunning", "true");
-    localStorage.setItem("autoScanStartTime", Date.now());
-    setManualStopped(false);
-
-    fetchSensorData();
-    setStatus("🔄 Auto Scan started (15-minute interval).");
-  }, [fetchSensorData]);
+    return () => clearInterval(interval);
+  }, [autoScan]);
 
   /* ----------------------------------------------
    * SENSOR STATUS COLOR FUNCTION
    * ---------------------------------------------- */
   const getSensorStatus = (type, value) => {
     if (value === "N/A") return "";
-
     const val = parseFloat(value);
-
     switch (type) {
       case "ph":
         return val >= 6.5 && val <= 8.5 ? "safe" : "unsafe";
-
       case "turbidity":
         return val <= 5 ? "safe" : val <= 10 ? "moderate" : "unsafe";
-
       case "temp":
         return val >= 24 && val <= 32 ? "safe" : "unsafe";
-
       case "tds":
         return val <= 500 ? "safe" : "unsafe";
-
       default:
         return "";
     }
@@ -304,7 +256,6 @@ const AdminDashboard = () => {
   return (
     <div className="dashboard-container">
       <Sidebar />
-
       <main className="main-content">
         <header className="topbar">
           <h1>Admin Dashboard</h1>
@@ -316,64 +267,34 @@ const AdminDashboard = () => {
             <button className="save-btn" onClick={handleSave}>
               Save Manually
             </button>
-
             <button
-              className={`start-stop-btn ${
-                localStorage.getItem("autoScanRunning") === "true"
-                  ? "stop"
-                  : "start"
-              }`}
+              className={`start-stop-btn ${autoScan.running ? "stop" : "start"}`}
               onClick={toggleAutoScan}
             >
-              {localStorage.getItem("autoScanRunning") === "true"
-                ? "Stop Auto Scan"
-                : "Start Auto Scan"}
+              {autoScan.running ? "Stop Auto Scan" : "Start Auto Scan"}
             </button>
           </div>
-
-          {localStorage.getItem("autoScanRunning") === "true" &&
-            !manualStopped && (
-              <div className="countdown-timer">
-                ⏱ Next auto-save in:
-                <strong>
-                  {" "}
-                  {Math.floor(countdown / 60)}m {countdown % 60}s
-                </strong>
-              </div>
-            )}
+          {autoScan.running && (
+            <div className="countdown-timer">
+              ⏱ Next auto-save in:{" "}
+              <strong>
+                {Math.floor(countdown / 60)}m {countdown % 60}s
+              </strong>
+            </div>
+          )}
         </section>
 
         {/* SENSOR DISPLAY GRID */}
         <section className="sensor-grid">
           {["ph", "turbidity", "temp", "tds"].map((key) => (
-            <div
-              key={key}
-              className={`sensor-card ${getSensorStatus(
-                key,
-                sensorData[key]
-              )}`}
-            >
+            <div key={key} className={`sensor-card ${getSensorStatus(key, sensorData[key])}`}>
               <h3>{key.toUpperCase()}</h3>
               <p>
                 {sensorData[key]}{" "}
-                {key === "turbidity"
-                  ? "NTU"
-                  : key === "temp"
-                  ? "°C"
-                  : key === "tds"
-                  ? "ppm"
-                  : ""}
+                {key === "turbidity" ? "NTU" : key === "temp" ? "°C" : key === "tds" ? "ppm" : ""}
               </p>
-
-              <p
-                className={`status-label ${getSensorStatus(
-                  key,
-                  sensorData[key]
-                )}`}
-              >
-                {sensorData[key] === "N/A"
-                  ? "NO DATA"
-                  : getSensorStatus(key, sensorData[key]).toUpperCase()}
+              <p className={`status-label ${getSensorStatus(key, sensorData[key])}`}>
+                {sensorData[key] === "N/A" ? "NO DATA" : getSensorStatus(key, sensorData[key]).toUpperCase()}
               </p>
             </div>
           ))}
