@@ -5,12 +5,16 @@ export const AutoScanContext = createContext();
 
 export const AutoScanProvider = ({ children }) => {
   const [autoScanRunning, setAutoScanRunning] = useState(false);
-  const [intervalTime, setIntervalTime] = useState(900000); // default 15 minutes
+  const [intervalTime, setIntervalTime] = useState(900000); // default 15 min
   const intervalRef = useRef(null);
 
-  // 1. Start AutoScan
+  // -------------------------------
+  // Start AutoScan
+  // -------------------------------
   const startAutoScan = useCallback(async (fetchSensorData, updateDB = true) => {
-    if (typeof window === "undefined") return; // client-only
+    if (typeof window === "undefined") return;
+
+    // Save global reference
     window.fetchSensorData = fetchSensorData;
 
     if (intervalRef.current) clearInterval(intervalRef.current);
@@ -21,6 +25,7 @@ export const AutoScanProvider = ({ children }) => {
     setAutoScanRunning(true);
 
     if (updateDB) {
+      // Persist scan status in Supabase
       await supabase
         .from("device_scanning")
         .update({ status: 1, interval_ms: intervalTime })
@@ -28,7 +33,9 @@ export const AutoScanProvider = ({ children }) => {
     }
   }, [intervalTime]);
 
-  // 2. Stop AutoScan
+  // -------------------------------
+  // Stop AutoScan (admins only)
+  // -------------------------------
   const stopAutoScan = useCallback(async (updateDB = true) => {
     if (typeof window === "undefined") return;
 
@@ -45,13 +52,17 @@ export const AutoScanProvider = ({ children }) => {
     }
   }, []);
 
-  // 3. Initialize fetchSensorData globally (client-only)
+  // -------------------------------
+  // Ensure fetchSensorData exists globally
+  // -------------------------------
   useEffect(() => {
     if (typeof window === "undefined") return;
     if (!window.fetchSensorData) window.fetchSensorData = () => {};
   }, []);
 
-  // 4. Load state from Supabase on mount (client-only)
+  // -------------------------------
+  // Load scan state from Supabase on page load
+  // -------------------------------
   useEffect(() => {
     if (typeof window === "undefined") return;
 
@@ -64,17 +75,22 @@ export const AutoScanProvider = ({ children }) => {
 
       if (!error && data) {
         setIntervalTime(data.interval_ms ?? 900000);
-        const running = data.status === 1;
-        setAutoScanRunning(running);
-        if (running && typeof window.fetchSensorData === "function") {
-          startAutoScan(window.fetchSensorData, false); // resume without DB write
+
+        // If scan was running, resume it
+        if (data.status === 1 && typeof window.fetchSensorData === "function") {
+          startAutoScan(window.fetchSensorData, false); // false = don't update DB
         }
+
+        setAutoScanRunning(data.status === 1);
       }
     };
+
     loadState();
   }, [startAutoScan]);
 
-  // 5. Realtime subscription (client-only)
+  // -------------------------------
+  // Real-time subscription: sync scan across admins
+  // -------------------------------
   useEffect(() => {
     if (typeof window === "undefined") return;
 
@@ -88,6 +104,7 @@ export const AutoScanProvider = ({ children }) => {
           setAutoScanRunning(isRunning);
           setIntervalTime(payload.new.interval_ms);
 
+          // Auto-start or stop scan based on DB
           if (isRunning) startAutoScan(window.fetchSensorData, false);
           else stopAutoScan(false);
         }
