@@ -4,49 +4,62 @@ import Sidebar from "../components/Sidebar";
 import "../assets/databoard.css";
 import { supabase } from "../supabaseClient";
 
-const FIXED_INTERVAL = 900000; // 15 minutes
-
 const AdminDashboard = () => {
+  const FIXED_INTERVAL = 900000; // 15 minutes
   const intervalRef = useRef(null);
-  const [devices, setDevices] = useState([]);
-  const [autoScanRunning, setAutoScanRunning] = useState(false);
-  const [status, setStatus] = useState("Awaiting sensor data...");
 
-  const esp32Url = (device) =>
+  const [sensorData, setSensorData] = useState({
+    ph: "N/A",
+    turbidity: "N/A",
+    temp: "N/A",
+    tds: "N/A",
+  });
+  const [status, setStatus] = useState("Awaiting sensor data...");
+  const [countdown, setCountdown] = useState(FIXED_INTERVAL / 1000);
+  const [overallSafety, setOverallSafety] = useState("N/A");
+  const [autoScanRunning, setAutoScanRunning] = useState(false);
+
+  const esp32Url =
     process.env.NODE_ENV === "production"
-      ? `/api/data?device_id=${device.id}`
-      : `http://${device.local_ip || "aquacheck.local"}:5000/data`;
+      ? "/api/data"
+      : "http://aquacheck.local:5000/data";
 
   // --------------------------
   // Compute Overall Safety
   // --------------------------
-  const computeOverallSafety = (data) => {
-    if (!data || Object.values(data).every((v) => v === "N/A")) return "N/A";
-
+  const computeOverallSafety = useCallback((data) => {
+    if (!data || Object.values(data).every((v) => v === "N/A")) {
+      setOverallSafety("N/A");
+      return;
+    }
     const scores = Object.entries(data).map(([key, value]) => {
       if (value === "N/A") return 0;
       const val = parseFloat(value);
       switch (key) {
-        case "ph": return val >= 6.5 && val <= 8.5 ? 2 : 0;
-        case "turbidity": return val <= 5 ? 2 : val <= 10 ? 1 : 0;
-        case "temp": return val >= 24 && val <= 32 ? 2 : 0;
-        case "tds": return val <= 500 ? 2 : 0;
-        default: return 0;
+        case "ph":
+          return val >= 6.5 && val <= 8.5 ? 2 : 0;
+        case "turbidity":
+          return val <= 5 ? 2 : val <= 10 ? 1 : 0;
+        case "temp":
+          return val >= 24 && val <= 32 ? 2 : 0;
+        case "tds":
+          return val <= 500 ? 2 : 0;
+        default:
+          return 0;
       }
     });
-
     const total = scores.reduce((a, b) => a + b, 0);
-    if (total >= 7) return "Safe";
-    else if (total >= 4) return "Moderate";
-    else return "Unsafe";
-  };
+    if (total >= 7) setOverallSafety("Safe");
+    else if (total >= 4) setOverallSafety("Moderate");
+    else setOverallSafety("Unsafe");
+  }, []);
 
   // --------------------------
-  // Fetch Sensor Data per Device
+  // Fetch Sensor Data
   // --------------------------
-  const fetchSensorData = useCallback(async (device) => {
+  const fetchSensorData = useCallback(async () => {
     try {
-      const response = await fetch(esp32Url(device), { cache: "no-store" });
+      const response = await fetch(esp32Url, { cache: "no-store" });
       if (!response.ok) throw new Error("ESP32 fetch failed");
       const data = await response.json();
       const latest = data.latestData || data;
@@ -58,148 +71,130 @@ const AdminDashboard = () => {
         tds: latest.tds ? parseFloat(latest.tds).toFixed(0) : "N/A",
       };
 
-      const overallSafety = computeOverallSafety(formatted);
-
-      setDevices((prev) =>
-        prev.map((d) => (d.id === device.id ? { ...d, sensorData: formatted, overallSafety } : d))
-      );
-
+      setSensorData(formatted);
+      computeOverallSafety(formatted);
+      setStatus("✅ ESP32 data fetched.");
       return formatted;
     } catch (err) {
-      console.warn(`ESP32 fetch failed for ${device.name}, trying cloud backup...`);
+      console.warn("ESP32 fetch failed, trying cloud backup...");
       try {
-        const cloudRes = await fetch(`/api/data?device_id=${device.id}`, { cache: "no-store" });
+        const cloudRes = await fetch("/api/data", { cache: "no-store" });
         const cloudJson = await cloudRes.json();
         const latest = cloudJson.latestData || {};
-
         const formatted = {
           ph: latest.ph ? parseFloat(latest.ph).toFixed(2) : "N/A",
           turbidity: latest.turbidity ? parseFloat(latest.turbidity).toFixed(1) : "N/A",
           temp: latest.temperature ? parseFloat(latest.temperature).toFixed(1) : "N/A",
           tds: latest.tds ? parseFloat(latest.tds).toFixed(0) : "N/A",
         };
-
-        const overallSafety = computeOverallSafety(formatted);
-
-        setDevices((prev) =>
-          prev.map((d) => (d.id === device.id ? { ...d, sensorData: formatted, overallSafety } : d))
-        );
-
+        setSensorData(formatted);
+        computeOverallSafety(formatted);
+        setStatus("🌐 Cloud backup used.");
         return formatted;
       } catch (err2) {
-        console.error(`Both ESP32 & Cloud failed for ${device.name}:`, err2);
+        console.error("Both ESP32 & Cloud failed:", err2);
+        setStatus("❌ Failed to fetch data");
+        setOverallSafety("N/A");
         return null;
       }
     }
-  }, []);
+  }, [esp32Url, computeOverallSafety]);
 
   // --------------------------
-  // Auto Save for all devices
+  // Auto Save
   // --------------------------
-  const handleAutoSaveAll = useCallback(async () => {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return;
+  const handleAutoSave = useCallback(async () => {
+    const data = await fetchSensorData();
+    if (!data) return;
 
-    for (const device of devices) {
-      const data = await fetchSensorData(device);
-      if (!data) continue;
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
 
-      try {
-        const saveData = {
-          user_id: user.id,
-          device_id: device.id,
-          ph: parseFloat(data.ph) || null,
-          turbidity: parseFloat(data.turbidity) || null,
-          temperature: parseFloat(data.temp) || null,
-          tds: parseFloat(data.tds) || null,
-        };
+      const saveData = {
+        user_id: user.id,
+        ph: parseFloat(data.ph) || null,
+        turbidity: parseFloat(data.turbidity) || null,
+        temperature: parseFloat(data.temp) || null,
+        tds: parseFloat(data.tds) || null,
+      };
 
-        const { error } = await supabase.from("dataset_history").insert([saveData]);
-        if (error) throw error;
-      } catch (err) {
-        console.error(`Auto-save failed for ${device.name}`, err);
-      }
+      const { error } = await supabase.from("dataset_history").insert([saveData]);
+      if (error) throw error;
+
+      // Update device_scanning next_auto_save_ts
+      const nextTS = Date.now() + FIXED_INTERVAL;
+      await supabase.from("device_scanning")
+        .update({ last_scan_time: new Date().toISOString(), next_auto_save_ts: nextTS })
+        .eq("id", 1);
+
+      setStatus(`💾 Auto-saved at ${new Date().toLocaleTimeString()}`);
+    } catch (err) {
+      console.error(err);
+      setStatus("❌ Auto-save failed.");
     }
-
-    const nextTS = Date.now() + FIXED_INTERVAL;
-    await supabase.from("device_scanning").update({
-      last_scan_time: new Date().toISOString(),
-      next_auto_save_ts: nextTS,
-      status: 1
-    });
-
-    setStatus(`💾 Auto-saved all devices at ${new Date().toLocaleTimeString()}`);
-  }, [devices, fetchSensorData]);
+  }, [fetchSensorData]);
 
   // --------------------------
-  // Countdown (global)
+  // Smooth Countdown
   // --------------------------
   const startCountdown = useCallback((nextTS) => {
     if (intervalRef.current) clearInterval(intervalRef.current);
     intervalRef.current = setInterval(async () => {
       const remaining = nextTS - Date.now();
+      setCountdown(Math.max(Math.floor(remaining / 1000), 0));
+
       if (remaining <= 0 && autoScanRunning) {
-        await handleAutoSaveAll();
+        await handleAutoSave();
       }
     }, 1000);
-  }, [autoScanRunning, handleAutoSaveAll]);
+  }, [autoScanRunning, handleAutoSave]);
 
   // --------------------------
-  // Toggle Auto Scan (global)
+  // Toggle Auto Scan
   // --------------------------
-  const toggleAutoScan = async () => {
+  const toggleAutoScan = useCallback(async () => {
     const newStatus = !autoScanRunning;
     setAutoScanRunning(newStatus);
 
-    const nextTS = newStatus ? Date.now() + FIXED_INTERVAL : null;
+    try {
+      const nextTS = newStatus ? Date.now() + FIXED_INTERVAL : null;
 
-    await supabase.from("device_scanning").update({
-      status: newStatus ? 1 : 0,
-      next_auto_save_ts: nextTS
-    });
+      await supabase.from("device_scanning").upsert({
+        id: 1,
+        status: newStatus ? 1 : 0,
+        next_auto_save_ts: nextTS,
+      });
 
-    if (newStatus) startCountdown(nextTS);
-    else if (intervalRef.current) clearInterval(intervalRef.current);
-  };
+      if (nextTS) startCountdown(nextTS);
+    } catch (err) {
+      console.error("Failed to update scan status:", err);
+    }
+  }, [autoScanRunning, startCountdown]);
 
   // --------------------------
-  // Fetch all devices & listen for changes
+  // Real-time Supabase listener
   // --------------------------
   useEffect(() => {
-    const fetchDevices = async () => {
-      const { data } = await supabase.from("device_scanning").select("*");
+    const fetchInitial = async () => {
+      const { data } = await supabase.from("device_scanning").select("*").eq("id", 1).single();
       if (!data) return;
 
-      setDevices(data.map(d => ({
-        ...d,
-        sensorData: { ph: "N/A", turbidity: "N/A", temp: "N/A", tds: "N/A" },
-        overallSafety: "N/A"
-      })));
-
-      // if any device is running, start countdown globally
-      const anyRunning = data.some(d => d.status === 1);
-      setAutoScanRunning(anyRunning);
-      if (anyRunning && data[0]?.next_auto_save_ts) startCountdown(data[0].next_auto_save_ts);
+      setAutoScanRunning(data.status === 1);
+      if (data.next_auto_save_ts) startCountdown(data.next_auto_save_ts);
     };
-
-    fetchDevices();
+    fetchInitial();
 
     const channel = supabase
       .channel("scan_status_live")
       .on(
         "postgres_changes",
-        { event: "UPDATE", schema: "public", table: "device_scanning" },
+        { event: "UPDATE", schema: "public", table: "device_scanning", filter: "id=eq.1" },
         (payload) => {
-          // update all devices globally
-          setDevices(prev => prev.map(d => ({
-            ...d,
-            status: payload.new.status
-          })));
-
-          const running = payload.new.status === 1;
-          setAutoScanRunning(running);
-          if (running && payload.new.next_auto_save_ts) startCountdown(payload.new.next_auto_save_ts);
-          else if (!running && intervalRef.current) clearInterval(intervalRef.current);
+          const isRunning = payload.new.status === 1;
+          setAutoScanRunning(isRunning);
+          if (payload.new.next_auto_save_ts) startCountdown(payload.new.next_auto_save_ts);
+          else setCountdown(0);
         }
       )
       .subscribe();
@@ -207,6 +202,9 @@ const AdminDashboard = () => {
     return () => supabase.removeChannel(channel);
   }, [startCountdown]);
 
+  // --------------------------
+  // Sensor Status Color
+  // --------------------------
   const getSensorStatus = (type, value) => {
     if (value === "N/A") return "";
     const val = parseFloat(value);
@@ -223,11 +221,11 @@ const AdminDashboard = () => {
     <div className="dashboard-container">
       <Sidebar />
       <main className="main-content">
-        <header className="topbar"><h1>Admin Dashboard - Global Sync</h1></header>
+        <header className="topbar"><h1>Admin Dashboard</h1></header>
 
         <section className="scan-controls">
           <div className="button-group">
-            <button className="save-btn" onClick={handleAutoSaveAll}>Save All Now</button>
+            <button className="save-btn" onClick={handleAutoSave}>Save Now</button>
             <button
               className={`start-stop-btn ${autoScanRunning ? "stop" : "start"}`}
               onClick={toggleAutoScan}
@@ -235,27 +233,28 @@ const AdminDashboard = () => {
               {autoScanRunning ? "Stop Auto Scan" : "Start Auto Scan"}
             </button>
           </div>
+          {autoScanRunning && (
+            <div className="countdown-timer">
+              ⏱ Next auto-save in: <strong>{Math.floor(countdown / 60)}m {countdown % 60}s</strong>
+            </div>
+          )}
         </section>
 
-        {devices.map((device) => (
-          <section key={device.id} className="device-section">
-            <h2>{device.name}</h2>
-            <div className="sensor-grid">
-              {["ph","turbidity","temp","tds"].map(key => (
-                <div key={key} className={`sensor-card ${getSensorStatus(key, device.sensorData[key])}`}>
-                  <h3>{key.toUpperCase()}</h3>
-                  <p>{device.sensorData[key]} {key==="turbidity"?"NTU":key==="temp"?"°C":key==="tds"?"ppm":""}</p>
-                  <p className={`status-label ${getSensorStatus(key, device.sensorData[key])}`}>
-                    {device.sensorData[key]==="N/A"?"NO DATA":getSensorStatus(key,device.sensorData[key]).toUpperCase()}
-                  </p>
-                </div>
-              ))}
+        <section className="sensor-grid">
+          {["ph","turbidity","temp","tds"].map(key => (
+            <div key={key} className={`sensor-card ${getSensorStatus(key, sensorData[key])}`}>
+              <h3>{key.toUpperCase()}</h3>
+              <p>{sensorData[key]} {key==="turbidity"?"NTU":key==="temp"?"°C":key==="tds"?"ppm":""}</p>
+              <p className={`status-label ${getSensorStatus(key, sensorData[key])}`}>
+                {sensorData[key]==="N/A"?"NO DATA":getSensorStatus(key,sensorData[key]).toUpperCase()}
+              </p>
             </div>
-            <section className={`overall-safety ${device.overallSafety.toLowerCase()}`}>
-              <h3>Swimming Safety: {device.overallSafety}</h3>
-            </section>
-          </section>
-        ))}
+          ))}
+        </section>
+
+        <section className={`overall-safety ${overallSafety.toLowerCase()}`}>
+          <h2>Swimming Safety: {overallSafety}</h2>
+        </section>
 
         <div className="status-card">{status}</div>
       </main>
