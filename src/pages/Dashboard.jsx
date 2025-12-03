@@ -11,8 +11,8 @@ const AdminDashboard = () => {
   const [status, setStatus] = useState("Awaiting sensor data...");
   const [overallSafety, setOverallSafety] = useState("N/A");
   const [countdown, setCountdown] = useState(intervalTime / 1000);
-  const countdownRef = useRef(null);
 
+  const countdownRef = useRef(null);
   const esp32Url = process.env.NODE_ENV === "production" ? "/api/data" : "http://aquacheck.local:5000/data";
 
   // Compute overall safety
@@ -32,9 +32,9 @@ const AdminDashboard = () => {
         default: return 0;
       }
     });
-    const total = scores.reduce((a, b) => a + b, 0);
-    if (total >= 7) setOverallSafety("Safe");
-    else if (total >= 4) setOverallSafety("Moderate");
+    const total = scores.reduce((a,b)=>a+b,0);
+    if(total >=7) setOverallSafety("Safe");
+    else if(total>=4) setOverallSafety("Moderate");
     else setOverallSafety("Unsafe");
   }, []);
 
@@ -83,7 +83,7 @@ const AdminDashboard = () => {
 
   // Manual save
   const handleSave = useCallback(async () => {
-    if (Object.values(sensorData).every(v => v === "N/A")) {
+    if (Object.values(sensorData).every(v => v==="N/A")) {
       setStatus("⚠ Cannot save—sensor data is empty.");
       return;
     }
@@ -100,19 +100,19 @@ const AdminDashboard = () => {
       const { error } = await supabase.from("dataset_history").insert([saveData]);
       if (error) throw error;
       setStatus("💾 Saved successfully.");
-    } catch (err) {
+    } catch(err) {
       console.error(err);
       setStatus("❌ Save failed.");
     }
   }, [sensorData]);
 
-  // Auto save (used for AutoScan)
+  // Auto save (used by AutoScanProvider)
   const handleAutoSave = useCallback(async () => {
     const data = await fetchSensorData();
-    if (!data) return;
+    if(!data) return;
     try {
       const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
+      if(!user) return;
       const saveData = {
         user_id: user.id,
         ph: parseFloat(data.ph) || null,
@@ -121,49 +121,63 @@ const AdminDashboard = () => {
         tds: parseFloat(data.tds) || null
       };
       const { error } = await supabase.from("dataset_history").insert([saveData]);
-      if (error) throw error;
+      if(error) throw error;
       setStatus(`💾 Auto-saved at ${new Date().toLocaleTimeString()}`);
       localStorage.setItem("lastAutoSave", Date.now().toString());
-    } catch (err) {
+    } catch(err) {
       console.error(err);
       setStatus("❌ Auto-save failed.");
     }
   }, [fetchSensorData]);
 
-  // Countdown timer
+  // Persistent countdown
   useEffect(() => {
-    if (!autoScanRunning) { clearInterval(countdownRef.current); return; }
-    const startTime = Date.now();
-    countdownRef.current = setInterval(() => {
+    if(!autoScanRunning) { clearInterval(countdownRef.current); return; }
+
+    // Load previous start time
+    let startTime = parseInt(localStorage.getItem("autoScanStartTime"),10);
+    if(!startTime){
+      startTime = Date.now();
+      localStorage.setItem("autoScanStartTime", startTime);
+    }
+
+    const updateCountdown = () => {
       const elapsed = Date.now() - startTime;
       const remaining = intervalTime - (elapsed % intervalTime);
-      setCountdown(Math.floor(remaining / 1000));
-    }, 1000);
+      setCountdown(Math.floor(remaining/1000));
+    };
+
+    updateCountdown();
+    countdownRef.current = setInterval(updateCountdown,1000);
+
     return () => clearInterval(countdownRef.current);
   }, [autoScanRunning, intervalTime]);
 
-  // Start/stop auto scan toggle
+  // Toggle auto scan
   const toggleAutoScan = useCallback(() => {
-    if (autoScanRunning) {
+    if(autoScanRunning){
       stopAutoScan();
-      setSensorData({ ph: "N/A", turbidity: "N/A", temp: "N/A", tds: "N/A" });
+      setSensorData({ ph:"N/A", turbidity:"N/A", temp:"N/A", tds:"N/A" });
       setOverallSafety("N/A");
       setStatus("🛑 Auto Scan stopped — all sensors reset.");
+      localStorage.removeItem("autoScanStartTime");
     } else {
-      startAutoScan(handleAutoSave); // pass handleAutoSave for fetch+save
+      const now = Date.now();
+      localStorage.setItem("autoScanStartTime", now);
+      startAutoScan(handleAutoSave);
       setStatus("🔄 Auto Scan started (15-minute interval).");
     }
   }, [autoScanRunning, startAutoScan, stopAutoScan, handleAutoSave]);
 
-  // Sensor status color
+  // Sensor status
   const getSensorStatus = (type, value) => {
-    if (value === "N/A") return "";
+    if(value==="N/A") return "";
     const val = parseFloat(value);
-    switch (type) {
-      case "ph": return val >= 6.5 && val <= 8.5 ? "safe" : "unsafe";
-      case "turbidity": return val <= 5 ? "safe" : val <= 10 ? "moderate" : "unsafe";
-      case "temp": return val >= 24 && val <= 32 ? "safe" : "unsafe";
-      case "tds": return val <= 500 ? "safe" : "unsafe";
+    switch(type){
+      case "ph": return val>=6.5 && val<=8.5?"safe":"unsafe";
+      case "turbidity": return val<=5?"safe":val<=10?"moderate":"unsafe";
+      case "temp": return val>=24 && val<=32?"safe":"unsafe";
+      case "tds": return val<=500?"safe":"unsafe";
       default: return "";
     }
   };
@@ -177,25 +191,24 @@ const AdminDashboard = () => {
         <section className="scan-controls">
           <div className="button-group">
             <button className="save-btn" onClick={handleSave}>Save Manually</button>
-            <button className={`start-stop-btn ${autoScanRunning ? "stop" : "start"}`} onClick={toggleAutoScan}>
-              {autoScanRunning ? "Stop Auto Scan" : "Start Auto Scan"}
+            <button className={`start-stop-btn ${autoScanRunning?"stop":"start"}`} onClick={toggleAutoScan}>
+              {autoScanRunning?"Stop Auto Scan":"Start Auto Scan"}
             </button>
           </div>
-
           {autoScanRunning && (
             <div className="countdown-timer">
-              ⏱ Next auto-save in: {Math.floor(countdown / 60)}m {countdown % 60}s
+              ⏱ Next auto-save in: {Math.floor(countdown/60)}m {countdown%60}s
             </div>
           )}
         </section>
 
         <section className="sensor-grid">
-          {["ph", "turbidity", "temp", "tds"].map(key => (
-            <div key={key} className={`sensor-card ${getSensorStatus(key, sensorData[key])}`}>
+          {["ph","turbidity","temp","tds"].map(key=>(
+            <div key={key} className={`sensor-card ${getSensorStatus(key,sensorData[key])}`}>
               <h3>{key.toUpperCase()}</h3>
-              <p>{sensorData[key]} {key === "turbidity" ? "NTU" : key === "temp" ? "°C" : key === "tds" ? "ppm" : ""}</p>
-              <p className={`status-label ${getSensorStatus(key, sensorData[key])}`}>
-                {sensorData[key] === "N/A" ? "NO DATA" : getSensorStatus(key, sensorData[key]).toUpperCase()}
+              <p>{sensorData[key]} {key==="turbidity"?"NTU":key==="temp"?"°C":key==="tds"?"ppm":""}</p>
+              <p className={`status-label ${getSensorStatus(key,sensorData[key])}`}>
+                {sensorData[key]==="N/A"?"NO DATA":getSensorStatus(key,sensorData[key]).toUpperCase()}
               </p>
             </div>
           ))}
