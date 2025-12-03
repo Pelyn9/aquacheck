@@ -2,6 +2,7 @@
 import express from "express";
 import cors from "cors";
 import dotenv from "dotenv";
+import fetch from "node-fetch";
 import { supabaseAdmin } from "./supabaseAdminClient.js";
 
 dotenv.config();
@@ -55,13 +56,10 @@ app.get("/api/admin/users", async (_req, res) => {
     const { data, error } = await supabaseAdmin.auth.admin.listUsers();
     if (error) throw error;
 
-    // Ensure consistent response format
     res.json({ success: true, users: data?.users || [] });
   } catch (err) {
     console.error("❌ Fetch users failed:", err.message);
-    res
-      .status(500)
-      .json({ success: false, message: "Failed to fetch users", error: err.message });
+    res.status(500).json({ success: false, message: "Failed to fetch users", error: err.message });
   }
 });
 
@@ -96,6 +94,98 @@ app.post("/api/admin/users/:id/toggle", async (req, res) => {
   } catch (err) {
     console.error("❌ Toggle user failed:", err.message);
     res.status(500).json({ success: false, message: "Failed to toggle user" });
+  }
+});
+
+// ------------------------------
+// Global Auto Scan Service
+// ------------------------------
+let autoScanInterval = null;
+
+app.post("/api/admin/start-scan", async (_req, res) => {
+  try {
+    // Update scanning status in Supabase
+    await supabaseAdmin.from("device_scanning").update({ status: 1 }).eq("id", 1);
+
+    if (autoScanInterval) clearInterval(autoScanInterval);
+
+    const fetchAndSave = async () => {
+      // Fetch sensor data from ESP32 local or cloud
+      let sensorData;
+      try {
+        const response = await fetch("http://aquacheck.local:5000/data");
+        const data = await response.json();
+        sensorData = data.latestData || data;
+      } catch {
+        try {
+          const cloudRes = await fetch("https://aquachecklive.vercel.app/api/data");
+          const cloudData = await cloudRes.json();
+          sensorData = cloudData.latestData || cloudData;
+        } catch {
+          console.error("❌ Failed to fetch sensor data");
+          return;
+        }
+      }
+
+      // Save data to dataset_history as system auto-save
+      try {
+        await supabaseAdmin.from("dataset_history").insert([{
+          user_id: null,
+          ph: parseFloat(sensorData.ph) || null,
+          turbidity: parseFloat(sensorData.turbidity) || null,
+          temperature: parseFloat(sensorData.temperature) || null,
+          tds: parseFloat(sensorData.tds) || null,
+        }]);
+        console.log("✅ Auto-saved at", new Date().toLocaleTimeString());
+      } catch (err) {
+        console.error("❌ Failed to save data", err);
+      }
+
+      // Update next timestamp
+      try {
+        const { data } = await supabaseAdmin.from("device_scanning").select("*").eq("id", 1).single();
+        const intervalMs = data?.interval_ms || 900000;
+        const nextTs = new Date(Date.now() + intervalMs);
+        await supabaseAdmin.from("device_scanning").update({ next_auto_save_ts: nextTs }).eq("id", 1);
+      } catch (err) {
+        console.error("❌ Failed to update next timestamp", err);
+      }
+    };
+
+    const { data } = await supabaseAdmin.from("device_scanning").select("*").eq("id", 1).single();
+    const intervalMs = data?.interval_ms || 900000;
+
+    autoScanInterval = setInterval(fetchAndSave, intervalMs);
+    fetchAndSave(); // Run immediately
+
+    res.json({ success: true, message: "Global auto-scan started" });
+  } catch (err) {
+    console.error("❌ Start scan failed", err);
+    res.status(500).json({ success: false, message: "Failed to start auto-scan" });
+  }
+});
+
+app.post("/api/admin/stop-scan", async (_req, res) => {
+  try {
+    if (autoScanInterval) clearInterval(autoScanInterval);
+    autoScanInterval = null;
+
+    await supabaseAdmin.from("device_scanning").update({ status: 0 }).eq("id", 1);
+
+    res.json({ success: true, message: "Global auto-scan stopped" });
+  } catch (err) {
+    console.error("❌ Stop scan failed", err);
+    res.status(500).json({ success: false, message: "Failed to stop auto-scan" });
+  }
+});
+
+app.get("/api/admin/scan-status", async (_req, res) => {
+  try {
+    const { data } = await supabaseAdmin.from("device_scanning").select("*").eq("id", 1).single();
+    const remainingMs = data?.next_auto_save_ts ? new Date(data.next_auto_save_ts).getTime() - Date.now() : 0;
+    res.json({ status: data?.status || 0, remainingMs: Math.max(remainingMs, 0) });
+  } catch (err) {
+    res.status(500).json({ success: false, message: "Failed to get scan status" });
   }
 });
 
