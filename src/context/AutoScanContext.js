@@ -8,12 +8,9 @@ export const AutoScanProvider = ({ children }) => {
   const [intervalTime, setIntervalTime] = useState(900000); // default 15 minutes
   const intervalRef = useRef(null);
 
-  // -------------------------------
   // 1. Start AutoScan
-  // -------------------------------
   const startAutoScan = useCallback(async (fetchSensorData, updateDB = true) => {
-    if (typeof window === "undefined") return; // ✅ client only
-
+    if (typeof window === "undefined") return; // client-only
     window.fetchSensorData = fetchSensorData;
 
     if (intervalRef.current) clearInterval(intervalRef.current);
@@ -31,9 +28,7 @@ export const AutoScanProvider = ({ children }) => {
     }
   }, [intervalTime]);
 
-  // -------------------------------
   // 2. Stop AutoScan
-  // -------------------------------
   const stopAutoScan = useCallback(async (updateDB = true) => {
     if (typeof window === "undefined") return;
 
@@ -50,17 +45,13 @@ export const AutoScanProvider = ({ children }) => {
     }
   }, []);
 
-  // -------------------------------
   // 3. Initialize fetchSensorData globally (client-only)
-  // -------------------------------
   useEffect(() => {
     if (typeof window === "undefined") return;
     if (!window.fetchSensorData) window.fetchSensorData = () => {};
   }, []);
 
-  // -------------------------------
   // 4. Load state from Supabase on mount (client-only)
-  // -------------------------------
   useEffect(() => {
     if (typeof window === "undefined") return;
 
@@ -73,22 +64,17 @@ export const AutoScanProvider = ({ children }) => {
 
       if (!error && data) {
         setIntervalTime(data.interval_ms ?? 900000);
-
         const running = data.status === 1;
         setAutoScanRunning(running);
-
         if (running && typeof window.fetchSensorData === "function") {
           startAutoScan(window.fetchSensorData, false); // resume without DB write
         }
       }
     };
-
     loadState();
   }, [startAutoScan]);
 
-  // -------------------------------
   // 5. Realtime subscription (client-only)
-  // -------------------------------
   useEffect(() => {
     if (typeof window === "undefined") return;
 
