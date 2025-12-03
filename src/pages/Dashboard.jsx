@@ -5,18 +5,21 @@ import { supabase } from "../supabaseClient";
 
 /**
  * ======================================================================
- *  ADMIN DASHBOARD — GLOBAL AUTO SCAN VERSION
- *  - Auto scan (15 minutes) shared globally
- *  - Manual fetch & manual save
- *  - Auto save persists in Supabase
+ *  ADMIN DASHBOARD — ADVANCED VERSION
+ *  - Auto scan (15 minutes)
+ *  - Manual fetch
+ *  - Auto save
  *  - Overall safety computation
- *  - Reset sensors when stopped
- *  - Realtime sync for all users
+ *  - ESP32 + Vercel fallback API
+ *  - Sensor reset to "N/A" when Auto Scan stops   <-- REQUIRED FEATURE
  * ======================================================================
  */
 
 const AdminDashboard = () => {
-  const FIXED_INTERVAL = 900000; // 15 minutes
+  /* ----------------------------------------------
+   * CONFIGURATION
+   * ---------------------------------------------- */
+  const FIXED_INTERVAL = 900000; // 15 minutes in milliseconds
 
   /* ----------------------------------------------
    * STATE MANAGEMENT
@@ -29,9 +32,9 @@ const AdminDashboard = () => {
   });
 
   const [status, setStatus] = useState("Awaiting sensor data...");
-  const [overallSafety, setOverallSafety] = useState("N/A");
-  const [autoScan, setAutoScan] = useState({ running: false, nextAutoSave: null });
   const [countdown, setCountdown] = useState(FIXED_INTERVAL / 1000);
+  const [overallSafety, setOverallSafety] = useState("N/A");
+  const [manualStopped, setManualStopped] = useState(false);
 
   /* ----------------------------------------------
    * ESP32 URL DETECTION
@@ -80,11 +83,12 @@ const AdminDashboard = () => {
   }, []);
 
   /* ----------------------------------------------
-   * FETCH SENSOR DATA (ESP32 + fallback)
+   * FETCH SENSOR DATA FUNCTION (ESP32 + Vercel backup)
    * ---------------------------------------------- */
   const fetchSensorData = useCallback(async () => {
     try {
       const response = await fetch(esp32Url, { cache: "no-store" });
+
       if (!response.ok) throw new Error("ESP32 fetch failed");
 
       const data = await response.json();
@@ -200,16 +204,7 @@ const AdminDashboard = () => {
       if (error) throw error;
 
       setStatus(`💾 Auto-saved at ${new Date().toLocaleTimeString()}`);
-
-      // Update next auto save timestamp in device_scanning
-      await supabase
-        .from("device_scanning")
-        .update({
-          next_auto_save_ts: Date.now() + FIXED_INTERVAL,
-          updated_at: new Date().toISOString(),
-        })
-        .eq("id", 1);
-
+      localStorage.setItem("lastAutoSave", Date.now().toString());
     } catch (err) {
       console.error(err);
       setStatus("❌ Auto-save failed.");
@@ -217,100 +212,65 @@ const AdminDashboard = () => {
   }, [fetchSensorData]);
 
   /* ----------------------------------------------
-   * TOGGLE AUTO SCAN (global)
-   * ---------------------------------------------- */
-  const toggleAutoScan = useCallback(async () => {
-    try {
-      const row = await supabase
-        .from("device_scanning")
-        .select("*")
-        .eq("id", 1)
-        .single();
-
-      if (!row.data) return;
-
-      const newStatus = row.data.status === 1 ? 0 : 1;
-
-      // STOP → reset sensors
-      if (newStatus === 0) {
-        setSensorData({ ph: "N/A", turbidity: "N/A", temp: "N/A", tds: "N/A" });
-        setOverallSafety("N/A");
-        setStatus("🛑 Auto Scan stopped — sensors reset.");
-      } else {
-        fetchSensorData();
-        setStatus("🔄 Auto Scan started (15-minute interval).");
-      }
-
-      // Update Supabase row
-      await supabase
-        .from("device_scanning")
-        .update({
-          status: newStatus,
-          next_auto_save_ts: Date.now() + FIXED_INTERVAL,
-          updated_at: new Date().toISOString(),
-        })
-        .eq("id", 1);
-
-    } catch (err) {
-      console.error(err);
-      setStatus("❌ Failed to toggle Auto Scan.");
-    }
-  }, [fetchSensorData]);
-
-  /* ----------------------------------------------
-   * Realtime subscription to device_scanning
+   * AUTO SCAN LOOP
    * ---------------------------------------------- */
   useEffect(() => {
-    const fetchInitial = async () => {
-      const { data } = await supabase
-        .from("device_scanning")
-        .select("*")
-        .eq("id", 1)
-        .single();
+    let interval = null;
 
-      if (data) {
-        setAutoScan({
-          running: data.status === 1,
-          nextAutoSave: data.next_auto_save_ts,
-        });
-      }
-    };
-    fetchInitial();
-
-    const subscription = supabase
-      .from("device_scanning:id=eq.1")
-      .on("UPDATE", (payload) => {
-        setAutoScan({
-          running: payload.new.status === 1,
-          nextAutoSave: payload.new.next_auto_save_ts,
-        });
-      })
-      .subscribe();
-
-    return () => supabase.removeSubscription(subscription);
-  }, []);
-
-  /* ----------------------------------------------
-   * Countdown timer
-   * ---------------------------------------------- */
-  useEffect(() => {
-    if (!autoScan.running) return;
-
-    const interval = setInterval(() => {
-      if (!autoScan.nextAutoSave) return;
-
-      const remaining = Math.max(
-        0,
-        Math.floor((autoScan.nextAutoSave - Date.now()) / 1000)
+    if (localStorage.getItem("autoScanRunning") === "true" && !manualStopped) {
+      const startTime = parseInt(
+        localStorage.getItem("autoScanStartTime") || Date.now()
       );
-      setCountdown(remaining);
+      localStorage.setItem("autoScanStartTime", startTime);
 
-      // Trigger auto-save if remaining <= 0
-      if (remaining <= 0) handleAutoSave();
-    }, 1000);
+      interval = setInterval(async () => {
+        const elapsed = Date.now() - startTime;
+        const remaining = FIXED_INTERVAL - (elapsed % FIXED_INTERVAL);
 
-    return () => clearInterval(interval);
-  }, [autoScan, handleAutoSave]);
+        setCountdown(Math.floor(remaining / 1000));
+
+        if (remaining <= 1000) await handleAutoSave();
+      }, 1000);
+
+      fetchSensorData();
+    }
+
+    return () => interval && clearInterval(interval);
+  }, [fetchSensorData, handleAutoSave, manualStopped]);
+
+  /* ----------------------------------------------
+   * AUTO SCAN TOGGLE
+   * — Stop Auto Scan → CLEAR SENSOR DATA (YOUR REQUEST)
+   * ---------------------------------------------- */
+  const toggleAutoScan = useCallback(() => {
+    const running = localStorage.getItem("autoScanRunning") === "true";
+
+    if (running) {
+      // STOPPING AUTOSCAN
+      localStorage.setItem("autoScanRunning", "false");
+      setManualStopped(true);
+
+      // 🔥 REQUIRED FEATURE — Reset sensors on stop
+      setSensorData({
+        ph: "N/A",
+        turbidity: "N/A",
+        temp: "N/A",
+        tds: "N/A",
+      });
+
+      setOverallSafety("N/A");
+      setStatus("🛑 Auto Scan stopped — all sensors reset.");
+      return;
+    }
+
+    // START AUTO SCAN
+    localStorage.setItem("autoScanRunning", "true");
+    localStorage.setItem("autoScanStartTime", Date.now());
+    setManualStopped(false);
+
+    fetchSensorData();
+    setStatus("🔄 Auto Scan started (15-minute interval).");
+  }, [fetchSensorData]);
 
   /* ----------------------------------------------
    * SENSOR STATUS COLOR FUNCTION
@@ -358,21 +318,29 @@ const AdminDashboard = () => {
             </button>
 
             <button
-              className={`start-stop-btn ${autoScan.running ? "stop" : "start"}`}
+              className={`start-stop-btn ${
+                localStorage.getItem("autoScanRunning") === "true"
+                  ? "stop"
+                  : "start"
+              }`}
               onClick={toggleAutoScan}
             >
-              {autoScan.running ? "Stop Auto Scan" : "Start Auto Scan"}
+              {localStorage.getItem("autoScanRunning") === "true"
+                ? "Stop Auto Scan"
+                : "Start Auto Scan"}
             </button>
           </div>
 
-          {autoScan.running && (
-            <div className="countdown-timer">
-              ⏱ Next auto-save in:{" "}
-              <strong>
-                {Math.floor(countdown / 60)}m {countdown % 60}s
-              </strong>
-            </div>
-          )}
+          {localStorage.getItem("autoScanRunning") === "true" &&
+            !manualStopped && (
+              <div className="countdown-timer">
+                ⏱ Next auto-save in:
+                <strong>
+                  {" "}
+                  {Math.floor(countdown / 60)}m {countdown % 60}s
+                </strong>
+              </div>
+            )}
         </section>
 
         {/* SENSOR DISPLAY GRID */}
@@ -380,7 +348,10 @@ const AdminDashboard = () => {
           {["ph", "turbidity", "temp", "tds"].map((key) => (
             <div
               key={key}
-              className={`sensor-card ${getSensorStatus(key, sensorData[key])}`}
+              className={`sensor-card ${getSensorStatus(
+                key,
+                sensorData[key]
+              )}`}
             >
               <h3>{key.toUpperCase()}</h3>
               <p>
