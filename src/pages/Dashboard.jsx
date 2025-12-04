@@ -122,6 +122,7 @@ const AdminDashboard = () => {
       const { error } = await supabase.from("dataset_history").insert([saveData]);
       if (error) throw error;
 
+      // Update device_scanning next_auto_save_ts
       const nextTS = Date.now() + FIXED_INTERVAL;
       await supabase.from("device_scanning")
         .update({ last_scan_time: new Date().toISOString(), next_auto_save_ts: nextTS })
@@ -137,18 +138,17 @@ const AdminDashboard = () => {
   // --------------------------
   // Smooth Countdown
   // --------------------------
-  const startCountdown = useCallback((nextTS, running = true) => {
+  const startCountdown = useCallback((nextTS) => {
     if (intervalRef.current) clearInterval(intervalRef.current);
-
     intervalRef.current = setInterval(async () => {
       const remaining = nextTS - Date.now();
       setCountdown(Math.max(Math.floor(remaining / 1000), 0));
 
-      if (remaining <= 0 && running) {
+      if (remaining <= 0 && autoScanRunning) {
         await handleAutoSave();
       }
     }, 1000);
-  }, [handleAutoSave]);
+  }, [autoScanRunning, handleAutoSave]);
 
   // --------------------------
   // Toggle Auto Scan
@@ -166,27 +166,7 @@ const AdminDashboard = () => {
         next_auto_save_ts: nextTS,
       });
 
-      if (newStatus) {
-        // START auto-scan
-        startCountdown(nextTS, true);
-        setStatus("▶ Auto-scan started");
-      } else {
-        // STOP auto-scan
-        if (intervalRef.current) clearInterval(intervalRef.current);
-        setCountdown(0);
-
-        // Reset all sensor readings
-        setSensorData({
-          ph: "N/A",
-          turbidity: "N/A",
-          temp: "N/A",
-          tds: "N/A",
-        });
-
-        setOverallSafety("N/A");
-
-        setStatus("⏹ Auto-scan stopped (sensor data N/A)");
-      }
+      if (nextTS) startCountdown(nextTS);
     } catch (err) {
       console.error("Failed to update scan status:", err);
     }
@@ -201,7 +181,7 @@ const AdminDashboard = () => {
       if (!data) return;
 
       setAutoScanRunning(data.status === 1);
-      if (data.next_auto_save_ts) startCountdown(data.next_auto_save_ts, data.status === 1);
+      if (data.next_auto_save_ts) startCountdown(data.next_auto_save_ts);
     };
     fetchInitial();
 
@@ -213,18 +193,8 @@ const AdminDashboard = () => {
         (payload) => {
           const isRunning = payload.new.status === 1;
           setAutoScanRunning(isRunning);
-
-          if (payload.new.next_auto_save_ts) {
-            startCountdown(payload.new.next_auto_save_ts, isRunning);
-          } else {
-            setCountdown(0);
-          }
-
-          if (!isRunning) {
-            setSensorData({ ph: "N/A", turbidity: "N/A", temp: "N/A", tds: "N/A" });
-            setOverallSafety("N/A");
-            setStatus("⏹ Auto-scan stopped (sensor data N/A)");
-          }
+          if (payload.new.next_auto_save_ts) startCountdown(payload.new.next_auto_save_ts);
+          else setCountdown(0);
         }
       )
       .subscribe();
@@ -274,7 +244,7 @@ const AdminDashboard = () => {
           {["ph","turbidity","temp","tds"].map(key => (
             <div key={key} className={`sensor-card ${getSensorStatus(key, sensorData[key])}`}>
               <h3>{key.toUpperCase()}</h3>
-              <p>{sensorData[key]} {key === "turbidity" ? "NTU" : key === "temp" ? "°C" : key === "tds" ? "ppm" : ""}</p>
+              <p>{sensorData[key]} {key==="turbidity"?"NTU":key==="temp"?"°C":key==="tds"?"ppm":""}</p>
               <p className={`status-label ${getSensorStatus(key, sensorData[key])}`}>
                 {sensorData[key]==="N/A"?"NO DATA":getSensorStatus(key,sensorData[key]).toUpperCase()}
               </p>
