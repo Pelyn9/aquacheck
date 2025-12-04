@@ -172,18 +172,32 @@ const AdminDashboard = () => {
         next_auto_save_ts: nextTS
       }).eq("id", 1);
 
-      if (newStatus) {
-        startCountdown(nextTS);
-        setStatus("▶ Auto-scan started");
-      } else {
+      // 🟥 STOPPING AUTO SCAN — RESET TO N/A
+      if (!newStatus) {
         if (intervalRef.current) clearInterval(intervalRef.current);
         setCountdown(0);
-        setStatus("⏹ Auto-scan stopped (sensor data still live)");
+
+        setSensorData({
+          ph: "N/A",
+          turbidity: "N/A",
+          temp: "N/A",
+          tds: "N/A",
+        });
+
+        setOverallSafety("N/A");
+
+        setStatus("⏹ Auto-scan stopped (sensor data N/A)");
+        return;
       }
+
+      // 🟩 START AUTO SCAN
+      startCountdown(nextTS);
+      setStatus("▶ Auto-scan started");
     } catch (e) {
       console.error("Auto-scan error:", e);
     }
   }, [autoScanRunning, startCountdown]);
+
 
   // ===========================
   // INITIAL LOAD
@@ -293,10 +307,10 @@ const AdminDashboard = () => {
                 {key === "turbidity"
                   ? "NTU"
                   : key === "temp"
-                  ? "°C"
-                  : key === "tds"
-                  ? "ppm"
-                  : ""}
+                    ? "°C"
+                    : key === "tds"
+                      ? "ppm"
+                      : ""}
               </p>
               <p className={`status-label ${getSensorStatus(key, sensorData[key])}`}>
                 {sensorData[key] === "N/A"
