@@ -166,11 +166,36 @@ const AdminDashboard = () => {
         next_auto_save_ts: nextTS,
       });
 
-      if (nextTS) startCountdown(nextTS);
+      // ----------------------------
+      // NEW LOGIC
+      // ----------------------------
+      if (newStatus) {
+        // Immediately fetch fresh sensor data
+        await fetchSensorData();
+
+        // Start countdown
+        if (nextTS) startCountdown(nextTS);
+      } else {
+        // STOPPED → Reset everything
+        if (intervalRef.current) clearInterval(intervalRef.current);
+        setCountdown(0);
+
+        setSensorData({
+          ph: "N/A",
+          turbidity: "N/A",
+          temp: "N/A",
+          tds: "N/A",
+        });
+
+        setOverallSafety("N/A");
+        setStatus("⛔ Auto-scan stopped.");
+      }
     } catch (err) {
       console.error("Failed to update scan status:", err);
     }
-  }, [autoScanRunning, startCountdown]);
+  }, [autoScanRunning, startCountdown, fetchSensorData]);
+
+
 
   // --------------------------
   // Real-time Supabase listener
@@ -241,12 +266,12 @@ const AdminDashboard = () => {
         </section>
 
         <section className="sensor-grid">
-          {["ph","turbidity","temp","tds"].map(key => (
+          {["ph", "turbidity", "temp", "tds"].map(key => (
             <div key={key} className={`sensor-card ${getSensorStatus(key, sensorData[key])}`}>
               <h3>{key.toUpperCase()}</h3>
-              <p>{sensorData[key]} {key==="turbidity"?"NTU":key==="temp"?"°C":key==="tds"?"ppm":""}</p>
+              <p>{sensorData[key]} {key === "turbidity" ? "NTU" : key === "temp" ? "°C" : key === "tds" ? "ppm" : ""}</p>
               <p className={`status-label ${getSensorStatus(key, sensorData[key])}`}>
-                {sensorData[key]==="N/A"?"NO DATA":getSensorStatus(key,sensorData[key]).toUpperCase()}
+                {sensorData[key] === "N/A" ? "NO DATA" : getSensorStatus(key, sensorData[key]).toUpperCase()}
               </p>
             </div>
           ))}
