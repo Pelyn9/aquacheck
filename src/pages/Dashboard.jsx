@@ -138,17 +138,19 @@ const AdminDashboard = () => {
   // --------------------------
   // Smooth Countdown
   // --------------------------
-  const startCountdown = useCallback((nextTS) => {
+  const startCountdown = useCallback((nextTS, running = false) => {
     if (intervalRef.current) clearInterval(intervalRef.current);
+
     intervalRef.current = setInterval(async () => {
       const remaining = nextTS - Date.now();
       setCountdown(Math.max(Math.floor(remaining / 1000), 0));
 
-      if (remaining <= 0 && autoScanRunning) {
+      if (remaining <= 0 && running) {
         await handleAutoSave();
       }
     }, 1000);
-  }, [autoScanRunning, handleAutoSave]);
+  }, [handleAutoSave]);
+
 
   // --------------------------
   // Toggle Auto Scan
@@ -168,14 +170,14 @@ const AdminDashboard = () => {
 
       if (newStatus) {
         // START auto-scan
-        startCountdown(nextTS);
+        startCountdown(nextTS, true); // pass true to indicate running
         setStatus("▶ Auto-scan started");
       } else {
         // STOP auto-scan
         if (intervalRef.current) clearInterval(intervalRef.current);
         setCountdown(0);
 
-        // 🔹 Reset all sensor readings
+        // Reset all sensor readings
         setSensorData({
           ph: "N/A",
           turbidity: "N/A",
@@ -183,7 +185,6 @@ const AdminDashboard = () => {
           tds: "N/A",
         });
 
-        // 🔹 Reset overall safety
         setOverallSafety("N/A");
 
         setStatus("⏹ Auto-scan stopped (sensor data N/A)");
@@ -192,6 +193,7 @@ const AdminDashboard = () => {
       console.error("Failed to update scan status:", err);
     }
   }, [autoScanRunning, startCountdown]);
+
 
   // --------------------------
   // Real-time Supabase listener
