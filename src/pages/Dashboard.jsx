@@ -149,29 +149,30 @@ const AdminDashboard = () => {
   // Toggle Auto Scan
   // --------------------------
   const toggleAutoScan = useCallback(async () => {
-  const newStatus = !autoScanRunning;
-  setAutoScanRunning(newStatus);
+    const newStatus = !autoScanRunning;
+    setAutoScanRunning(newStatus);
 
-  try {
-    const nextTS = newStatus ? Date.now() + FIXED_INTERVAL : null;
+    try {
+      const nextTS = newStatus ? Date.now() + FIXED_INTERVAL : null;
 
-    await supabase.from("device_scanning").upsert({
-      id: 1,
-      status: newStatus ? 1 : 0,
-      next_auto_save_ts: nextTS,
-    });
+      await supabase.from("device_scanning").upsert({
+        id: 1,
+        status: newStatus ? 1 : 0,
+        next_auto_save_ts: nextTS,
+      });
 
-    if (newStatus) {
-      startCountdown(nextTS); // start countdown when starting auto-scan
-    } else {
-      // when stopping, fetch one last sensor reading to display
-      await fetchSensorData();
-      if (intervalRef.current) clearInterval(intervalRef.current); // stop countdown
+      if (newStatus) {
+        startCountdown(nextTS); // start countdown when starting auto-scan
+      } else {
+        // when stopping, fetch one last sensor reading to display
+        await fetchSensorData();
+        if (intervalRef.current) clearInterval(intervalRef.current); // stop countdown
+      }
+    } catch (err) {
+      console.error("Failed to update scan status:", err);
     }
-  } catch (err) {
-    console.error("Failed to update scan status:", err);
-  }
-}, [autoScanRunning, startCountdown, fetchSensorData]);
+  }, [autoScanRunning, startCountdown, fetchSensorData]);
+
 
 
   // --------------------------
@@ -250,12 +251,12 @@ const AdminDashboard = () => {
         </section>
 
         <section className="sensor-grid">
-          {["ph","turbidity","temp","tds"].map(key => (
+          {["ph", "turbidity", "temp", "tds"].map(key => (
             <div key={key} className={`sensor-card ${getSensorStatus(key, sensorData[key])}`}>
               <h3>{key.toUpperCase()}</h3>
-              <p>{sensorData[key]} {key==="turbidity"?"NTU":key==="temp"?"°C":key==="tds"?"ppm":""}</p>
+              <p>{sensorData[key]} {key === "turbidity" ? "NTU" : key === "temp" ? "°C" : key === "tds" ? "ppm" : ""}</p>
               <p className={`status-label ${getSensorStatus(key, sensorData[key])}`}>
-                {sensorData[key]==="N/A"?"NO DATA":getSensorStatus(key,sensorData[key]).toUpperCase()}
+                {sensorData[key] === "N/A" ? "NO DATA" : getSensorStatus(key, sensorData[key]).toUpperCase()}
               </p>
             </div>
           ))}
