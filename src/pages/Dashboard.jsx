@@ -212,9 +212,14 @@ const AdminDashboard = () => {
           const isRunning = payload.new.status === 1;
           setAutoScanRunning(isRunning);
 
-          if (payload.new.latest_sensor) {
+          if (isRunning && payload.new.latest_sensor) {
+            // Auto-scan running → show latest data
             setSensorData(payload.new.latest_sensor);
             computeOverallSafety(payload.new.latest_sensor);
+          } else {
+            // Auto-scan stopped → reset to N/A
+            setSensorData({ ph: "N/A", turbidity: "N/A", temp: "N/A", tds: "N/A" });
+            setOverallSafety("N/A");
           }
 
           if (payload.new.next_auto_save_ts) startCountdown(payload.new.next_auto_save_ts);
@@ -222,6 +227,7 @@ const AdminDashboard = () => {
         }
       )
       .subscribe();
+/*  */
 
     return () => supabase.removeChannel(channel);
   }, [computeOverallSafety, startCountdown]);
