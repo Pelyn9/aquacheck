@@ -1,12 +1,14 @@
 // src/pages/AdminDashboard.jsx
-import React, { useState, useEffect, useCallback, useRef } from "react";
+import React, { useState, useEffect, useCallback, useContext } from "react";
 import Sidebar from "../components/Sidebar";
 import "../assets/databoard.css";
 import { supabase } from "../supabaseClient";
+import { AutoScanContext } from "../contexts/AutoScanContext"; // adjust path if needed
 
 const AdminDashboard = () => {
   const FIXED_INTERVAL = 900000; // 15 minutes
-  const intervalRef = useRef(null);
+
+  const { autoScanRunning, startAutoScan, stopAutoScan } = useContext(AutoScanContext);
 
   const [sensorData, setSensorData] = useState({
     ph: "N/A",
@@ -14,10 +16,10 @@ const AdminDashboard = () => {
     temp: "N/A",
     tds: "N/A",
   });
+
   const [status, setStatus] = useState("Awaiting sensor data...");
   const [countdown, setCountdown] = useState(FIXED_INTERVAL / 1000);
   const [overallSafety, setOverallSafety] = useState("N/A");
-  const [autoScanRunning, setAutoScanRunning] = useState(false);
 
   const esp32Url =
     process.env.NODE_ENV === "production"
@@ -32,6 +34,7 @@ const AdminDashboard = () => {
       setOverallSafety("N/A");
       return;
     }
+
     const scores = Object.entries(data).map(([key, value]) => {
       if (value === "N/A") return 0;
       const val = parseFloat(value);
@@ -48,6 +51,7 @@ const AdminDashboard = () => {
           return 0;
       }
     });
+
     const total = scores.reduce((a, b) => a + b, 0);
     if (total >= 7) setOverallSafety("Safe");
     else if (total >= 4) setOverallSafety("Moderate");
@@ -61,6 +65,7 @@ const AdminDashboard = () => {
     try {
       const response = await fetch(esp32Url, { cache: "no-store" });
       if (!response.ok) throw new Error("ESP32 fetch failed");
+
       const data = await response.json();
       const latest = data.latestData || data;
 
@@ -122,85 +127,12 @@ const AdminDashboard = () => {
       const { error } = await supabase.from("dataset_history").insert([saveData]);
       if (error) throw error;
 
-      // Update device_scanning next_auto_save_ts
-      const nextTS = Date.now() + FIXED_INTERVAL;
-      await supabase.from("device_scanning")
-        .update({ last_scan_time: new Date().toISOString(), next_auto_save_ts: nextTS })
-        .eq("id", 1);
-
       setStatus(`💾 Auto-saved at ${new Date().toLocaleTimeString()}`);
     } catch (err) {
       console.error(err);
       setStatus("❌ Auto-save failed.");
     }
   }, [fetchSensorData]);
-
-  // --------------------------
-  // Smooth Countdown
-  // --------------------------
-  const startCountdown = useCallback((nextTS) => {
-    if (intervalRef.current) clearInterval(intervalRef.current);
-    intervalRef.current = setInterval(async () => {
-      const remaining = nextTS - Date.now();
-      setCountdown(Math.max(Math.floor(remaining / 1000), 0));
-
-      if (remaining <= 0 && autoScanRunning) {
-        await handleAutoSave();
-      }
-    }, 1000);
-  }, [autoScanRunning, handleAutoSave]);
-
-  // --------------------------
-  // Toggle Auto Scan
-  // --------------------------
-  const toggleAutoScan = useCallback(async () => {
-    const newStatus = !autoScanRunning;
-    setAutoScanRunning(newStatus);
-
-    try {
-      const nextTS = newStatus ? Date.now() + FIXED_INTERVAL : null;
-
-      await supabase.from("device_scanning").upsert({
-        id: 1,
-        status: newStatus ? 1 : 0,
-        next_auto_save_ts: nextTS,
-      });
-
-      if (nextTS) startCountdown(nextTS);
-    } catch (err) {
-      console.error("Failed to update scan status:", err);
-    }
-  }, [autoScanRunning, startCountdown]);
-
-  // --------------------------
-  // Real-time Supabase listener
-  // --------------------------
-  useEffect(() => {
-    const fetchInitial = async () => {
-      const { data } = await supabase.from("device_scanning").select("*").eq("id", 1).single();
-      if (!data) return;
-
-      setAutoScanRunning(data.status === 1);
-      if (data.next_auto_save_ts) startCountdown(data.next_auto_save_ts);
-    };
-    fetchInitial();
-
-    const channel = supabase
-      .channel("scan_status_live")
-      .on(
-        "postgres_changes",
-        { event: "UPDATE", schema: "public", table: "device_scanning", filter: "id=eq.1" },
-        (payload) => {
-          const isRunning = payload.new.status === 1;
-          setAutoScanRunning(isRunning);
-          if (payload.new.next_auto_save_ts) startCountdown(payload.new.next_auto_save_ts);
-          else setCountdown(0);
-        }
-      )
-      .subscribe();
-
-    return () => supabase.removeChannel(channel);
-  }, [startCountdown]);
 
   // --------------------------
   // Sensor Status Color
@@ -217,6 +149,41 @@ const AdminDashboard = () => {
     }
   };
 
+  // --------------------------
+  // Handle Start/Stop buttons
+  // --------------------------
+  const handleStartStop = async () => {
+    if (autoScanRunning) {
+      await stopAutoScan();
+      // Reset sensor data when stopping
+      setSensorData({
+        ph: "N/A",
+        turbidity: "N/A",
+        temp: "N/A",
+        tds: "N/A",
+      });
+      setOverallSafety("N/A");
+      setCountdown(FIXED_INTERVAL / 1000);
+      setStatus("⏹ Auto-scan stopped (sensor data N/A)");
+    } else {
+      await startAutoScan(fetchSensorData);
+      setStatus("▶ Auto-scan started");
+    }
+  };
+
+  // --------------------------
+  // Countdown timer
+  // --------------------------
+  useEffect(() => {
+    let timer;
+    if (autoScanRunning) {
+      timer = setInterval(() => {
+        setCountdown(prev => (prev > 0 ? prev - 1 : FIXED_INTERVAL / 1000));
+      }, 1000);
+    }
+    return () => clearInterval(timer);
+  }, [autoScanRunning]);
+
   return (
     <div className="dashboard-container">
       <Sidebar />
@@ -228,7 +195,7 @@ const AdminDashboard = () => {
             <button className="save-btn" onClick={handleAutoSave}>Save Now</button>
             <button
               className={`start-stop-btn ${autoScanRunning ? "stop" : "start"}`}
-              onClick={toggleAutoScan}
+              onClick={handleStartStop}
             >
               {autoScanRunning ? "Stop Auto Scan" : "Start Auto Scan"}
             </button>
