@@ -195,10 +195,15 @@ const AdminDashboard = () => {
       if (!data) return;
 
       setAutoScanRunning(data.status === 1);
-      if (data.latest_sensor) {
+
+      if (data.status === 1 && data.latest_sensor) {
         setSensorData(data.latest_sensor);
         computeOverallSafety(data.latest_sensor);
+      } else if (data.status === 0) {
+        setSensorData({ ph: "N/A", turbidity: "N/A", temp: "N/A", tds: "N/A" });
+        setOverallSafety("N/A");
       }
+
       if (data.next_auto_save_ts) startCountdown(data.next_auto_save_ts);
     };
     fetchInitial();
@@ -213,11 +218,9 @@ const AdminDashboard = () => {
           setAutoScanRunning(isRunning);
 
           if (isRunning && payload.new.latest_sensor) {
-            // Auto-scan running → show latest data
             setSensorData(payload.new.latest_sensor);
             computeOverallSafety(payload.new.latest_sensor);
           } else {
-            // Auto-scan stopped → reset to N/A
             setSensorData({ ph: "N/A", turbidity: "N/A", temp: "N/A", tds: "N/A" });
             setOverallSafety("N/A");
           }
@@ -227,7 +230,6 @@ const AdminDashboard = () => {
         }
       )
       .subscribe();
-/*  */
 
     return () => supabase.removeChannel(channel);
   }, [computeOverallSafety, startCountdown]);
