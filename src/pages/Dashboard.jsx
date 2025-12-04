@@ -138,19 +138,17 @@ const AdminDashboard = () => {
   // --------------------------
   // Smooth Countdown
   // --------------------------
-  const startCountdown = useCallback((nextTS, running = false) => {
+  const startCountdown = useCallback((nextTS) => {
     if (intervalRef.current) clearInterval(intervalRef.current);
-
     intervalRef.current = setInterval(async () => {
       const remaining = nextTS - Date.now();
       setCountdown(Math.max(Math.floor(remaining / 1000), 0));
 
-      if (remaining <= 0 && running) {
+      if (remaining <= 0 && autoScanRunning) {
         await handleAutoSave();
       }
     }, 1000);
-  }, [handleAutoSave]);
-
+  }, [autoScanRunning, handleAutoSave]);
 
   // --------------------------
   // Toggle Auto Scan
