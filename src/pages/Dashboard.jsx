@@ -18,6 +18,12 @@ const AdminDashboard = () => {
   const [countdown, setCountdown] = useState(FIXED_INTERVAL / 1000);
   const [overallSafety, setOverallSafety] = useState("N/A");
   const [autoScanRunning, setAutoScanRunning] = useState(false);
+  const [lastSavedZero, setLastSavedZero] = useState({
+    ph: 0,
+    turbidity: 0,
+    temp: 0,
+    tds: 0
+  });
 
   const esp32Url =
     process.env.NODE_ENV === "production"
@@ -36,16 +42,11 @@ const AdminDashboard = () => {
       if (value === "N/A") return 0;
       const val = parseFloat(value);
       switch (key) {
-        case "ph":
-          return val >= 6.5 && val <= 8.5 ? 2 : 0;
-        case "turbidity":
-          return val <= 5 ? 2 : val <= 10 ? 1 : 0;
-        case "temp":
-          return val >= 24 && val <= 32 ? 2 : 0;
-        case "tds":
-          return val <= 500 ? 2 : 0;
-        default:
-          return 0;
+        case "ph": return val >= 6.5 && val <= 8.5 ? 2 : 0;
+        case "turbidity": return val <= 5 ? 2 : val <= 10 ? 1 : 0;
+        case "temp": return val >= 24 && val <= 32 ? 2 : 0;
+        case "tds": return val <= 500 ? 2 : 0;
+        default: return 0;
       }
     });
     const total = scores.reduce((a, b) => a + b, 0);
@@ -101,15 +102,33 @@ const AdminDashboard = () => {
   }, [esp32Url, computeOverallSafety]);
 
   // --------------------------
-  // Auto Save
+  // Auto Save with Zero Logic
   // --------------------------
   const handleAutoSave = useCallback(async () => {
+    if (!autoScanRunning) return; // stop immediately if auto-scan off
     const data = await fetchSensorData();
     if (!data) return;
 
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
+
+      const now = Date.now();
+      // Determine if save is needed
+      const shouldSave = Object.entries(data).some(([key, value]) => {
+        const val = parseFloat(value);
+        if (isNaN(val) || val !== 0) return true; // normal save
+        return now - lastSavedZero[key] >= FIXED_INTERVAL; // zero save once per interval
+      });
+
+      if (!shouldSave) return; // skip if nothing new to save
+
+      // Update lastSavedZero timestamps for zero values
+      const newLastSavedZero = { ...lastSavedZero };
+      Object.entries(data).forEach(([key, value]) => {
+        if (parseFloat(value) === 0) newLastSavedZero[key] = now;
+      });
+      setLastSavedZero(newLastSavedZero);
 
       const saveData = {
         user_id: user.id,
@@ -122,8 +141,7 @@ const AdminDashboard = () => {
       const { error } = await supabase.from("dataset_history").insert([saveData]);
       if (error) throw error;
 
-      // Update device_scanning next_auto_save_ts and latest_sensor
-      const nextTS = Date.now() + FIXED_INTERVAL;
+      const nextTS = now + FIXED_INTERVAL;
       await supabase.from("device_scanning")
         .update({ last_scan_time: new Date().toISOString(), next_auto_save_ts: nextTS, latest_sensor: data })
         .eq("id", 1);
@@ -133,7 +151,7 @@ const AdminDashboard = () => {
       console.error(err);
       setStatus("❌ Auto-save failed.");
     }
-  }, [fetchSensorData]);
+  }, [fetchSensorData, lastSavedZero, autoScanRunning]);
 
   // --------------------------
   // Smooth Countdown
@@ -141,11 +159,17 @@ const AdminDashboard = () => {
   const startCountdown = useCallback((nextTS) => {
     if (intervalRef.current) clearInterval(intervalRef.current);
     intervalRef.current = setInterval(async () => {
+      if (!autoScanRunning) { // stop immediately if auto-scan off
+        clearInterval(intervalRef.current);
+        return;
+      }
       const remaining = nextTS - Date.now();
       setCountdown(Math.max(Math.floor(remaining / 1000), 0));
 
-      if (remaining <= 0 && autoScanRunning) {
+      if (remaining <= 0) {
         await handleAutoSave();
+        const newNextTS = Date.now() + FIXED_INTERVAL;
+        startCountdown(newNextTS);
       }
     }, 1000);
   }, [autoScanRunning, handleAutoSave]);
