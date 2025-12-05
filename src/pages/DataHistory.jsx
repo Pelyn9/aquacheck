@@ -55,14 +55,14 @@ const DataHistory = () => {
   };
 
   useEffect(() => {
-    // Initial fetch
-    fetchData();
+  // Initial fetch
+  fetchData();
 
-    // Refresh every 15 seconds
-    const interval = setInterval(fetchData, 15000);
+  // Refresh every 15 seconds
+  const interval = setInterval(fetchData, 15000);
 
-    return () => clearInterval(interval); // cleanup on unmount
-  }, []);
+  return () => clearInterval(interval); // cleanup on unmount
+}, []);
 
   // Auto-delete data older than 30 days
   useEffect(() => {
