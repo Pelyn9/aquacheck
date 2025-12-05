@@ -154,33 +154,21 @@ const AdminDashboard = () => {
   // --------------------------
   // Manual Save (Save Now Button)
   // --------------------------
+  // --------------------------
+  // Manual Save (Save Now Button)
+  // --------------------------
   const handleManualSave = useCallback(async () => {
     try {
-      // Fetch sensor data independently (no auto-save checks)
-      const response = await fetch(esp32Url, { cache: "no-store" });
-      if (!response.ok) throw new Error("Failed to fetch sensor data");
-      const latest = await response.json();
-      const data = {
-        ph: latest.ph ? parseFloat(latest.ph).toFixed(2) : "N/A",
-        turbidity: latest.turbidity ? parseFloat(latest.turbidity).toFixed(1) : "N/A",
-        temp: latest.temperature ? parseFloat(latest.temperature).toFixed(1) : "N/A",
-        tds: latest.tds ? parseFloat(latest.tds).toFixed(0) : "N/A",
-      };
-
-      // Update sensor state and compute safety
-      setSensorData(data);
-      computeOverallSafety(data);
-
-      // Save to Supabase
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
+      // Use the current sensorData instead of fetching new
       const saveData = {
         user_id: user.id,
-        ph: parseFloat(data.ph) || null,
-        turbidity: parseFloat(data.turbidity) || null,
-        temperature: parseFloat(data.temp) || null,
-        tds: parseFloat(data.tds) || null,
+        ph: sensorData.ph !== "N/A" ? parseFloat(sensorData.ph) : null,
+        turbidity: sensorData.turbidity !== "N/A" ? parseFloat(sensorData.turbidity) : null,
+        temperature: sensorData.temp !== "N/A" ? parseFloat(sensorData.temp) : null,
+        tds: sensorData.tds !== "N/A" ? parseFloat(sensorData.tds) : null,
       };
 
       const { error } = await supabase.from("dataset_history").insert([saveData]);
@@ -191,7 +179,8 @@ const AdminDashboard = () => {
       console.error(err);
       setStatus("❌ Manual save failed.");
     }
-  }, [esp32Url, computeOverallSafety]);
+  }, [sensorData]);
+
 
 
   // --------------------------
