@@ -55,7 +55,13 @@ const DataHistory = () => {
   };
 
   useEffect(() => {
+    // Initial fetch
     fetchData();
+
+    // Refresh every 15 seconds
+    const interval = setInterval(fetchData, 15000);
+
+    return () => clearInterval(interval); // cleanup on unmount
   }, []);
 
   // Auto-delete data older than 30 days
@@ -84,9 +90,10 @@ const DataHistory = () => {
     }
 
     if (filters.date) {
-      filtered = filtered.filter((entry) =>
-        entry.created_at.startsWith(filters.date)
-      );
+      filtered = filtered.filter((entry) => {
+        const entryDate = new Date(entry.created_at).toLocaleDateString("en-CA"); // YYYY-MM-DD
+        return entryDate === filters.date;
+      });
     }
 
     if (filters.text) {
