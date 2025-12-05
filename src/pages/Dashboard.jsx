@@ -155,10 +155,21 @@ const AdminDashboard = () => {
   // Manual Save (Save Now Button)
   // --------------------------
   const handleManualSave = useCallback(async () => {
-    const data = await fetchSensorData();
-    if (!data) return;
-
     try {
+      // Fetch raw sensor data directly, without touching auto-save
+      const response = await fetch(esp32Url, { cache: "no-store" });
+      if (!response.ok) throw new Error("Failed to fetch sensor data");
+      const latest = await response.json();
+      const data = {
+        ph: latest.ph ? parseFloat(latest.ph).toFixed(2) : "N/A",
+        turbidity: latest.turbidity ? parseFloat(latest.turbidity).toFixed(1) : "N/A",
+        temp: latest.temperature ? parseFloat(latest.temperature).toFixed(1) : "N/A",
+        tds: latest.tds ? parseFloat(latest.tds).toFixed(0) : "N/A",
+      };
+
+      setSensorData(data);
+      computeOverallSafety(data);
+
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
@@ -177,8 +188,9 @@ const AdminDashboard = () => {
     } catch (err) {
       console.error(err);
       setStatus("❌ Manual save failed.");
-    }
-  }, [fetchSensorData]);
+    }/*  */
+  }, [esp32Url, computeOverallSafety]);
+
 
   // --------------------------
   // Smooth Countdown
