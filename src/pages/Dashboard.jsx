@@ -105,7 +105,7 @@ const AdminDashboard = () => {
   // Auto Save with Zero Logic
   // --------------------------
   const handleAutoSave = useCallback(async () => {
-    if (!autoScanRunning) return; // stop immediately if auto-scan off
+    if (!autoScanRunning) return;
     const data = await fetchSensorData();
     if (!data) return;
 
@@ -114,16 +114,14 @@ const AdminDashboard = () => {
       if (!user) return;
 
       const now = Date.now();
-      // Determine if save is needed
       const shouldSave = Object.entries(data).some(([key, value]) => {
         const val = parseFloat(value);
-        if (isNaN(val) || val !== 0) return true; // normal save
-        return now - lastSavedZero[key] >= FIXED_INTERVAL; // zero save once per interval
+        if (isNaN(val) || val !== 0) return true;
+        return now - lastSavedZero[key] >= FIXED_INTERVAL;
       });
 
-      if (!shouldSave) return; // skip if nothing new to save
+      if (!shouldSave) return;
 
-      // Update lastSavedZero timestamps for zero values
       const newLastSavedZero = { ...lastSavedZero };
       Object.entries(data).forEach(([key, value]) => {
         if (parseFloat(value) === 0) newLastSavedZero[key] = now;
@@ -154,12 +152,41 @@ const AdminDashboard = () => {
   }, [fetchSensorData, lastSavedZero, autoScanRunning]);
 
   // --------------------------
+  // Manual Save (Save Now Button)
+  // --------------------------
+  const handleManualSave = useCallback(async () => {
+    const data = await fetchSensorData();
+    if (!data) return;
+
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      const saveData = {
+        user_id: user.id,
+        ph: parseFloat(data.ph) || null,
+        turbidity: parseFloat(data.turbidity) || null,
+        temperature: parseFloat(data.temp) || null,
+        tds: parseFloat(data.tds) || null,
+      };
+
+      const { error } = await supabase.from("dataset_history").insert([saveData]);
+      if (error) throw error;
+
+      setStatus(`💾 Manual save completed at ${new Date().toLocaleTimeString()}`);
+    } catch (err) {
+      console.error(err);
+      setStatus("❌ Manual save failed.");
+    }
+  }, [fetchSensorData]);
+
+  // --------------------------
   // Smooth Countdown
   // --------------------------
   const startCountdown = useCallback((nextTS) => {
     if (intervalRef.current) clearInterval(intervalRef.current);
     intervalRef.current = setInterval(async () => {
-      if (!autoScanRunning) { // stop immediately if auto-scan off
+      if (!autoScanRunning) {
         clearInterval(intervalRef.current);
         return;
       }
@@ -281,7 +308,7 @@ const AdminDashboard = () => {
 
         <section className="scan-controls">
           <div className="button-group">
-            <button className="save-btn" onClick={handleAutoSave}>Save Now</button>
+            <button className="save-btn" onClick={handleManualSave}>Save Now</button>
             <button
               className={`start-stop-btn ${autoScanRunning ? "stop" : "start"}`}
               onClick={toggleAutoScan}
