@@ -156,7 +156,7 @@ const AdminDashboard = () => {
   // --------------------------
   const handleManualSave = useCallback(async () => {
     try {
-      // Fetch raw sensor data directly, without touching auto-save
+      // Fetch sensor data independently (no auto-save checks)
       const response = await fetch(esp32Url, { cache: "no-store" });
       if (!response.ok) throw new Error("Failed to fetch sensor data");
       const latest = await response.json();
@@ -167,9 +167,11 @@ const AdminDashboard = () => {
         tds: latest.tds ? parseFloat(latest.tds).toFixed(0) : "N/A",
       };
 
+      // Update sensor state and compute safety
       setSensorData(data);
       computeOverallSafety(data);
 
+      // Save to Supabase
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
@@ -188,7 +190,7 @@ const AdminDashboard = () => {
     } catch (err) {
       console.error(err);
       setStatus("❌ Manual save failed.");
-    }/*  */
+    }
   }, [esp32Url, computeOverallSafety]);
 
 
