@@ -3,7 +3,7 @@ import Sidebar from "../components/Sidebar";
 import { supabase } from "../supabaseClient";
 import "../assets/datahistory.css";
 
-// ✅ Compute overall status to match AdminDashboard
+// ✅ Compute overall status
 const getOverallStatus = (data) => {
   const scores = [];
 
@@ -45,24 +45,26 @@ const DataHistory = () => {
   const [downloadDate, setDownloadDate] = useState("");
   const tableContainerRef = useRef(null);
 
-  // Fetch data from Supabase
+  // Fetch live data from Supabase
   const fetchData = async () => {
     const { data: rows, error } = await supabase
       .from("dataset_history")
       .select("*")
       .order("created_at", { ascending: false });
-    if (!error) setData(rows || []);
+
+    if (!error) {
+      setData(rows || []);
+    } else {
+      console.error("Failed to fetch dataset_history:", error.message);
+    }
   };
 
   useEffect(() => {
-  // Initial fetch
-  fetchData();
+    fetchData(); // initial fetch
 
-  // Refresh every 15 seconds
-  const interval = setInterval(fetchData, 15000);
-
-  return () => clearInterval(interval); // cleanup on unmount
-}, []);
+    const interval = setInterval(fetchData, 15000); // auto-refresh
+    return () => clearInterval(interval); // cleanup
+  }, []);
 
   // Auto-delete data older than 30 days
   useEffect(() => {
@@ -155,7 +157,9 @@ const DataHistory = () => {
     else if (downloadMode === "unsafe")
       downloadData = data.filter((e) => getOverallStatus(e) === "Unsafe");
     else if (downloadMode === "date" && downloadDate)
-      downloadData = data.filter((e) => e.created_at.startsWith(downloadDate));
+      downloadData = data.filter((e) =>
+        e.created_at.startsWith(downloadDate)
+      );
 
     if (!downloadData.length) {
       alert("⚠ No matching records found.");
@@ -257,10 +261,10 @@ const DataHistory = () => {
                           hour12: true,
                         })}
                       </td>
-                      <td>{entry.ph || "N/A"}</td>
-                      <td>{entry.turbidity || "N/A"}</td>
-                      <td>{entry.temperature || "N/A"}</td>
-                      <td>{entry.tds || "N/A"}</td>
+                      <td>{entry.ph ?? "N/A"}</td>
+                      <td>{entry.turbidity ?? "N/A"}</td>
+                      <td>{entry.temperature ?? "N/A"}</td>
+                      <td>{entry.tds ?? "N/A"}</td>
                       <td>{status}</td>
                     </tr>
                   );
