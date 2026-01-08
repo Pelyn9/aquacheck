@@ -8,7 +8,7 @@
 // ---------------- PIN CONFIGURATION ----------------
 #define ONE_WIRE_BUS 14
 #define TDS_PIN 33
-#define PH_PIN 34        // Note: Logic is simulated, pin is reserved
+#define PH_PIN 34        // Note: Hardware reading is ignored, value is simulated
 #define TURBIDITY_PIN 32
 
 // ---------------- SENSOR OBJECTS ----------------
@@ -23,27 +23,26 @@ float turbidityValue = 0;
 
 bool allowScanning = true;
 
-// ---------------- SAMAL pH SIMULATOR ----------------
-// This generates a smooth, realistic "Sine Wave" movement
-// to simulate the natural alkaline state of Samal coastal water.
+// ---------------- 1. SAMAL pH SIMULATOR (THE ONLY FAKE DATA) ----------------
+// This generates a smooth, realistic movement to simulate Samal coastal water.
 void simulateSamalPH() {
   unsigned long now = millis();
   
-  // Creates a gentle wave between 8.20 and 8.30
+  // Creates a gentle wave movement between 8.20 and 8.30
   float phWave = sin(now / 5000.0) * 0.05; 
   
-  // Adds a tiny "live" vibration (-0.005 to +0.005)
+  // Adds a tiny "live" vibration noise
   float phNoise = (random(-5, 6) / 1000.0); 
   
   phValue = 8.25 + phWave + phNoise;
 }
 
-// ---------------- READ REAL TDS (Hardware) ----------------
+// ---------------- 2. READ REAL TDS (Hardware) ----------------
 float readTDS() {
-  const int samples = 15; // Increased samples for stability
+  const int samples = 15; 
   float sum = 0;
   for (int i = 0; i < samples; i++) {
-    int raw = analogRead(TDS_PIN);
+    int raw = analogRead(TDS_PIN); // Reads actual pin 33
     float voltage = raw * (3.3 / 4095.0);
     // Standard Gravity TDS mathematical model
     float tds = (133.42 * pow(voltage, 3) - 255.86 * pow(voltage, 2) + 857.39 * voltage) * 0.5;
@@ -54,12 +53,12 @@ float readTDS() {
   return sum / samples;
 }
 
-// ---------------- READ REAL TURBIDITY (Hardware) ----------------
+// ---------------- 3. READ REAL TURBIDITY (Hardware) ----------------
 float readTurbidity() {
   const int samples = 15;
   float sumVoltage = 0;
   for (int i = 0; i < samples; i++) {
-    int raw = analogRead(TURBIDITY_PIN);
+    int raw = analogRead(TURBIDITY_PIN); // Reads actual pin 32
     float voltage = raw * (3.3 / 4095.0);
     sumVoltage += voltage;
     delay(5);
@@ -77,7 +76,7 @@ void uploadToServers() {
 
   const char* url = "https://aquachecklive.vercel.app/api/data";
   
-  // Construct JSON Payload
+  // Construct JSON Payload - Sending all 4 parameters
   String jsonData = "{\"ph\":" + String(phValue, 2) +
                     ",\"turbidity\":" + String(turbidityValue, 2) +
                     ",\"temperature\":" + String(temperature, 2) +
@@ -106,7 +105,6 @@ void checkControlCommand() {
   
   if (code == 200) {
     String payload = http.getString();
-    // Simple JSON check for "scan":true/false
     allowScanning = (payload.indexOf("\"scan\":true") >= 0);
   }
   http.end();
@@ -115,37 +113,31 @@ void checkControlCommand() {
 // ---------------- SYSTEM SETUP ----------------
 void setup() {
   Serial.begin(115200);
-  randomSeed(analogRead(0)); // Initialize random generator
+  randomSeed(analogRead(0)); 
   
-  sensors.begin(); // Start Temperature sensor
+  sensors.begin(); // Start REAL Temperature sensor
   
-  // WiFiManager: Connects to saved Wi-Fi or starts Access Point "SafeShore"
   WiFiManager wm;
   wm.setConnectTimeout(60);
   if (!wm.autoConnect("SafeShore_AP", "safeshore4dmin")) {
-    Serial.println("❌ Connection Failed. Restarting...");
-    delay(3000);
     ESP.restart();
   }
 
   Serial.println("\n✅ SAFESHORE ONLINE");
-  Serial.println("Real Sensors: Temp, TDS, Turbidity");
-  Serial.println("Simulated Sensor: pH (Samal Baseline)");
 }
 
 // ---------------- MAIN MONITORING LOOP ----------------
 void loop() {
-  // Sync with Dashboard Command
   checkControlCommand();
 
-  // 1. Temperature (REAL SENSOR)
+  // 1. Temperature (REAL SENSOR - DS18B20)
   sensors.requestTemperatures();
   float tempReading = sensors.getTempCByIndex(0);
   if (tempReading > -100 && !isnan(tempReading)) {
     temperature = tempReading;
   }
 
-  // 2. pH (SIMULATED - Moving realtime)
+  // 2. pH (SIMULATED SAMAL DATA)
   simulateSamalPH();
 
   // 3. TDS & Turbidity (REAL SENSORS)
@@ -161,8 +153,8 @@ void loop() {
   Serial.printf("💧 SIM PH:    %.2f (Samal)\n", phValue);
   Serial.println("====================================");
 
-  // 5. Send data to Vercel/Supabase
+  // 5. Send data to Vercel
   uploadToServers();
 
-  delay(1000); // 1-second update for a smooth live dashboard experience
+  delay(1000); 
 }
