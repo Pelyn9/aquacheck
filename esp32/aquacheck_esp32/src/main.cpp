@@ -8,10 +8,10 @@
 #include <math.h>
 
 // ---------------- PIN CONFIGURATION ----------------
-#define ONE_WIRE_BUS     14
-#define TDS_PIN          33
-#define PH_PIN           34
-#define TURBIDITY_PIN    32
+#define ONE_WIRE_BUS 14
+#define TDS_PIN 33
+#define PH_PIN 34
+#define TURBIDITY_PIN 32
 
 // ---------------- SENSOR OBJECTS ----------------
 OneWire oneWire(ONE_WIRE_BUS);
@@ -21,17 +21,12 @@ DFRobot_PH ph;
 // ---------------- VARIABLES ----------------
 float temperature = 25.0;
 float tdsValue = 0;
-float phValue = 8.2;      // Simulated Samal coastal pH
+float phValue = 8.2;   // Simulated Samal coastal pH
 float turbidityValue = 0;
 
 bool allowScanning = true;
 
-// ---------------- TIMING ----------------
-unsigned long lastSend = 0;
-const unsigned long interval = 1000; // 1 second
-
 // ---------------- SIMULATED SAMAL pH ----------------
-// Coastal Samal waters are alkaline (8.1–8.4)
 void generateSamalPH() {
   float variation = random(-20, 21) / 1000.0; // ±0.02
   phValue += variation;
@@ -81,7 +76,7 @@ float readTurbidity() {
   return turbidity;
 }
 
-// ---------------- DASHBOARD CONTROL ----------------
+// ---------------- CHECK DASHBOARD CONTROL ----------------
 void checkControlCommand() {
   if (WiFi.status() != WL_CONNECTED) return;
 
@@ -91,12 +86,13 @@ void checkControlCommand() {
 
   if (code == 200) {
     String payload = http.getString();
-    allowScanning = payload.indexOf("\"scan\":true") >= 0;
+    if (payload.indexOf("\"scan\":true") >= 0) allowScanning = true;
+    if (payload.indexOf("\"scan\":false") >= 0) allowScanning = false;
   }
   http.end();
 }
 
-// ---------------- UPLOAD DATA ----------------
+// ---------------- UPLOAD TO DASHBOARD ----------------
 void uploadToDashboard() {
   if (!allowScanning || WiFi.status() != WL_CONNECTED) return;
 
@@ -104,17 +100,17 @@ void uploadToDashboard() {
   http.begin("https://aquachecklive.vercel.app/api/data");
   http.addHeader("Content-Type", "application/json");
 
-  String json = "{";
-  json += "\"ph\":" + String(phValue, 2) + ",";
-  json += "\"turbidity\":" + String(turbidityValue, 2) + ",";
-  json += "\"temperature\":" + String(temperature, 2) + ",";
-  json += "\"tds\":" + String(tdsValue, 2);
-  json += "}";
+  String jsonData = "{";
+  jsonData += "\"ph\":" + String(phValue, 2) + ",";
+  jsonData += "\"turbidity\":" + String(turbidityValue, 2) + ",";
+  jsonData += "\"temperature\":" + String(temperature, 2) + ",";
+  jsonData += "\"tds\":" + String(tdsValue, 2);
+  jsonData += "}";
 
-  Serial.println("📤 MIRRORED TO DASHBOARD:");
-  Serial.println(json);
+  Serial.println("📤 SENT TO DASHBOARD:");
+  Serial.println(jsonData);
 
-  http.POST(json);
+  http.POST(jsonData);
   http.end();
 }
 
@@ -144,12 +140,9 @@ void setup() {
 
 // ---------------- MAIN LOOP ----------------
 void loop() {
-  if (millis() - lastSend < interval) return;
-  lastSend = millis();
-
   checkControlCommand();
 
-  // 1. REAL TEMPERATURE
+  // 1. READ REAL TEMPERATURE
   sensors.requestTemperatures();
   temperature = sensors.getTempCByIndex(0);
   if (temperature == -127.0 || isnan(temperature)) temperature = 25.0;
@@ -163,12 +156,12 @@ void loop() {
 
   // 4. SERIAL OUTPUT (SOURCE OF TRUTH)
   Serial.println("\n--- SAMAL ISLAND SHORE MONITORING ---");
-  Serial.printf("🌡 Temperature : %.2f °C\n", temperature);
-  Serial.printf("💧 pH           : %.2f (Simulated)\n", phValue);
-  Serial.printf("🧂 TDS          : %.2f ppm\n", tdsValue);
-  Serial.printf("🌫 Turbidity    : %.2f NTU\n", turbidityValue);
+  Serial.printf("🌡 Temp: %.2f °C | 💧 pH: %.2f (Simulated)\n", temperature, phValue);
+  Serial.printf("🧂 TDS: %.2f ppm | 🌫 Turbidity: %.2f NTU\n", tdsValue, turbidityValue);
   Serial.println("--------------------------------------");
 
-  // 5. SEND EXACT SAME VALUES
+  // 5. UPLOAD EVERY 1 SECOND (NO SKIP)
   uploadToDashboard();
+
+  delay(1000); // ✅ EXACTLY 1 SECOND
 }
