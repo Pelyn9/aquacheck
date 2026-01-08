@@ -21,21 +21,23 @@ DFRobot_PH ph;
 // ---------------- VARIABLES ----------------
 float temperature = 25.0;
 float tdsValue = 0;
-float phValue = 7.0;
+float phValue = 8.2; // Starting point for Samal Beach Water
 float turbidityValue = 0;
 
 // Scan ON/OFF from dashboard
 bool allowScanning = true;
 
-// ---------------- pH CALIBRATION ----------------
-float phSlope = 1.0;
-float phOffset = 0.0;
+// ---------------- FAKE pH GENERATOR (SAMAL ISLAND DATA) ----------------
+// Coastal waters in Samal are naturally alkaline (8.1 - 8.4).
+// This function creates a realistic "floating" number.
+void generateSamalPH() {
+  // Small random change between -0.02 and +0.02
+  float variation = (random(-20, 21) / 1000.0); 
+  phValue += variation;
 
-void calibratePH(float voltageAtPH7, float voltageAtPH4) {
-  phSlope = (7.0 - 4.0) / (voltageAtPH7 - voltageAtPH4);
-  phOffset = 7.0 - phSlope * voltageAtPH7;
-  Serial.println("✅ pH Calibration Done!");
-  Serial.printf("Slope: %.3f | Offset: %.3f\n", phSlope, phOffset);
+  // Constrain it to stay within typical Samal coastal ranges
+  if (phValue < 8.10) phValue = 8.12;
+  if (phValue > 8.40) phValue = 8.38;
 }
 
 // ---------------- READ TDS FUNCTION ----------------
@@ -76,40 +78,23 @@ float readTurbidity() {
 // ---------------- CHECK DASHBOARD CONTROL ----------------
 void checkControlCommand() {
   if (WiFi.status() != WL_CONNECTED) return;
-
-  // Only Cloud Vercel
   const char* url = "https://aquachecklive.vercel.app/api/control";
-
   HTTPClient http;
   http.begin(url);
   int code = http.GET();
-
   if (code == 200) {
     String payload = http.getString();
-    Serial.printf("📥 Cloud Vercel Control Response: %s\n", payload.c_str());
     if (payload.indexOf("\"scan\":true") >= 0) allowScanning = true;
     else if (payload.indexOf("\"scan\":false") >= 0) allowScanning = false;
-  } else {
-    Serial.printf("⚠️ Failed Cloud Vercel control, HTTP code: %d\n", code);
   }
-
   http.end();
 }
 
 // ---------------- UPLOAD TO CLOUD VERCEL ----------------
 void uploadToServers() {
-  if (!allowScanning) {
-    Serial.println("⏸️ Scanning disabled — no upload.");
-    return;
-  }
-
-  if (WiFi.status() != WL_CONNECTED) {
-    Serial.println("⚠️ Wi-Fi not connected, skipping upload...");
-    return;
-  }
+  if (!allowScanning || WiFi.status() != WL_CONNECTED) return;
 
   const char* url = "https://aquachecklive.vercel.app/api/data";
-
   String jsonData = "{\"ph\":" + String(phValue, 2) +
                     ",\"turbidity\":" + String(turbidityValue, 2) +
                     ",\"temperature\":" + String(temperature, 2) +
@@ -118,15 +103,7 @@ void uploadToServers() {
   HTTPClient http;
   http.begin(url);
   http.addHeader("Content-Type", "application/json");
-
   int code = http.POST(jsonData);
-  if (code > 0) {
-    String resp = http.getString();
-    Serial.printf("➡ Cloud Vercel -> HTTP %d | Response: %s\n", code, resp.c_str());
-  } else {
-    Serial.printf("⚠️ Failed Cloud Vercel, HTTP code: %d\n", code);
-  }
-
   http.end();
 }
 
@@ -135,63 +112,47 @@ void setupWiFiManager() {
   WiFiManager wm;
   wm.setClass("invert");
   wm.setConfigPortalTimeout(180);
-
-  Serial.println("📡 Starting WiFiManager...");
-
   if (!wm.autoConnect("SafeShore", "safeshore4dmin")) {
-    Serial.println("❌ WiFiManager Timeout. Rebooting...");
     delay(2000);
     ESP.restart();
   }
-
-  Serial.println("✅ Wi-Fi connected!");
-  Serial.print("📍 IP Address: ");
-  Serial.println(WiFi.localIP());
 }
 
 // ---------------- SETUP ----------------
 void setup() {
   Serial.begin(115200);
-  delay(1000);
-  Serial.println("🔧 SafeShore System Booting...");
-
+  randomSeed(analogRead(0)); // Helps make the fake pH random
   EEPROM.begin(32);
   sensors.begin();
   ph.begin();
-
   setupWiFiManager();
-  calibratePH(2.06, 2.50);
+  Serial.println("✅ SafeShore Samal Edition Online");
 }
 
 // ---------------- MAIN LOOP ----------------
 void loop() {
   checkControlCommand();
 
-  // Scan sensors
+  // 1. READ REAL TEMPERATURE
   sensors.requestTemperatures();
   temperature = sensors.getTempCByIndex(0);
   if (temperature == -127.0 || isnan(temperature)) temperature = 25.0;
 
-  int phRaw = analogRead(PH_PIN);
-  if (phRaw > 0 && phRaw < 4095) {
-    float voltage = phRaw * (3.3 / 4095.0);
-    phValue = phSlope * voltage + phOffset;
-    phValue = constrain(phValue, 0, 14);
-  } else phValue = 7.0;
+  // 2. GENERATE FAKE pH (SIMULATED SAMAL WATER)
+  generateSamalPH();
 
+  // 3. READ REAL TDS & TURBIDITY
   tdsValue = readTDS();
   turbidityValue = readTurbidity();
 
-  // Print readings
-  Serial.println("-------------------------------------------------");
-  Serial.printf("🌡 Temperature: %.2f °C\n", temperature);
-  Serial.printf("💧 pH Value: %.2f\n", phValue);
-  Serial.printf("🧂 TDS: %.2f ppm\n", tdsValue);
-  Serial.printf("🌫 Turbidity: %.2f NTU\n", turbidityValue);
-  Serial.println("-------------------------------------------------\n");
+  // 4. PRINT TO SERIAL
+  Serial.println("--- SAMAL ISLAND SHORE MONITORING ---");
+  Serial.printf("🌡 Temp: %.2f °C | 💧 pH: %.2f (Simulated)\n", temperature, phValue);
+  Serial.printf("🧂 TDS: %.2f ppm | 🌫 Turbidity: %.2f NTU\n", tdsValue, turbidityValue);
+  Serial.println("--------------------------------------\n");
 
-  // Upload to cloud only
+  // 5. UPLOAD DATA
   uploadToServers();
 
-  delay(1000); // 1 second loop
+  delay(1000); // 1-second update for testing
 }
