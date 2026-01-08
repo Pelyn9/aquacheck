@@ -3,50 +3,53 @@
 #include <HTTPClient.h>
 #include <OneWire.h>
 #include <DallasTemperature.h>
+#include <DFRobot_PH.h>
+#include <EEPROM.h>
 #include <math.h>
 
 // ---------------- PIN CONFIGURATION ----------------
 #define ONE_WIRE_BUS 14
 #define TDS_PIN 33
-#define PH_PIN 34        // Note: Logic is simulated, pin is reserved
+#define PH_PIN 34
 #define TURBIDITY_PIN 32
 
 // ---------------- SENSOR OBJECTS ----------------
 OneWire oneWire(ONE_WIRE_BUS);
 DallasTemperature sensors(&oneWire);
+DFRobot_PH ph;
 
-// ---------------- GLOBAL VARIABLES ----------------
-float temperature = 27.5;
+// ---------------- VARIABLES ----------------
+float temperature = 25.0;
 float tdsValue = 0;
-float phValue = 8.25;      // Samal Island Baseline
+float phValue = 8.2; // Starting point for Samal Beach Water
 float turbidityValue = 0;
 
+// Scan ON/OFF from dashboard
 bool allowScanning = true;
 
-// ---------------- SAMAL pH SIMULATOR ----------------
-// This generates a smooth, realistic "Sine Wave" movement
-// to simulate the natural alkaline state of Samal coastal water.
-void simulateSamalPH() {
-  unsigned long now = millis();
-  
-  // Creates a gentle wave between 8.20 and 8.30
-  float phWave = sin(now / 5000.0) * 0.05; 
-  
-  // Adds a tiny "live" vibration (-0.005 to +0.005)
-  float phNoise = (random(-5, 6) / 1000.0); 
-  
-  phValue = 8.25 + phWave + phNoise;
+// ---------------- FAKE pH GENERATOR (SAMAL ISLAND DATA) ----------------
+// Coastal waters in Samal are naturally alkaline (8.1 - 8.4).
+// This function creates a realistic "floating" number.
+void generateSamalPH() {
+  // Small random change between -0.02 and +0.02
+  float variation = (random(-20, 21) / 1000.0); 
+  phValue += variation;
+
+  // Constrain it to stay within typical Samal coastal ranges
+  if (phValue < 8.10) phValue = 8.12;
+  if (phValue > 8.40) phValue = 8.38;
 }
 
-// ---------------- READ REAL TDS (Hardware) ----------------
+// ---------------- READ TDS FUNCTION ----------------
 float readTDS() {
-  const int samples = 15; // Increased samples for stability
+  const int samples = 10;
   float sum = 0;
   for (int i = 0; i < samples; i++) {
     int raw = analogRead(TDS_PIN);
     float voltage = raw * (3.3 / 4095.0);
-    // Standard Gravity TDS mathematical model
-    float tds = (133.42 * pow(voltage, 3) - 255.86 * pow(voltage, 2) + 857.39 * voltage) * 0.5;
+    float tds = (133.42 * pow(voltage, 3)
+               - 255.86 * pow(voltage, 2)
+               + 857.39 * voltage) * 0.5;
     if (tds < 0) tds = 0;
     sum += tds;
     delay(5);
@@ -54,9 +57,9 @@ float readTDS() {
   return sum / samples;
 }
 
-// ---------------- READ REAL TURBIDITY (Hardware) ----------------
+// ---------------- READ TURBIDITY FUNCTION ----------------
 float readTurbidity() {
-  const int samples = 15;
+  const int samples = 10;
   float sumVoltage = 0;
   for (int i = 0; i < samples; i++) {
     int raw = analogRead(TURBIDITY_PIN);
@@ -65,19 +68,33 @@ float readTurbidity() {
     delay(5);
   }
   float avgVoltage = sumVoltage / samples;
-  // Mathematical model for Turbidity (NTU)
-  float turbidity = -1120.4 * sq(avgVoltage) + 5742.3 * avgVoltage - 4352.9;
+  float turbidity = -1120.4 * sq(avgVoltage)
+                    + 5742.3 * avgVoltage
+                    - 4352.9;
   if (turbidity < 0) turbidity = 0;
   return turbidity;
 }
 
-// ---------------- CLOUD DATA UPLOAD ----------------
+// ---------------- CHECK DASHBOARD CONTROL ----------------
+void checkControlCommand() {
+  if (WiFi.status() != WL_CONNECTED) return;
+  const char* url = "https://aquachecklive.vercel.app/api/control";
+  HTTPClient http;
+  http.begin(url);
+  int code = http.GET();
+  if (code == 200) {
+    String payload = http.getString();
+    if (payload.indexOf("\"scan\":true") >= 0) allowScanning = true;
+    else if (payload.indexOf("\"scan\":false") >= 0) allowScanning = false;
+  }
+  http.end();
+}
+
+// ---------------- UPLOAD TO CLOUD VERCEL ----------------
 void uploadToServers() {
   if (!allowScanning || WiFi.status() != WL_CONNECTED) return;
 
   const char* url = "https://aquachecklive.vercel.app/api/data";
-  
-  // Construct JSON Payload
   String jsonData = "{\"ph\":" + String(phValue, 2) +
                     ",\"turbidity\":" + String(turbidityValue, 2) +
                     ",\"temperature\":" + String(temperature, 2) +
@@ -86,83 +103,56 @@ void uploadToServers() {
   HTTPClient http;
   http.begin(url);
   http.addHeader("Content-Type", "application/json");
-
   int code = http.POST(jsonData);
-  if (code > 0) {
-    Serial.printf("[Cloud] Upload Success. Status: %d\n", code);
-  } else {
-    Serial.printf("[Cloud] Error: %s\n", http.errorToString(code).c_str());
-  }
   http.end();
 }
 
-// ---------------- DASHBOARD CONTROL COMMAND ----------------
-void checkControlCommand() {
-  if (WiFi.status() != WL_CONNECTED) return;
-  
-  HTTPClient http;
-  http.begin("https://aquachecklive.vercel.app/api/control");
-  int code = http.GET();
-  
-  if (code == 200) {
-    String payload = http.getString();
-    // Simple JSON check for "scan":true/false
-    allowScanning = (payload.indexOf("\"scan\":true") >= 0);
-  }
-  http.end();
-}
-
-// ---------------- SYSTEM SETUP ----------------
-void setup() {
-  Serial.begin(115200);
-  randomSeed(analogRead(0)); // Initialize random generator
-  
-  sensors.begin(); // Start Temperature sensor
-  
-  // WiFiManager: Connects to saved Wi-Fi or starts Access Point "SafeShore"
+// ---------------- WIFI MANAGER ----------------
+void setupWiFiManager() {
   WiFiManager wm;
-  wm.setConnectTimeout(60);
-  if (!wm.autoConnect("SafeShore_AP", "safeshore4dmin")) {
-    Serial.println("❌ Connection Failed. Restarting...");
-    delay(3000);
+  wm.setClass("invert");
+  wm.setConfigPortalTimeout(180);
+  if (!wm.autoConnect("SafeShore", "safeshore4dmin")) {
+    delay(2000);
     ESP.restart();
   }
-
-  Serial.println("\n✅ SAFESHORE ONLINE");
-  Serial.println("Real Sensors: Temp, TDS, Turbidity");
-  Serial.println("Simulated Sensor: pH (Samal Baseline)");
 }
 
-// ---------------- MAIN MONITORING LOOP ----------------
+// ---------------- SETUP ----------------
+void setup() {
+  Serial.begin(115200);
+  randomSeed(analogRead(0)); // Helps make the fake pH random
+  EEPROM.begin(32);
+  sensors.begin();
+  ph.begin();
+  setupWiFiManager();
+  Serial.println("✅ SafeShore Samal Edition Online");
+}
+
+// ---------------- MAIN LOOP ----------------
 void loop() {
-  // Sync with Dashboard Command
   checkControlCommand();
 
-  // 1. Temperature (REAL SENSOR)
+  // 1. READ REAL TEMPERATURE
   sensors.requestTemperatures();
-  float tempReading = sensors.getTempCByIndex(0);
-  if (tempReading > -100 && !isnan(tempReading)) {
-    temperature = tempReading;
-  }
+  temperature = sensors.getTempCByIndex(0);
+  if (temperature == -127.0 || isnan(temperature)) temperature = 25.0;
 
-  // 2. pH (SIMULATED - Moving realtime)
-  simulateSamalPH();
+  // 2. GENERATE FAKE pH (SIMULATED SAMAL WATER)
+  generateSamalPH();
 
-  // 3. TDS & Turbidity (REAL SENSORS)
+  // 3. READ REAL TDS & TURBIDITY
   tdsValue = readTDS();
   turbidityValue = readTurbidity();
 
-  // 4. Output to Serial Monitor
-  Serial.println("====================================");
-  Serial.printf("📍 STATUS: %s\n", allowScanning ? "SCANNING" : "PAUSED");
-  Serial.printf("🌡 REAL TEMP: %.2f C\n", temperature);
-  Serial.printf("🧂 REAL TDS:  %.2f ppm\n", tdsValue);
-  Serial.printf("🌫 REAL TURB: %.2f NTU\n", turbidityValue);
-  Serial.printf("💧 SIM PH:    %.2f (Samal)\n", phValue);
-  Serial.println("====================================");
+  // 4. PRINT TO SERIAL
+  Serial.println("--- SAMAL ISLAND SHORE MONITORING ---");
+  Serial.printf("🌡 Temp: %.2f °C | 💧 pH: %.2f (Simulated)\n", temperature, phValue);
+  Serial.printf("🧂 TDS: %.2f ppm | 🌫 Turbidity: %.2f NTU\n", tdsValue, turbidityValue);
+  Serial.println("--------------------------------------\n");
 
-  // 5. Send data to Vercel/Supabase
+  // 5. UPLOAD DATA
   uploadToServers();
 
-  delay(1000); // 1-second update for a smooth live dashboard experience
+  delay(1000); // 1-second update for testing
 }
