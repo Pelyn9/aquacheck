@@ -177,8 +177,15 @@ const AdminDashboard = () => {
   // --------------------------
   const handleManualSave = useCallback(async () => {
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
+      setStatus("💾 Saving manually...");
+
+      // Ensure user exists
+      const { data: userData, error: userError } = await supabase.auth.getUser();
+      if (userError) throw userError;
+      if (!userData.user) {
+        setStatus("❌ No logged-in user.");
+        return;
+      }
 
       const parseValue = (val) => {
         const n = parseFloat(val);
@@ -186,22 +193,29 @@ const AdminDashboard = () => {
       };
 
       const saveData = {
-        user_id: user.id,
+        user_id: userData.user.id,
         ph: parseValue(sensorData.ph),
         turbidity: parseValue(sensorData.turbidity),
         temperature: parseValue(sensorData.temp),
         tds: parseValue(sensorData.tds),
       };
 
+      // Insert into Supabase
       const { error } = await supabase.from("dataset_history").insert([saveData]);
-      if (error) throw error;
 
-      setStatus(`💾 Manual save completed at ${new Date().toLocaleTimeString()}`);
+      if (error) {
+        console.error("Manual save failed:", error);
+        setStatus("❌ Manual save failed.");
+      } else {
+        setStatus(`💾 Manual save successful at ${new Date().toLocaleTimeString()}`);
+        console.log("Manual save data:", saveData);
+      }
     } catch (err) {
       console.error("Manual save error:", err);
-      setStatus("❌ Manual save failed.");
+      setStatus("❌ Manual save error.");
     }
   }, [sensorData]);
+
 
   // --------------------------
   // Countdown logic
