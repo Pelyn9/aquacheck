@@ -1,93 +1,160 @@
-.data-analytics-page {
+/* ======================= MAIN LAYOUT ======================= */
+.analytics-main {
   display: flex;
   height: 100vh;
-  background: linear-gradient(135deg, #e0f7fa, #f8fafc);
+  overflow: hidden;
   font-family: "Poppins", sans-serif;
 }
 
-.analytics-content {
-  flex: 1;
-  padding: 2rem 3rem;
+.analytics-content-sidebar {
+  flex-grow: 1;
+  padding: 2rem 2rem;
   overflow-y: auto;
+  background: linear-gradient(135deg, #e0f7fa, #f8fafc);
 }
 
-.analytics-content h2 {
+/* ======================= PAGE HEADINGS & SUBTITLE ======================= */
+.analytics-content-sidebar h2 {
   text-align: center;
-  font-size: 1.9rem;
+  font-size: 1.8rem;
   font-weight: 700;
-  color: #0284c7;
-  margin-bottom: 0.4rem;
-}
-
-.subtitle {
-  text-align: center;
-  color: #475569;
-  margin-bottom: 2rem;
-}
-
-.chart-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 2rem;
-}
-
-.chart-container {
-  background: #ffffffd9;
-  border-radius: 20px;
-  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.08);
-  padding: 1.5rem;
-  backdrop-filter: blur(10px);
-  transition: all 0.3s ease;
-}
-
-.chart-container:hover {
-  transform: translateY(-3px);
-}
-
-.filter-section {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 1rem;
-}
-
-.filter-section select {
-  padding: 0.6rem 1rem;
-  border: 1.5px solid #60a5fa;
-  border-radius: 8px;
-  font-weight: 600;
-  background: #f0f9ff;
-  color: #1e3a8a;
-  cursor: pointer;
-}
-
-.status-card {
-  margin-top: 1.5rem;
-  background: linear-gradient(135deg, #e0f2fe, #ffffff);
-  border-left: 6px solid #0284c7;
-  padding: 1rem 1.2rem;
-  border-radius: 12px;
-  color: #1e293b;
-  font-weight: 500;
-  box-shadow: 0 5px 15px rgba(0, 0, 0, 0.05);
-}
-
-.status-card h3 {
-  margin: 0;
-  font-size: 1.1rem;
-  color: #0c4a6e;
+  color: #1e3a8a; /* dark blue for visibility */
   margin-bottom: 0.3rem;
 }
 
-.status-card p {
-  font-size: 1rem;
-  color: #1e40af;
+.analytics-content-sidebar .subtitle {
+  text-align: center;
+  font-size: 1.05rem;
+  font-weight: 600;
+  color: #1e40af; /* darker blue for visibility */
+  margin-bottom: 1.5rem;
+}
+
+/* ======================= TOGGLE BUTTONS (Daily/Weekly/Monthly) ======================= */
+.view-toggle {
+  display: flex;
+  gap: 0.5rem;
+  justify-content: center;
+  margin-bottom: 1rem;
+}
+
+.view-toggle button {
+  padding: 0.4rem 1rem;
+  border-radius: 8px;
+  border: 1px solid #94a3b8;
+  background: #f8fafc;
+  cursor: pointer;
+  font-weight: 600;
+  color: #1e3a8a; /* dark text for visibility */
+  transition: all 0.2s ease;
+}
+
+.view-toggle button:hover {
+  background: #e0f2fe;
+}
+
+.view-toggle .active {
+  background: #2563eb;
+  color: #ffffff; /* white text on active for contrast */
+}
+
+/* ======================= SENSOR GRID 2x2 ======================= */
+.sensor-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr); /* 2 columns for desktop */
+  gap: 1rem;
+  margin-bottom: 2rem;
+}
+
+@media (max-width: 1024px) {
+  .sensor-grid {
+    grid-template-columns: 1fr; /* stack on smaller screens */
+  }
+}
+
+/* ======================= SENSOR CARD ======================= */
+.sensor-card {
+  background: #ffffff;
+  border-radius: 14px;
+  padding: 1rem;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.06);
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+}
+
+/* ======================= FILTER SECTION (Date/Month/Year) ======================= */
+.filter-section {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+  flex-wrap: wrap;
+}
+
+.filter-section label {
+  color: #1e3a8a; /* dark blue for visibility */
   font-weight: 600;
 }
 
-/* Responsive */
-@media (max-width: 1024px) {
-  .chart-grid {
-    grid-template-columns: 1fr;
+.filter-section select {
+  padding: 0.4rem 0.8rem;
+  border-radius: 6px;
+  border: 1px solid #60a5fa;
+  background: #f0f9ff;
+  color: #1e3a8a; /* dark text for visibility */
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.filter-section select:hover,
+.filter-section select:focus {
+  border-color: #2563eb;
+  outline: none;
+}
+
+/* ======================= CHART CONTAINERS ======================= */
+.chart-container {
+  background: #ffffff;
+  border-radius: 14px;
+  padding: 1rem;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.06);
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  margin-bottom: 1rem;
+}
+
+.chart-container h3 {
+  color: #1e3a8a;
+  margin-bottom: 0.5rem;
+}
+
+/* ======================= RESPONSIVE LAYOUT ======================= */
+@media (max-width: 768px) {
+  .analytics-content-sidebar {
+    padding: 1rem;
   }
+
+  .view-toggle {
+    flex-direction: column;
+    gap: 0.4rem;
+  }
+
+  .filter-section {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.5rem;
+  }
+
+  .sensor-grid {
+    grid-template-columns: 1fr; /* 1 column for mobile */
+  }
+}
+
+/* ======================= TEXT COLOR FOR DAILY/WEEKLY/MONTHLY ======================= */
+.text-visible {
+  color: #1e3a8a; /* dark blue for all headings and text */
+  font-weight: 600;
 }
