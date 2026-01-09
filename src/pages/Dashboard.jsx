@@ -5,7 +5,7 @@ import "../assets/databoard.css";
 import { supabase } from "../supabaseClient";
 
 const AdminDashboard = () => {
-  const FIXED_INTERVAL = 900000; // 15 minutes in ms
+  const FIXED_INTERVAL = 900000; // 15 minutes
   const intervalRef = useRef(null);
   const autoSaveLockRef = useRef(false);
 
@@ -25,6 +25,7 @@ const AdminDashboard = () => {
     temp: 0,
     tds: 0,
   });
+  const [session, setSession] = useState(null); // ✅ store current session
 
   const esp32Url =
     process.env.NODE_ENV === "production"
@@ -103,33 +104,25 @@ const AdminDashboard = () => {
   }, [esp32Url, computeOverallSafety]);
 
   // --------------------------
-  // Auto Save with Zero Logic
+  // Auto Save
   // --------------------------
   const handleAutoSave = useCallback(async () => {
     if (!autoScanRunning) return;
-
     if (autoSaveLockRef.current) return;
     autoSaveLockRef.current = true;
 
     try {
       const data = await fetchSensorData();
-      if (!data) return;
-
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
+      if (!data || !session?.user) return;
 
       const now = Date.now();
-
       const shouldSave = Object.entries(data).some(([key, value]) => {
         const val = parseFloat(value);
         if (isNaN(val) || val !== 0) return true;
         return now - lastSavedZero[key] >= FIXED_INTERVAL;
       });
 
-      if (!shouldSave) {
-        console.log("⏭ Skipped auto-save (all zeros within interval)");
-        return;
-      }
+      if (!shouldSave) return;
 
       const updatedZeroTracker = { ...lastSavedZero };
       Object.entries(data).forEach(([key, value]) => {
@@ -143,7 +136,7 @@ const AdminDashboard = () => {
       };
 
       const saveData = {
-        user_id: user.id,
+        user_id: session.user.id,
         ph: parseValue(data.ph),
         turbidity: parseValue(data.turbidity),
         temperature: parseValue(data.temp),
@@ -154,14 +147,11 @@ const AdminDashboard = () => {
       if (error) throw error;
 
       const nextTS = now + FIXED_INTERVAL;
-      await supabase
-        .from("device_scanning")
-        .update({
-          last_scan_time: new Date().toISOString(),
-          next_auto_save_ts: nextTS,
-          latest_sensor: data,
-        })
-        .eq("id", 1);
+      await supabase.from("device_scanning").update({
+        last_scan_time: new Date().toISOString(),
+        next_auto_save_ts: nextTS,
+        latest_sensor: data,
+      }).eq("id", 1);
 
       setStatus(`💾 Auto-saved at ${new Date().toLocaleTimeString()}`);
     } catch (err) {
@@ -170,22 +160,18 @@ const AdminDashboard = () => {
     } finally {
       autoSaveLockRef.current = false;
     }
-  }, [autoScanRunning, fetchSensorData, lastSavedZero]);
+  }, [autoScanRunning, fetchSensorData, lastSavedZero, session]);
 
   // --------------------------
   // Manual Save
   // --------------------------
   const handleManualSave = useCallback(async () => {
     try {
-      setStatus("💾 Saving manually...");
-
-      // Ensure user exists
-      const { data: userData, error: userError } = await supabase.auth.getUser();
-      if (userError) throw userError;
-      if (!userData.user) {
-        setStatus("❌ No logged-in user.");
+      if (!session?.user) {
+        setStatus("❌ You are not logged in.");
         return;
       }
+      setStatus("💾 Saving manually...");
 
       const parseValue = (val) => {
         const n = parseFloat(val);
@@ -193,32 +179,26 @@ const AdminDashboard = () => {
       };
 
       const saveData = {
-        user_id: userData.user.id,
+        user_id: session.user.id,
         ph: parseValue(sensorData.ph),
         turbidity: parseValue(sensorData.turbidity),
         temperature: parseValue(sensorData.temp),
         tds: parseValue(sensorData.tds),
       };
 
-      // Insert into Supabase
       const { error } = await supabase.from("dataset_history").insert([saveData]);
+      if (error) throw error;
 
-      if (error) {
-        console.error("Manual save failed:", error);
-        setStatus("❌ Manual save failed.");
-      } else {
-        setStatus(`💾 Manual save successful at ${new Date().toLocaleTimeString()}`);
-        console.log("Manual save data:", saveData);
-      }
+      setStatus(`💾 Manual save successful at ${new Date().toLocaleTimeString()}`);
+      console.log("Manual save data:", saveData);
     } catch (err) {
       console.error("Manual save error:", err);
-      setStatus("❌ Manual save error.");
+      setStatus("❌ Manual save failed.");
     }
-  }, [sensorData]);
-
+  }, [sensorData, session]);
 
   // --------------------------
-  // Countdown logic
+  // Countdown
   // --------------------------
   const startCountdown = useCallback((nextTS) => {
     if (intervalRef.current) clearInterval(intervalRef.current);
@@ -274,7 +254,7 @@ const AdminDashboard = () => {
   }, [autoScanRunning, fetchSensorData, startCountdown]);
 
   // --------------------------
-  // Mirror sensor 1-second updates
+  // Mirror Sensor
   // --------------------------
   useEffect(() => {
     if (!autoScanRunning) return;
@@ -283,9 +263,16 @@ const AdminDashboard = () => {
   }, [autoScanRunning, fetchSensorData]);
 
   // --------------------------
-  // Supabase real-time listener
+  // Real-time listener + initial fetch
   // --------------------------
   useEffect(() => {
+    // Load session
+    const loadSession = async () => {
+      const { data } = await supabase.auth.getSession();
+      setSession(data?.session || null);
+    };
+    loadSession();
+
     const fetchInitial = async () => {
       const { data } = await supabase.from("device_scanning").select("*").eq("id", 1).single();
       if (!data) return;
@@ -324,7 +311,15 @@ const AdminDashboard = () => {
       )
       .subscribe();
 
-    return () => supabase.removeChannel(channel);
+    // Listen to auth changes
+    const { data: authListener } = supabase.auth.onAuthStateChange((_event, newSession) => {
+      setSession(newSession);
+    });
+
+    return () => {
+      supabase.removeChannel(channel);
+      authListener.subscription.unsubscribe();
+    };
   }, [computeOverallSafety, startCountdown]);
 
   // --------------------------
