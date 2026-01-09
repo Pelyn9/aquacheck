@@ -157,13 +157,13 @@ const AdminDashboard = () => {
       });
 
       if (newStatus) {
+        // Only fetch for display, do NOT save
         const data = await fetchSensorData();
         if (data) {
-          await supabase.from("device_scanning")
-            .update({ latest_sensor: data })
-            .eq("id", 1);
+          setSensorData(data); // update UI
         }
-        if (nextTS) startCountdown(nextTS);
+
+        if (nextTS) startCountdown(nextTS); // start countdown
       } else {
         if (intervalRef.current) clearInterval(intervalRef.current);
         setCountdown(0);
