@@ -130,16 +130,16 @@ const AdminDashboard = () => {
 
       const now = Date.now();
 
-      // 3️⃣ Decide if we should save
+      // 3️⃣ Check if we need to save
       const shouldSave = Object.entries(data).some(([key, value]) => {
         const val = parseFloat(value);
 
         // Save immediately if:
         // - value is NOT zero
-        // - value is NaN (sensor glitch)
+        // - value is NaN (sensor error)
         if (isNaN(val) || val !== 0) return true;
 
-        // If value is zero → save only once every 15 mins
+        // If value is zero → save only once per FIXED_INTERVAL
         return now - lastSavedZero[key] >= FIXED_INTERVAL;
       });
 
@@ -166,16 +166,12 @@ const AdminDashboard = () => {
         tds: parseFloat(data.tds) || null,
       };
 
-      // 6️⃣ Insert sensor data
-      const { error } = await supabase
-        .from("dataset_history")
-        .insert([saveData]);
-
+      // 6️⃣ Insert sensor data (no duplicates)
+      const { error } = await supabase.from("dataset_history").insert([saveData]);
       if (error) throw error;
 
-      // 7️⃣ Update device_scanning metadata
+      // 7️⃣ Update device_scanning with latest info + next auto-save timestamp
       const nextTS = now + FIXED_INTERVAL;
-
       await supabase
         .from("device_scanning")
         .update({
@@ -185,20 +181,16 @@ const AdminDashboard = () => {
         })
         .eq("id", 1);
 
+      // 8️⃣ Update status for UI
       setStatus(`💾 Auto-saved at ${new Date().toLocaleTimeString()}`);
     } catch (err) {
       console.error("Auto-save error:", err);
       setStatus("❌ Auto-save failed.");
     } finally {
-      // 🔓 Always release lock
+      // 🔓 Release lock so next save can run
       autoSaveLockRef.current = false;
     }
-  }, [
-    autoScanRunning,
-    fetchSensorData,
-    lastSavedZero,
-  ]);
-
+  }, [autoScanRunning, fetchSensorData, lastSavedZero]);
 
   // --------------------------
   // Manual Save
