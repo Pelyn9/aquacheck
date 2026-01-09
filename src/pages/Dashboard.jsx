@@ -200,12 +200,17 @@ const AdminDashboard = () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
+      const parseValue = (val) => {
+        const n = parseFloat(val);
+        return !isNaN(n) ? n : null;
+      };
+
       const saveData = {
         user_id: user.id,
-        ph: sensorData.ph !== "N/A" ? parseFloat(sensorData.ph) : null,
-        turbidity: sensorData.turbidity !== "N/A" ? parseFloat(sensorData.turbidity) : null,
-        temperature: sensorData.temp !== "N/A" ? parseFloat(sensorData.temp) : null,
-        tds: sensorData.tds !== "N/A" ? parseFloat(sensorData.tds) : null,
+        ph: parseValue(sensorData.ph),
+        turbidity: parseValue(sensorData.turbidity),
+        temperature: parseValue(sensorData.temp),
+        tds: parseValue(sensorData.tds),
       };
 
       const { error } = await supabase.from("dataset_history").insert([saveData]);
@@ -213,11 +218,10 @@ const AdminDashboard = () => {
 
       setStatus(`💾 Manual save completed at ${new Date().toLocaleTimeString()}`);
     } catch (err) {
-      console.error(err);
+      console.error("Manual save error:", err);
       setStatus("❌ Manual save failed.");
     }
   }, [sensorData]);
-
   // --------------------------
   // Smooth Countdown for 15-min auto-save
   // --------------------------
