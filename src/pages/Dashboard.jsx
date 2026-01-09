@@ -19,12 +19,6 @@ const AdminDashboard = () => {
   const [countdown, setCountdown] = useState(FIXED_INTERVAL / 1000);
   const [overallSafety, setOverallSafety] = useState("N/A");
   const [autoScanRunning, setAutoScanRunning] = useState(false);
-  const [lastSavedZero, setLastSavedZero] = useState({
-    ph: 0,
-    turbidity: 0,
-    temp: 0,
-    tds: 0,
-  });
 
   const esp32Url =
     process.env.NODE_ENV === "production"
@@ -103,12 +97,11 @@ const AdminDashboard = () => {
   }, [esp32Url, computeOverallSafety]);
 
   // --------------------------
-  // Auto Save with Zero Logic
+  // Auto Save
   // --------------------------
   const handleAutoSave = useCallback(async () => {
-    if (!autoScanRunning) return;
+    if (!autoScanRunning || autoSaveLockRef.current) return;
 
-    if (autoSaveLockRef.current) return;
     autoSaveLockRef.current = true;
 
     try {
@@ -118,42 +111,18 @@ const AdminDashboard = () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
-      const now = Date.now();
-
-      const shouldSave = Object.entries(data).some(([key, value]) => {
-        const val = parseFloat(value);
-        if (isNaN(val) || val !== 0) return true;
-        return now - lastSavedZero[key] >= FIXED_INTERVAL;
-      });
-
-      if (!shouldSave) {
-        console.log("⏭ Skipped auto-save (all zeros within interval)");
-        return;
-      }
-
-      const updatedZeroTracker = { ...lastSavedZero };
-      Object.entries(data).forEach(([key, value]) => {
-        if (parseFloat(value) === 0) updatedZeroTracker[key] = now;
-      });
-      setLastSavedZero(updatedZeroTracker);
-
-      const parseValue = (val) => {
-        const n = parseFloat(val);
-        return !isNaN(n) ? n : null;
-      };
-
       const saveData = {
         user_id: user.id,
-        ph: parseValue(data.ph),
-        turbidity: parseValue(data.turbidity),
-        temperature: parseValue(data.temp),
-        tds: parseValue(data.tds),
+        ph: parseFloat(data.ph) || null,
+        turbidity: parseFloat(data.turbidity) || null,
+        temperature: parseFloat(data.temp) || null,
+        tds: parseFloat(data.tds) || null,
       };
 
       const { error } = await supabase.from("dataset_history").insert([saveData]);
       if (error) throw error;
 
-      const nextTS = now + FIXED_INTERVAL;
+      const nextTS = Date.now() + FIXED_INTERVAL;
       await supabase
         .from("device_scanning")
         .update({
@@ -164,78 +133,32 @@ const AdminDashboard = () => {
         .eq("id", 1);
 
       setStatus(`💾 Auto-saved at ${new Date().toLocaleTimeString()}`);
+      return nextTS;
     } catch (err) {
       console.error("Auto-save error:", err);
       setStatus("❌ Auto-save failed.");
+      return Date.now() + FIXED_INTERVAL;
     } finally {
       autoSaveLockRef.current = false;
     }
-  }, [autoScanRunning, fetchSensorData, lastSavedZero]);
-
-  // --------------------------
-  // Manual Save
-  // --------------------------
-  const handleManualSave = useCallback(async () => {
-    try {
-      setStatus("💾 Saving manually...");
-
-      // Ensure user exists
-      const { data: userData, error: userError } = await supabase.auth.getUser();
-      if (userError) throw userError;
-      if (!userData.user) {
-        setStatus("❌ No logged-in user.");
-        return;
-      }
-
-      const parseValue = (val) => {
-        const n = parseFloat(val);
-        return !isNaN(n) ? n : null;
-      };
-
-      const saveData = {
-        user_id: userData.user.id,
-        ph: parseValue(sensorData.ph),
-        turbidity: parseValue(sensorData.turbidity),
-        temperature: parseValue(sensorData.temp),
-        tds: parseValue(sensorData.tds),
-      };
-
-      // Insert into Supabase
-      const { error } = await supabase.from("dataset_history").insert([saveData]);
-
-      if (error) {
-        console.error("Manual save failed:", error);
-        setStatus("❌ Manual save failed.");
-      } else {
-        setStatus(`💾 Manual save successful at ${new Date().toLocaleTimeString()}`);
-        console.log("Manual save data:", saveData);
-      }
-    } catch (err) {
-      console.error("Manual save error:", err);
-      setStatus("❌ Manual save error.");
-    }
-  }, [sensorData]);
-
+  }, [autoScanRunning, fetchSensorData]);
 
   // --------------------------
   // Countdown logic
   // --------------------------
   const startCountdown = useCallback((nextTS) => {
     if (intervalRef.current) clearInterval(intervalRef.current);
+
     intervalRef.current = setInterval(async () => {
-      if (!autoScanRunning) {
-        clearInterval(intervalRef.current);
-        return;
-      }
       const remaining = nextTS - Date.now();
       setCountdown(Math.max(Math.floor(remaining / 1000), 0));
 
       if (remaining <= 0) {
-        await handleAutoSave();
-        startCountdown(Date.now() + FIXED_INTERVAL);
+        const newNextTS = await handleAutoSave();
+        startCountdown(newNextTS);
       }
     }, 1000);
-  }, [autoScanRunning, handleAutoSave]);
+  }, [handleAutoSave]);
 
   // --------------------------
   // Toggle Auto Scan
@@ -274,7 +197,7 @@ const AdminDashboard = () => {
   }, [autoScanRunning, fetchSensorData, startCountdown]);
 
   // --------------------------
-  // Mirror sensor 1-second updates
+  // Mirror sensor updates every second
   // --------------------------
   useEffect(() => {
     if (!autoScanRunning) return;
@@ -283,7 +206,7 @@ const AdminDashboard = () => {
   }, [autoScanRunning, fetchSensorData]);
 
   // --------------------------
-  // Supabase real-time listener
+  // Initialize dashboard & listen for real-time updates
   // --------------------------
   useEffect(() => {
     const fetchInitial = async () => {
@@ -297,7 +220,12 @@ const AdminDashboard = () => {
         computeOverallSafety(data.latest_sensor);
       }
 
-      if (data.next_auto_save_ts) startCountdown(data.next_auto_save_ts);
+      // Use next_auto_save_ts to continue countdown
+      if (data.next_auto_save_ts) {
+        const remaining = data.next_auto_save_ts - Date.now();
+        const safeNextTS = remaining > 0 ? data.next_auto_save_ts : Date.now() + FIXED_INTERVAL;
+        startCountdown(safeNextTS);
+      }
     };
     fetchInitial();
 
@@ -341,6 +269,41 @@ const AdminDashboard = () => {
       default: return "";
     }
   };
+
+  // --------------------------
+  // Manual Save
+  // --------------------------
+  const handleManualSave = useCallback(async () => {
+    try {
+      setStatus("💾 Saving manually...");
+
+      const { data: userData, error: userError } = await supabase.auth.getUser();
+      if (userError) throw userError;
+      if (!userData.user) {
+        setStatus("❌ No logged-in user.");
+        return;
+      }
+
+      const saveData = {
+        user_id: userData.user.id,
+        ph: parseFloat(sensorData.ph) || null,
+        turbidity: parseFloat(sensorData.turbidity) || null,
+        temperature: parseFloat(sensorData.temp) || null,
+        tds: parseFloat(sensorData.tds) || null,
+      };
+
+      const { error } = await supabase.from("dataset_history").insert([saveData]);
+      if (error) {
+        console.error("Manual save failed:", error);
+        setStatus("❌ Manual save failed.");
+      } else {
+        setStatus(`💾 Manual save successful at ${new Date().toLocaleTimeString()}`);
+      }
+    } catch (err) {
+      console.error("Manual save error:", err);
+      setStatus("❌ Manual save error.");
+    }
+  }, [sensorData]);
 
   return (
     <div className="dashboard-container">
