@@ -5,7 +5,7 @@ import "../assets/databoard.css";
 import { supabase } from "../supabaseClient";
 
 const AdminDashboard = () => {
-  const FIXED_INTERVAL = 900000; // 15 minutes in ms
+  const FIXED_INTERVAL = 900000; // 15 minutes
   const intervalRef = useRef(null);
   const autoSaveLockRef = useRef(false);
 
@@ -69,30 +69,9 @@ const AdminDashboard = () => {
 
       setSensorData(formatted);
       computeOverallSafety(formatted);
-      setStatus("✅ ESP32 data fetched.");
       return formatted;
-    } catch (err) {
-      console.warn("ESP32 fetch failed, trying cloud backup...");
-      try {
-        const cloudRes = await fetch("/api/data", { cache: "no-store" });
-        const cloudJson = await cloudRes.json();
-        const latest = cloudJson.latestData || {};
-        const formatted = {
-          ph: latest.ph ? parseFloat(latest.ph).toFixed(2) : "N/A",
-          turbidity: latest.turbidity ? parseFloat(latest.turbidity).toFixed(1) : "N/A",
-          temp: latest.temperature ? parseFloat(latest.temperature).toFixed(1) : "N/A",
-          tds: latest.tds ? parseFloat(latest.tds).toFixed(0) : "N/A",
-        };
-        setSensorData(formatted);
-        computeOverallSafety(formatted);
-        setStatus("🌐 Cloud backup used.");
-        return formatted;
-      } catch (err2) {
-        console.error("Both ESP32 & Cloud failed:", err2);
-        setStatus("❌ Failed to fetch data");
-        setOverallSafety("N/A");
-        return null;
-      }
+    } catch {
+      return null;
     }
   }, [esp32Url, computeOverallSafety]);
 
@@ -123,6 +102,7 @@ const AdminDashboard = () => {
       if (error) throw error;
 
       const nextTS = Date.now() + FIXED_INTERVAL;
+
       await supabase
         .from("device_scanning")
         .update({
@@ -197,16 +177,17 @@ const AdminDashboard = () => {
   }, [autoScanRunning, fetchSensorData, startCountdown]);
 
   // --------------------------
-  // Mirror sensor updates every second
+  // Live Sensor Updates for UI only
   // --------------------------
   useEffect(() => {
     if (!autoScanRunning) return;
-    const interval = setInterval(fetchSensorData, 1000);
-    return () => clearInterval(interval);
+
+    const liveInterval = setInterval(fetchSensorData, 1000); // fetch for display only
+    return () => clearInterval(liveInterval);
   }, [autoScanRunning, fetchSensorData]);
 
   // --------------------------
-  // Initialize dashboard & listen for real-time updates
+  // Initialize Dashboard
   // --------------------------
   useEffect(() => {
     const fetchInitial = async () => {
@@ -220,39 +201,19 @@ const AdminDashboard = () => {
         computeOverallSafety(data.latest_sensor);
       }
 
-      // Use next_auto_save_ts to continue countdown
-      if (data.next_auto_save_ts) {
-        const remaining = data.next_auto_save_ts - Date.now();
-        const safeNextTS = remaining > 0 ? data.next_auto_save_ts : Date.now() + FIXED_INTERVAL;
-        startCountdown(safeNextTS);
+      // Continue countdown from persisted next_auto_save_ts
+      let nextTS;
+      if (data.next_auto_save_ts && data.next_auto_save_ts > Date.now()) {
+        nextTS = data.next_auto_save_ts;
+      } else if (data.status === 1) {
+        nextTS = Date.now() + FIXED_INTERVAL;
+        await supabase.from("device_scanning").update({ next_auto_save_ts: nextTS }).eq("id", 1);
       }
+
+      if (nextTS) startCountdown(nextTS);
     };
+
     fetchInitial();
-
-    const channel = supabase
-      .channel("scan_status_live")
-      .on(
-        "postgres_changes",
-        { event: "UPDATE", schema: "public", table: "device_scanning", filter: "id=eq.1" },
-        (payload) => {
-          const isRunning = payload.new.status === 1;
-          setAutoScanRunning(isRunning);
-
-          if (isRunning && payload.new.latest_sensor) {
-            setSensorData(payload.new.latest_sensor);
-            computeOverallSafety(payload.new.latest_sensor);
-          } else {
-            setSensorData({ ph: "N/A", turbidity: "N/A", temp: "N/A", tds: "N/A" });
-            setOverallSafety("N/A");
-          }
-
-          if (payload.new.next_auto_save_ts) startCountdown(payload.new.next_auto_save_ts);
-          else setCountdown(0);
-        }
-      )
-      .subscribe();
-
-    return () => supabase.removeChannel(channel);
   }, [computeOverallSafety, startCountdown]);
 
   // --------------------------
@@ -293,14 +254,9 @@ const AdminDashboard = () => {
       };
 
       const { error } = await supabase.from("dataset_history").insert([saveData]);
-      if (error) {
-        console.error("Manual save failed:", error);
-        setStatus("❌ Manual save failed.");
-      } else {
-        setStatus(`💾 Manual save successful at ${new Date().toLocaleTimeString()}`);
-      }
-    } catch (err) {
-      console.error("Manual save error:", err);
+      if (error) setStatus("❌ Manual save failed.");
+      else setStatus(`💾 Manual save successful at ${new Date().toLocaleTimeString()}`);
+    } catch {
       setStatus("❌ Manual save error.");
     }
   }, [sensorData]);
