@@ -7,6 +7,7 @@ import { supabase } from "../supabaseClient";
 const AdminDashboard = () => {
   const FIXED_INTERVAL = 900000; // 15 minutes in ms
   const intervalRef = useRef(null);
+  const autoSaveLockRef = useRef(false); // ✅ ADD THIS LINE
 
   const [sensorData, setSensorData] = useState({
     ph: "N/A",
@@ -111,28 +112,52 @@ const AdminDashboard = () => {
   // --------------------------
   const handleAutoSave = useCallback(async () => {
     if (!autoScanRunning) return;
-    const data = await fetchSensorData();
-    if (!data) return;
+
+    // 🔒 Prevent overlapping auto-saves
+    if (autoSaveLockRef.current) return;
+    autoSaveLockRef.current = true;
 
     try {
-      const { data: { user } } = await supabase.auth.getUser();
+      // 1️⃣ Fetch latest sensor data
+      const data = await fetchSensorData();
+      if (!data) return;
+
+      // 2️⃣ Get logged-in user
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
       if (!user) return;
 
       const now = Date.now();
+
+      // 3️⃣ Decide if we should save
       const shouldSave = Object.entries(data).some(([key, value]) => {
         const val = parseFloat(value);
+
+        // Save immediately if:
+        // - value is NOT zero
+        // - value is NaN (sensor glitch)
         if (isNaN(val) || val !== 0) return true;
+
+        // If value is zero → save only once every 15 mins
         return now - lastSavedZero[key] >= FIXED_INTERVAL;
       });
 
-      if (!shouldSave) return;
+      if (!shouldSave) {
+        console.log("⏭ Skipped auto-save (all zeros within interval)");
+        return;
+      }
 
-      const newLastSavedZero = { ...lastSavedZero };
+      // 4️⃣ Update lastSavedZero timestamps
+      const updatedZeroTracker = { ...lastSavedZero };
       Object.entries(data).forEach(([key, value]) => {
-        if (parseFloat(value) === 0) newLastSavedZero[key] = now;
+        if (parseFloat(value) === 0) {
+          updatedZeroTracker[key] = now;
+        }
       });
-      setLastSavedZero(newLastSavedZero);
+      setLastSavedZero(updatedZeroTracker);
 
+      // 5️⃣ Prepare DB payload
       const saveData = {
         user_id: user.id,
         ph: parseFloat(data.ph) || null,
@@ -141,20 +166,39 @@ const AdminDashboard = () => {
         tds: parseFloat(data.tds) || null,
       };
 
-      const { error } = await supabase.from("dataset_history").insert([saveData]);
+      // 6️⃣ Insert sensor data
+      const { error } = await supabase
+        .from("dataset_history")
+        .insert([saveData]);
+
       if (error) throw error;
 
+      // 7️⃣ Update device_scanning metadata
       const nextTS = now + FIXED_INTERVAL;
-      await supabase.from("device_scanning")
-        .update({ last_scan_time: new Date().toISOString(), next_auto_save_ts: nextTS, latest_sensor: data })
+
+      await supabase
+        .from("device_scanning")
+        .update({
+          last_scan_time: new Date().toISOString(),
+          next_auto_save_ts: nextTS,
+          latest_sensor: data,
+        })
         .eq("id", 1);
 
       setStatus(`💾 Auto-saved at ${new Date().toLocaleTimeString()}`);
     } catch (err) {
-      console.error(err);
+      console.error("Auto-save error:", err);
       setStatus("❌ Auto-save failed.");
+    } finally {
+      // 🔓 Always release lock
+      autoSaveLockRef.current = false;
     }
-  }, [fetchSensorData, lastSavedZero, autoScanRunning]);
+  }, [
+    autoScanRunning,
+    fetchSensorData,
+    lastSavedZero,
+  ]);
+
 
   // --------------------------
   // Manual Save
