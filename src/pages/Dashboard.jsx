@@ -153,19 +153,23 @@ const AdminDashboard = () => {
       // Update Supabase device_scanning row for Edge Function
       await supabase.from("device_scanning").upsert({
         id: 1,
-        is_running: newStatus,          // <-- change here for Edge Function
+        is_running: newStatus,          // persist scan state
         next_auto_save_ts: nextTS,
         updated_at: new Date().toISOString(),
       });
 
       if (newStatus) {
-        // Only fetch for display, do NOT save
+        // Fetch sensor data for display
         const data = await fetchSensorData();
-        if (data) setSensorData(data); // update UI
+        if (data) setSensorData(data);
 
-        if (nextTS) startCountdown(nextTS); // start countdown
-        setStatus("✅ Auto-scan started");
+        // Start countdown immediately
+        if (nextTS) startCountdown(nextTS);
+
+        // Update status to show scanning is active
+        setStatus("⏳ Auto-scan is running...");
       } else {
+        // Stop countdown and reset UI
         if (intervalRef.current) clearInterval(intervalRef.current);
         setCountdown(0);
         setSensorData({ ph: "N/A", turbidity: "N/A", temp: "N/A", tds: "N/A" });
@@ -174,9 +178,9 @@ const AdminDashboard = () => {
       }
     } catch (err) {
       console.error("Failed to update scan status:", err);
+      setStatus("❌ Failed to toggle auto-scan.");
     }
   }, [autoScanRunning, fetchSensorData, startCountdown]);
-
 
   // --------------------------
   // Live Sensor Updates for UI only
