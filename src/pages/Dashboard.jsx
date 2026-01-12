@@ -76,7 +76,7 @@ const AdminDashboard = () => {
   }, [esp32Url, computeOverallSafety]);
 
   // --------------------------
-  // Auto Save
+  // Auto Save (once per interval)
   // --------------------------
   const handleAutoSave = useCallback(async () => {
     if (!autoScanRunning || autoSaveLockRef.current) return;
@@ -84,35 +84,59 @@ const AdminDashboard = () => {
     autoSaveLockRef.current = true;
 
     try {
+      // 1️⃣ Get device state from Supabase
+      const { data: device } = await supabase
+        .from("device_scanning")
+        .select("last_scan_time, interval_ms")
+        .eq("id", 1)
+        .single();
+
+      if (!device) return;
+
+      const now = Date.now();
+      const interval = device.interval_ms ?? FIXED_INTERVAL;
+
+      // 2️⃣ Check if interval has passed
+      if (device.last_scan_time) {
+        const last = new Date(device.last_scan_time).getTime();
+        if (now - last < interval) {
+          setStatus("⏳ Waiting for next interval...");
+          return device.last_scan_time; // skip saving
+        }
+      }
+
+      // 3️⃣ Fetch sensor data
       const data = await fetchSensorData();
       if (!data) return;
 
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
-
+      // 4️⃣ Insert into dataset_history
+      const { data: userData } = await supabase.auth.getUser();
       const saveData = {
-        user_id: user.id,
+        user_id: userData?.user?.id || null,
         ph: parseFloat(data.ph) || null,
         turbidity: parseFloat(data.turbidity) || null,
         temperature: parseFloat(data.temp) || null,
         tds: parseFloat(data.tds) || null,
       };
 
-      const { error } = await supabase.from("dataset_history").insert([saveData]);
-      if (error) throw error;
+      const { error: insertError } = await supabase
+        .from("dataset_history")
+        .insert([saveData]);
+      if (insertError) throw insertError;
 
-      const nextTS = Date.now() + FIXED_INTERVAL;
-
+      // 5️⃣ Update device_scanning
+      const nextTS = now + interval;
       await supabase
         .from("device_scanning")
         .update({
-          last_scan_time: new Date().toISOString(),
-          next_auto_save_ts: nextTS,
           latest_sensor: data,
+          last_scan_time: new Date(now).toISOString(),
+          next_auto_save_ts: new Date(nextTS).toISOString(),
+          updated_at: new Date(now).toISOString(),
         })
         .eq("id", 1);
 
-      setStatus(`💾 Auto-saved at ${new Date().toLocaleTimeString()}`);
+      setStatus(`💾 Auto-saved at ${new Date(now).toLocaleTimeString()}`);
       return nextTS;
     } catch (err) {
       console.error("Auto-save error:", err);
@@ -134,7 +158,7 @@ const AdminDashboard = () => {
       setCountdown(Math.max(Math.floor(remaining / 1000), 0));
 
       if (remaining <= 0) {
-        const newNextTS = await handleAutoSave();
+        const newNextTS = await handleAutoSave(); // will save only once
         startCountdown(newNextTS);
       }
     }, 1000);
@@ -159,9 +183,7 @@ const AdminDashboard = () => {
       if (newStatus) {
         // Only fetch for display, do NOT save
         const data = await fetchSensorData();
-        if (data) {
-          setSensorData(data); // update UI
-        }
+        if (data) setSensorData(data); // update UI
 
         if (nextTS) startCountdown(nextTS); // start countdown
       } else {
@@ -175,6 +197,7 @@ const AdminDashboard = () => {
       console.error("Failed to update scan status:", err);
     }
   }, [autoScanRunning, fetchSensorData, startCountdown]);
+
 
   // --------------------------
   // Live Sensor Updates for UI only
