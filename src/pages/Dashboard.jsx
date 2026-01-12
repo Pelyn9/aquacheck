@@ -150,20 +150,21 @@ const AdminDashboard = () => {
     try {
       const nextTS = newStatus ? Date.now() + FIXED_INTERVAL : null;
 
+      // Update Supabase device_scanning row for Edge Function
       await supabase.from("device_scanning").upsert({
         id: 1,
-        status: newStatus ? 1 : 0,
+        is_running: newStatus,          // <-- change here for Edge Function
         next_auto_save_ts: nextTS,
+        updated_at: new Date().toISOString(),
       });
 
       if (newStatus) {
         // Only fetch for display, do NOT save
         const data = await fetchSensorData();
-        if (data) {
-          setSensorData(data); // update UI
-        }
+        if (data) setSensorData(data); // update UI
 
         if (nextTS) startCountdown(nextTS); // start countdown
+        setStatus("✅ Auto-scan started");
       } else {
         if (intervalRef.current) clearInterval(intervalRef.current);
         setCountdown(0);
@@ -175,6 +176,7 @@ const AdminDashboard = () => {
       console.error("Failed to update scan status:", err);
     }
   }, [autoScanRunning, fetchSensorData, startCountdown]);
+
 
   // --------------------------
   // Live Sensor Updates for UI only
