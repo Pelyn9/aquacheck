@@ -210,3 +210,24 @@
 .sensor-value.unknown {
   color: #6c757d; /* Gray */
 }
+
+@media (max-width: 768px) {
+  .manualscan-container {
+    padding: calc(env(safe-area-inset-top, 0px) + 4.6rem) 1rem 1rem;
+  }
+
+  .manualscan-header h1 {
+    font-size: 1.8rem;
+  }
+
+  .button-row {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .scan-btn,
+  .scan-all-btn,
+  .save-btn {
+    width: 100%;
+  }
+}

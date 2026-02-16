@@ -253,6 +253,12 @@
   }
 }
 
+@media (max-width: 768px) {
+  .analytics-content-sidebar {
+    padding: calc(env(safe-area-inset-top, 0px) + 4.6rem) 1rem 1rem;
+  }
+}
+
 @media (max-width: 560px) {
   .view-toggle {
     width: 100%;

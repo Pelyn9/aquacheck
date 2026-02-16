@@ -11,6 +11,7 @@
 .sidebar {
   width: 252px;
   height: 100vh;
+  height: 100dvh;
   position: sticky;
   top: 0;
   align-self: flex-start;
@@ -83,26 +84,29 @@
 
 /* === HAMBURGER BUTTON === */
 .hamburger {
-  background: none;
-  border: none;
-  color: #00e5ff;
-  font-size: 1.8rem;
+  background: rgba(255, 255, 255, 0.86);
+  border: 1px solid rgba(0, 149, 214, 0.28);
+  color: #00a7dd;
+  font-size: 1rem;
   cursor: pointer;
-  padding: 8px;
-  border-radius: 12px;
-  box-shadow: 0 0 8px #00e5ff55;
-  transition: background-color 0.25s ease, color 0.25s ease;
+  padding: 0;
+  border-radius: 14px;
+  box-shadow: 0 8px 18px rgba(0, 65, 110, 0.22);
+  transition: background-color 0.25s ease, color 0.25s ease, transform 0.25s ease;
   display: flex;
   align-items: center;
   justify-content: center;
   user-select: none;
   flex-shrink: 0;
+  width: 48px;
+  height: 48px;
 }
 
 .hamburger:hover,
 .hamburger:focus {
-  background-color: #00e5ff22;
-  color: #00b8d4;
+  background-color: rgba(229, 247, 255, 0.95);
+  color: #0086b0;
+  transform: translateY(-1px);
   outline: none;
 }
 
@@ -406,22 +410,19 @@
   display: none;
   flex-direction: column;
   cursor: pointer;
-  gap: 6px;
-  z-index: 2000;
+  gap: 5px;
+  z-index: 2200;
   position: fixed;
-  top: 18px;
-  left: 18px; /* Default: left side for sidebar */
-  background: rgba(255, 255, 255, 0.8);
-  padding: 10px;
-  border-radius: 10px;
+  top: calc(env(safe-area-inset-top, 0px) + 12px);
+  left: 14px;
   transition: all 0.3s ease;
-  box-shadow: 0 4px 12px rgba(0, 140, 255, 0.3);
+  box-shadow: 0 8px 20px rgba(0, 140, 255, 0.28);
   backdrop-filter: blur(4px);
 }
 
 /* Hamburger bars */
 .hamburger span {
-  width: 28px;
+  width: 21px;
   height: 3px;
   background: #00aaff;
   border-radius: 2px;
@@ -435,7 +436,7 @@
 
 /* When active (turns into an X) */
 .hamburger.active span:nth-child(1) {
-  transform: translateY(9px) rotate(45deg);
+  transform: translateY(8px) rotate(45deg);
   background: #00aaff;
   box-shadow: 0 0 10px rgba(0, 170, 255, 0.7);
 }
@@ -443,7 +444,7 @@
   opacity: 0;
 }
 .hamburger.active span:nth-child(3) {
-  transform: translateY(-9px) rotate(-45deg);
+  transform: translateY(-8px) rotate(-45deg);
   background: #00aaff;
   box-shadow: 0 0 10px rgba(0, 170, 255, 0.7);
 }
@@ -454,33 +455,52 @@
   box-shadow: 0 0 15px rgba(0, 170, 255, 0.6);
 }
 
+.menu-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(2, 17, 36, 0.42);
+  backdrop-filter: blur(1px);
+  z-index: 1900;
+}
+
+body.sidebar-open {
+  overflow: hidden;
+}
+
 /* === Show only on mobile === */
 @media (max-width: 768px) {
   .hamburger {
     display: flex;
-    left: 18px;
+    left: 14px;
   }
 
   /* Hide sidebar by default on mobile */
   .sidebar {
     position: fixed;
-    left: -260px;
+    left: 0;
     opacity: 0;
+    transform: translateX(-110%);
     top: 0;
     height: 100vh;
-    transition: left 0.4s ease, opacity 0.3s ease;
-    z-index: 1000;
+    height: 100dvh;
+    width: min(82vw, 300px);
+    border-radius: 0 18px 18px 0;
+    transition: transform 0.36s ease, opacity 0.28s ease;
+    z-index: 2000;
+    pointer-events: none;
+    box-shadow: 10px 0 24px rgba(1, 8, 25, 0.45);
   }
 
   /* Show sidebar when active */
   .sidebar.open {
-    left: 0;
+    transform: translateX(0);
     opacity: 1;
-    
+    pointer-events: auto;
   }
 
   .sidebar.collapsed {
-    left: -280px;
+    transform: translateX(-110%);
     opacity: 0;
+    pointer-events: none;
   }
 }

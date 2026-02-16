@@ -69,6 +69,16 @@ export default function Sidebar() {
     return () => window.removeEventListener("resize", handleResize);
   }, []);
 
+  useEffect(() => {
+    if (!isMobile) {
+      document.body.classList.remove("sidebar-open");
+      return;
+    }
+
+    document.body.classList.toggle("sidebar-open", !isCollapsed);
+    return () => document.body.classList.remove("sidebar-open");
+  }, [isCollapsed, isMobile]);
+
   // Focus on master password input when modal opens
   useEffect(() => {
     if (showMasterLogin && passwordInputRef.current) {
@@ -76,10 +86,8 @@ export default function Sidebar() {
     }
   }, [showMasterLogin]);
 
-  const toggleSidebar = () => {
-    setIsCollapsed((prev) => !prev);
-    document.body.classList.toggle("sidebar-open", !isCollapsed);
-  };
+  const toggleSidebar = () => setIsCollapsed((prev) => !prev);
+  const closeSidebar = () => setIsCollapsed(true);
 
   const handleLogout = () => setShowConfirm(true);
 
@@ -174,11 +182,17 @@ export default function Sidebar() {
     <>
       {/* Hamburger for mobile */}
       {isMobile && (
-        <div className={`hamburger ${!isCollapsed ? "active" : ""}`} onClick={toggleSidebar}>
+        <button
+          type="button"
+          className={`hamburger ${!isCollapsed ? "active" : ""}`}
+          onClick={toggleSidebar}
+          aria-label={!isCollapsed ? "Close menu" : "Open menu"}
+          aria-expanded={!isCollapsed}
+        >
           <span></span>
           <span></span>
           <span></span>
-        </div>
+        </button>
       )}
 
       {/* Sidebar */}
@@ -233,7 +247,7 @@ export default function Sidebar() {
       </aside>
 
       {/* Mobile overlay */}
-      {!isCollapsed && isMobile && <div className="menu-overlay smooth" onClick={toggleSidebar}></div>}
+      {!isCollapsed && isMobile && <div className="menu-overlay smooth" onClick={closeSidebar}></div>}
 
       {/* Logout confirmation modal */}
       {showConfirm && (

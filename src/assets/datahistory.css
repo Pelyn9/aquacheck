@@ -318,6 +318,12 @@
   }
 }
 
+@media (max-width: 768px) {
+  .history-content {
+    padding: calc(env(safe-area-inset-top, 0px) + 4.6rem) 1rem 1rem;
+  }
+}
+
 @media (max-width: 640px) {
   .history-filters {
     grid-template-columns: 1fr;
