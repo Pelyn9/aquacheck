@@ -1,5 +1,3 @@
-import { createClient } from "@supabase/supabase-js";
-
 const DEFAULT_INTERVAL_MS = 15 * 60 * 1000;
 const SENSOR_TIMEOUT_MS = 7000;
 
@@ -8,13 +6,6 @@ const supabaseUrl =
   process.env.NEXT_PUBLIC_SUPABASE_URL ||
   process.env.REACT_APP_SUPABASE_URL;
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-
-const supabase =
-  supabaseUrl && supabaseServiceKey
-    ? createClient(supabaseUrl, supabaseServiceKey, {
-        auth: { persistSession: false, autoRefreshToken: false },
-      })
-    : null;
 
 const toNumberOrNull = (value) => {
   if (value === null || value === undefined || value === "") return null;
@@ -100,12 +91,46 @@ const fetchCurrentSensor = async (scanConfig) => {
   return { sensor: null, source: null };
 };
 
-export default async function handler(req, res) {
+const safeJson = async (response) => {
+  try {
+    return await response.json();
+  } catch {
+    return null;
+  }
+};
+
+const supabaseRequest = async (path, { method = "GET", body, prefer } = {}) => {
+  const headers = {
+    apikey: supabaseServiceKey,
+    Authorization: `Bearer ${supabaseServiceKey}`,
+    "Content-Type": "application/json",
+  };
+
+  if (prefer) headers.Prefer = prefer;
+
+  const response = await fetch(`${supabaseUrl}/rest/v1/${path}`, {
+    method,
+    headers,
+    body: body ? JSON.stringify(body) : undefined,
+    cache: "no-store",
+  });
+
+  const data = await safeJson(response);
+
+  if (!response.ok) {
+    const message = data?.message || data?.error || `Supabase HTTP ${response.status}`;
+    throw new Error(message);
+  }
+
+  return data;
+};
+
+async function handler(req, res) {
   if (req.method !== "GET") {
     return res.status(405).json({ ok: false, error: "Method Not Allowed" });
   }
 
-  if (!supabase) {
+  if (!supabaseUrl || !supabaseServiceKey) {
     return res.status(500).json({
       ok: false,
       error:
@@ -122,17 +147,12 @@ export default async function handler(req, res) {
   }
 
   try {
-    const { data: scanConfig, error: scanError } = await supabase
-      .from("device_scanning")
-      .select("id, status, interval_ms, next_auto_save_ts, latest_sensor, started_by")
-      .eq("id", 1)
-      .single();
+    const scanRows = await supabaseRequest(
+      "device_scanning?id=eq.1&select=id,status,interval_ms,next_auto_save_ts,latest_sensor,started_by"
+    );
 
-    if (scanError) {
-      return res.status(500).json({ ok: false, error: scanError.message });
-    }
-
-    if (!scanConfig || scanConfig.status !== 1) {
+    const scanConfig = Array.isArray(scanRows) ? scanRows[0] : null;
+    if (!scanConfig || Number(scanConfig.status) !== 1) {
       return res.status(200).json({ ok: true, ran: false, reason: "auto_scan_disabled" });
     }
 
@@ -178,26 +198,24 @@ export default async function handler(req, res) {
       tds: sensor.tds,
     };
 
-    const { error: insertError } = await supabase.from("dataset_history").insert([entry]);
-    if (insertError) {
-      return res.status(500).json({ ok: false, error: insertError.message });
-    }
+    await supabaseRequest("dataset_history", {
+      method: "POST",
+      body: [entry],
+      prefer: "return=minimal",
+    });
 
     const nextTimestamp = now + intervalMs;
     const latestSensor = toDashboardSensorShape(sensor);
 
-    const { error: updateError } = await supabase
-      .from("device_scanning")
-      .update({
+    await supabaseRequest("device_scanning?id=eq.1", {
+      method: "PATCH",
+      body: {
         last_scan_time: new Date(now).toISOString(),
         next_auto_save_ts: nextTimestamp,
         latest_sensor: latestSensor,
-      })
-      .eq("id", 1);
-
-    if (updateError) {
-      return res.status(500).json({ ok: false, error: updateError.message });
-    }
+      },
+      prefer: "return=minimal",
+    });
 
     return res.status(200).json({
       ok: true,
@@ -213,3 +231,5 @@ export default async function handler(req, res) {
     });
   }
 }
+
+module.exports = handler;

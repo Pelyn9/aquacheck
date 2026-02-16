@@ -1,4 +1,4 @@
-export const config = { api: { bodyParser: true } };
+const config = { api: { bodyParser: true } };
 
 let latestData = { ph:7, temperature:25, tds:0, turbidity:0 };
 let clients = [];
@@ -8,7 +8,7 @@ function broadcastRealtime() {
   clients.forEach(c=>c.res.write(payload));
 }
 
-export default function handler(req,res){
+function handler(req,res){
   if(req.method==="GET" && req.headers.accept==="text/event-stream"){
     res.setHeader("Content-Type","text/event-stream");
     res.setHeader("Cache-Control","no-cache");
@@ -44,3 +44,6 @@ export default function handler(req,res){
 
   res.status(405).json({ message:"Method Not Allowed" });
 }
+
+module.exports = handler;
+module.exports.config = config;
