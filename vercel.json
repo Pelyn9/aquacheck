@@ -12,7 +12,7 @@
   "crons": [
     {
       "path": "/api/cron-scan",
-      "schedule": "0 10 * * *"
+      "schedule": "* * * * *"
     }
   ]
 }

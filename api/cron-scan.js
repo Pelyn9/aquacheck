@@ -148,7 +148,7 @@ async function handler(req, res) {
 
   try {
     const scanRows = await supabaseRequest(
-      "device_scanning?id=eq.1&select=id,status,interval_ms,next_auto_save_ts,latest_sensor,started_by"
+      "device_scanning?id=eq.1&select=id,status,next_auto_save_ts,latest_sensor"
     );
 
     const scanConfig = Array.isArray(scanRows) ? scanRows[0] : null;
@@ -158,10 +158,7 @@ async function handler(req, res) {
 
     const now = Date.now();
     const nextAutoSaveTs = Number(scanConfig.next_auto_save_ts || 0);
-    const intervalMs =
-      Number.isFinite(Number(scanConfig.interval_ms)) && Number(scanConfig.interval_ms) > 0
-        ? Number(scanConfig.interval_ms)
-        : DEFAULT_INTERVAL_MS;
+    const intervalMs = DEFAULT_INTERVAL_MS;
 
     if (nextAutoSaveTs > now) {
       return res.status(200).json({
@@ -181,12 +178,11 @@ async function handler(req, res) {
       });
     }
 
-    const userId = scanConfig.started_by || process.env.DEFAULT_USER_ID || null;
+    const userId = process.env.DEFAULT_USER_ID || null;
     if (!userId) {
       return res.status(500).json({
         ok: false,
-        error:
-          "No user_id available for auto-save. Start scan from dashboard or set DEFAULT_USER_ID env variable.",
+        error: "No user_id available for auto-save. Set DEFAULT_USER_ID environment variable.",
       });
     }
 

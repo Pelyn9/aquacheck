@@ -95,18 +95,24 @@ const AdminDashboard = () => {
   // Auto Save
   // --------------------------
   const handleAutoSave = useCallback(async () => {
-    if (!autoScanRunning || autoSaveLockRef.current) return;
+    if (!autoScanRunning || autoSaveLockRef.current) return Date.now() + FIXED_INTERVAL;
 
     autoSaveLockRef.current = true;
 
     try {
       const data = await fetchSensorData();
-      if (!data) return;
+      if (!data) {
+        setStatus("Auto-save skipped: sensor unavailable.");
+        return Date.now() + FIXED_INTERVAL;
+      }
 
       const {
         data: { user },
       } = await supabase.auth.getUser();
-      if (!user) return;
+      if (!user) {
+        setStatus("Auto-save skipped: no authenticated user.");
+        return Date.now() + FIXED_INTERVAL;
+      }
 
       const saveData = {
         user_id: user.id,
@@ -139,26 +145,35 @@ const AdminDashboard = () => {
     } finally {
       autoSaveLockRef.current = false;
     }
-  }, [autoScanRunning, fetchSensorData]);
+  }, [autoScanRunning, fetchSensorData, FIXED_INTERVAL]);
 
   // --------------------------
-  // Countdown logic ok
+  // Countdown logic
   // --------------------------
   const startCountdown = useCallback(
     (nextTimestamp) => {
+      const targetTime =
+        Number.isFinite(Number(nextTimestamp)) && Number(nextTimestamp) > Date.now()
+          ? Number(nextTimestamp)
+          : Date.now() + FIXED_INTERVAL;
+
       if (intervalRef.current) clearInterval(intervalRef.current);
 
       intervalRef.current = setInterval(async () => {
-        const remaining = nextTimestamp - Date.now();
+        const remaining = targetTime - Date.now();
         setCountdown(Math.max(Math.floor(remaining / 1000), 0));
 
         if (remaining <= 0) {
           const newNextTimestamp = await handleAutoSave();
-          startCountdown(newNextTimestamp);
+          const safeNextTimestamp =
+            Number.isFinite(Number(newNextTimestamp)) && Number(newNextTimestamp) > Date.now()
+              ? Number(newNextTimestamp)
+              : Date.now() + FIXED_INTERVAL;
+          startCountdown(safeNextTimestamp);
         }
       }, 1000);
     },
-    [handleAutoSave]
+    [handleAutoSave, FIXED_INTERVAL]
   );
 
   // --------------------------
@@ -169,18 +184,12 @@ const AdminDashboard = () => {
     setAutoScanRunning(newStatus);
 
     try {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-
       const nextTimestamp = newStatus ? Date.now() + FIXED_INTERVAL : null;
 
       await supabase.from("device_scanning").upsert({
         id: 1,
         status: newStatus ? 1 : 0,
         next_auto_save_ts: nextTimestamp,
-        interval_ms: FIXED_INTERVAL,
-        started_by: newStatus ? user?.id || null : null,
       });
 
       if (newStatus) {
@@ -190,6 +199,7 @@ const AdminDashboard = () => {
         if (nextTimestamp) startCountdown(nextTimestamp);
       } else {
         if (intervalRef.current) clearInterval(intervalRef.current);
+        intervalRef.current = null;
         setCountdown(0);
         setSensorData({ ph: "N/A", turbidity: "N/A", temp: "N/A", tds: "N/A" });
         setOverallSafety("N/A");
@@ -223,9 +233,9 @@ const AdminDashboard = () => {
 
       if (!data) return;
 
-      setAutoScanRunning(data.status === 1);
+      setAutoScanRunning(Boolean(data.status));
 
-      if (data.status === 1 && data.latest_sensor) {
+      if (Boolean(data.status) && data.latest_sensor) {
         setSensorData(data.latest_sensor);
         computeOverallSafety(data.latest_sensor);
       }
@@ -233,7 +243,7 @@ const AdminDashboard = () => {
       let nextTimestamp;
       if (data.next_auto_save_ts && data.next_auto_save_ts > Date.now()) {
         nextTimestamp = data.next_auto_save_ts;
-      } else if (data.status === 1) {
+      } else if (Boolean(data.status)) {
         nextTimestamp = Date.now() + FIXED_INTERVAL;
         await supabase
           .from("device_scanning")
