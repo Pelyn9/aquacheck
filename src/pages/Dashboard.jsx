@@ -142,7 +142,7 @@ const AdminDashboard = () => {
   }, [autoScanRunning, fetchSensorData]);
 
   // --------------------------
-  // Countdown logic
+  // Countdown logic ok
   // --------------------------
   const startCountdown = useCallback(
     (nextTimestamp) => {
