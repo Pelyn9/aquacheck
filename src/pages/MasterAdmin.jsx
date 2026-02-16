@@ -23,7 +23,7 @@ const buildApiCandidates = () => {
   const isLocalHost = hostname === "localhost" || hostname === "127.0.0.1";
 
   candidates.push("/api/admin");
-  if (envBase) candidates.push(`${normalizeBase(envBase)}/api/admin`);
+  if (isLocalHost && envBase) candidates.push(`${normalizeBase(envBase)}/api/admin`);
   if (isLocalHost) candidates.push("http://localhost:4000/api/admin");
 
   return [...new Set(candidates)];
