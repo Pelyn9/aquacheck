@@ -2,6 +2,40 @@ import { useState } from "react";
 import { supabase } from "../supabaseClient";
 import "../assets/login.css";
 
+const resolveCreateUserEndpoints = () => {
+  const endpoints = [];
+  const isLocalHost =
+    typeof window !== "undefined" &&
+    (window.location.hostname === "localhost" ||
+      window.location.hostname === "127.0.0.1");
+
+  endpoints.push("/api/users");
+  if (isLocalHost) endpoints.push("http://localhost:4000/api/users");
+
+  return [...new Set(endpoints)];
+};
+
+const syncUserRecord = async (authId, email) => {
+  const endpoints = resolveCreateUserEndpoints();
+
+  for (let index = 0; index < endpoints.length; index += 1) {
+    const endpoint = endpoints[index];
+    try {
+      const response = await fetch(endpoint, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ auth_id: authId, email }),
+      });
+
+      if (response.ok) return true;
+    } catch {
+      // continue fallback chain
+    }
+  }
+
+  return false;
+};
+
 const AuthForm = () => {
   const [isLogin, setIsLogin] = useState(true);
   const [email, setEmail] = useState("");
@@ -45,17 +79,12 @@ const AuthForm = () => {
         });
         if (error) throw error;
 
-        // ✅ Insert into database after signUp
-        const res = await fetch("http://localhost:4000/api/users", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ auth_id: data.user.id, email: data.user.email }),
-        });
-
-        const dbResult = await res.json();
-        if (!res.ok) throw new Error(dbResult.error || "Failed to insert user in database");
-
-        setSuccess("✅ Account created! Please check your email to verify.");
+        const userSynced = await syncUserRecord(data.user.id, data.user.email);
+        setSuccess(
+          userSynced
+            ? "✅ Account created! Please check your email to verify."
+            : "✅ Account created! Please check your email to verify. (Profile sync pending)"
+        );
       }
 
       setEmail("");

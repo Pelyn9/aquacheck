@@ -3,6 +3,19 @@ import { Link, useNavigate } from "react-router-dom";
 import { supabase } from "../supabaseClient";
 import "../assets/createadmin.css";
 
+const resolveVerifyKeyEndpoints = () => {
+  const endpoints = [];
+  const isLocalHost =
+    typeof window !== "undefined" &&
+    (window.location.hostname === "localhost" ||
+      window.location.hostname === "127.0.0.1");
+
+  endpoints.push("/api/admin?path=%2Fverify-key");
+  if (isLocalHost) endpoints.push("http://localhost:4000/api/admin/verify-key");
+
+  return [...new Set(endpoints)];
+};
+
 const CreateAdmin = () => {
   const [email, setEmail] = useState("");
   const [adminKey, setAdminKey] = useState("");
@@ -28,11 +41,29 @@ const CreateAdmin = () => {
 
     setLoading(true);
     try {
-      const keyRes = await fetch("http://localhost:4000/api/admin/verify-key", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ key: adminKey }),
-      });
+      const verifyEndpoints = resolveVerifyKeyEndpoints();
+      let keyRes = null;
+      let verifyError = null;
+
+      for (let index = 0; index < verifyEndpoints.length; index += 1) {
+        const endpoint = verifyEndpoints[index];
+        try {
+          const response = await fetch(endpoint, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ key: adminKey }),
+          });
+          keyRes = response;
+          if (response.ok) break;
+          if (response.status === 401) break;
+        } catch (err) {
+          verifyError = err;
+        }
+      }
+
+      if (!keyRes) {
+        throw verifyError || new Error("Failed to verify admin key endpoint.");
+      }
 
       if (!keyRes.ok) {
         const data = await keyRes.json();
