@@ -26,6 +26,17 @@ const buildApiCandidates = () => {
   return [...new Set(candidates)];
 };
 
+const buildRequestUrls = (base, path) => {
+  const normalizedPath = path.startsWith("/") ? path : `/${path}`;
+  const urls = [`${base}${normalizedPath}`];
+
+  if (base.endsWith("/api/admin")) {
+    urls.push(`${base}?path=${encodeURIComponent(normalizedPath)}`);
+  }
+
+  return [...new Set(urls)];
+};
+
 const getServerMessage = (payload, status) => {
   if (payload && typeof payload === "object") {
     if (typeof payload.error === "string") return payload.error;
@@ -80,13 +91,15 @@ export default function MasterAdmin() {
       const orderedBases = apiBaseInUse
         ? [apiBaseInUse, ...apiCandidates.filter((base) => base !== apiBaseInUse)]
         : apiCandidates;
+      const requestAttempts = orderedBases.flatMap((base) =>
+        buildRequestUrls(base, path).map((url) => ({ base, url }))
+      );
 
       let lastError = null;
 
-      for (let index = 0; index < orderedBases.length; index += 1) {
-        const base = orderedBases[index];
-        const isLastCandidate = index === orderedBases.length - 1;
-        const url = `${base}${path}`;
+      for (let index = 0; index < requestAttempts.length; index += 1) {
+        const { base, url } = requestAttempts[index];
+        const isLastCandidate = index === requestAttempts.length - 1;
 
         try {
           const response = await fetch(url, {
@@ -114,7 +127,9 @@ export default function MasterAdmin() {
             const serverMessage = getServerMessage(payload, response.status);
             const canFallback =
               !isLastCandidate &&
-              (response.status >= 500 || (retryNotFound && response.status === 404));
+              (response.status >= 500 ||
+                (retryNotFound &&
+                  (response.status === 404 || response.status === 405)));
 
             if (canFallback) {
               lastError = new Error(serverMessage);
@@ -147,7 +162,7 @@ export default function MasterAdmin() {
       }
 
       const baseMessage = lastError?.message || "Unable to connect to admin API.";
-      const candidatesText = apiCandidates.join(", ");
+      const candidatesText = requestAttempts.map((attempt) => attempt.url).join(", ");
       throw new Error(`${baseMessage} (Tried: ${candidatesText})`);
     },
     [apiBaseInUse, apiCandidates]
