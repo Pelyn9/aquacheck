@@ -11,10 +11,15 @@ const getSupabaseConfig = () => {
     process.env.NEXT_PUBLIC_SUPABASE_URL ||
     process.env.REACT_APP_SUPABASE_URL ||
     "";
+  const rawServiceKey =
+    process.env.SUPABASE_SERVICE_ROLE_KEY ||
+    process.env.SUPABASE_SECRET_KEY ||
+    process.env.SUPABASE_SERVICE_KEY ||
+    "";
 
   return {
     supabaseUrl: supabaseUrl.replace(/\/+$/, ""),
-    serviceKey: process.env.SUPABASE_SERVICE_ROLE_KEY || "",
+    serviceKey: rawServiceKey.replace(/\s+/g, ""),
   };
 };
 

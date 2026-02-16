@@ -18,10 +18,13 @@ const normalizeBase = (value) => value.replace(/\/+$/, "");
 const buildApiCandidates = () => {
   const candidates = [];
   const envBase = process.env.REACT_APP_API_URL?.trim();
+  const hostname =
+    typeof window !== "undefined" ? window.location.hostname : "";
+  const isLocalHost = hostname === "localhost" || hostname === "127.0.0.1";
 
-  if (envBase) candidates.push(`${normalizeBase(envBase)}/api/admin`);
   candidates.push("/api/admin");
-  candidates.push("http://localhost:4000/api/admin");
+  if (envBase) candidates.push(`${normalizeBase(envBase)}/api/admin`);
+  if (isLocalHost) candidates.push("http://localhost:4000/api/admin");
 
   return [...new Set(candidates)];
 };
