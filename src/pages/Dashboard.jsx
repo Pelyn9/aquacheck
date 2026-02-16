@@ -314,7 +314,7 @@ const AdminDashboard = () => {
         <div className="dashboard-page-shell">
           <header className="dashboard-topbar">
             <h1>Admin Dashboard</h1>
-            <p>Live pool monitoring and scheduled saving</p>
+            <p>Live beach monitoring and scheduled saving</p>
           </header>
 
           <section className="dashboard-scan-controls">
