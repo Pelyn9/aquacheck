@@ -182,7 +182,7 @@ export default function Sidebar() {
       )}
 
       {/* Sidebar */}
-      <aside className={`sidebar ${!isCollapsed ? "open smooth" : "smooth"}`}>
+      <aside className={`sidebar ${isCollapsed ? "collapsed smooth" : "open smooth"}`}>
         <div className="sidebar-header">
           {!isCollapsed && (
             <h2>
@@ -201,7 +201,7 @@ export default function Sidebar() {
               style={{ cursor: "pointer", userSelect: "none" }}
             >
               <FontAwesomeIcon icon={faTachometerAlt} />
-              {!isCollapsed && <span> Dashboard</span>}
+              {!isCollapsed && <span>Dashboard</span>}
             </a>
           </li>
 
@@ -210,21 +210,21 @@ export default function Sidebar() {
               <li>
                 <Link to="/datahistory" className="nav-link" onClick={() => goTo("/datahistory")}>
                   <FontAwesomeIcon icon={faHistory} />
-                  {!isCollapsed && <span> Dataset History</span>}
+                  {!isCollapsed && <span>Dataset History</span>}
                 </Link>
               </li>
 
               <li>
                 <Link to="/data-analytics" className="nav-link" onClick={() => goTo("/data-analytics")}>
                   <FontAwesomeIcon icon={faChartLine} />
-                  {!isCollapsed && <span> Data Analytics</span>}
+                  {!isCollapsed && <span>Data Analytics</span>}
                 </Link>
               </li>
 
               <li>
                 <button onClick={handleLogout} className="nav-link logout-button" type="button">
                   <FontAwesomeIcon icon={faSignOutAlt} />
-                  {!isCollapsed && <span> Logout</span>}
+                  {!isCollapsed && <span>Logout</span>}
                 </button>
               </li>
             </>
