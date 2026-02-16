@@ -3,7 +3,8 @@
   display: flex;
   justify-content: center;
   align-items: center;
-  min-height: 94.2vh;
+  min-height: 100vh;
+  min-height: 100dvh;
   background: linear-gradient(-45deg, #004e92, #000428, #001d3d, #003566);
   background-size: 400% 400%;
   animation: gradientMove 12s ease infinite;

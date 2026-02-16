@@ -8,5 +8,11 @@
     { "src": "/api/(.*)", "dest": "/api/$1.js" },
     { "handle": "filesystem" },
     { "src": "/.*", "dest": "/index.html" }
+  ],
+  "crons": [
+    {
+      "path": "/api/cron-scan",
+      "schedule": "* * * * *"
+    }
   ]
 }

@@ -26,8 +26,20 @@ function App() {
   const [isAdmin, setIsAdmin] = useState(false);
 
   useEffect(() => {
-    const adminStatus = localStorage.getItem("isAdmin") === "true";
-    setIsAdmin(adminStatus);
+    const syncAdminState = async () => {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+
+      const authenticated = Boolean(session?.user);
+      setIsAdmin(authenticated);
+
+      if (authenticated) {
+        localStorage.setItem("isAdmin", "true");
+      } else {
+        localStorage.removeItem("isAdmin");
+      }
+    };
 
     const checkDisabled = async () => {
       const {
@@ -42,11 +54,21 @@ function App() {
       }
     };
 
+    syncAdminState();
     checkDisabled();
 
     const { data: subscription } = supabase.auth.onAuthStateChange(
       async (_event, session) => {
         const user = session?.user;
+        const authenticated = Boolean(user);
+
+        setIsAdmin(authenticated);
+        if (authenticated) {
+          localStorage.setItem("isAdmin", "true");
+        } else {
+          localStorage.removeItem("isAdmin");
+        }
+
         if (user?.app_metadata?.disabled) {
           await supabase.auth.signOut();
           setIsAdmin(false);

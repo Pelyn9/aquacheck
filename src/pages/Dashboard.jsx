@@ -169,12 +169,18 @@ const AdminDashboard = () => {
     setAutoScanRunning(newStatus);
 
     try {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+
       const nextTimestamp = newStatus ? Date.now() + FIXED_INTERVAL : null;
 
       await supabase.from("device_scanning").upsert({
         id: 1,
         status: newStatus ? 1 : 0,
         next_auto_save_ts: nextTimestamp,
+        interval_ms: FIXED_INTERVAL,
+        started_by: newStatus ? user?.id || null : null,
       });
 
       if (newStatus) {
