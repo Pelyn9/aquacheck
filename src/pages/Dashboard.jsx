@@ -8,6 +8,7 @@ const AdminDashboard = () => {
   const FIXED_INTERVAL = 900000; // 15 minutes
   const intervalRef = useRef(null);
   const autoSaveLockRef = useRef(false);
+  const autoScanRunningRef = useRef(false);
 
   const [sensorData, setSensorData] = useState({
     ph: "N/A",
@@ -19,6 +20,10 @@ const AdminDashboard = () => {
   const [countdown, setCountdown] = useState(FIXED_INTERVAL / 1000);
   const [overallSafety, setOverallSafety] = useState("N/A");
   const [autoScanRunning, setAutoScanRunning] = useState(false);
+
+  useEffect(() => {
+    autoScanRunningRef.current = autoScanRunning;
+  }, [autoScanRunning]);
 
   const esp32Url =
     process.env.NODE_ENV === "production"
@@ -95,7 +100,7 @@ const AdminDashboard = () => {
   // Auto Save
   // --------------------------
   const handleAutoSave = useCallback(async () => {
-    if (!autoScanRunning || autoSaveLockRef.current) return Date.now() + FIXED_INTERVAL;
+    if (!autoScanRunningRef.current || autoSaveLockRef.current) return Date.now() + FIXED_INTERVAL;
 
     autoSaveLockRef.current = true;
 
@@ -145,7 +150,16 @@ const AdminDashboard = () => {
     } finally {
       autoSaveLockRef.current = false;
     }
-  }, [autoScanRunning, fetchSensorData, FIXED_INTERVAL]);
+  }, [fetchSensorData, FIXED_INTERVAL]);
+
+  const resetScanUi = useCallback(() => {
+    if (intervalRef.current) clearInterval(intervalRef.current);
+    intervalRef.current = null;
+    setCountdown(0);
+    setSensorData({ ph: "N/A", turbidity: "N/A", temp: "N/A", tds: "N/A" });
+    setOverallSafety("N/A");
+    setStatus("Auto-scan stopped.");
+  }, []);
 
   // --------------------------
   // Countdown logic
@@ -180,7 +194,8 @@ const AdminDashboard = () => {
   // Toggle Auto Scan
   // --------------------------
   const toggleAutoScan = useCallback(async () => {
-    const newStatus = !autoScanRunning;
+    const newStatus = !autoScanRunningRef.current;
+    autoScanRunningRef.current = newStatus;
     setAutoScanRunning(newStatus);
 
     try {
@@ -197,18 +212,17 @@ const AdminDashboard = () => {
         if (data) setSensorData(data);
 
         if (nextTimestamp) startCountdown(nextTimestamp);
+        setStatus("Auto-scan running.");
       } else {
-        if (intervalRef.current) clearInterval(intervalRef.current);
-        intervalRef.current = null;
-        setCountdown(0);
-        setSensorData({ ph: "N/A", turbidity: "N/A", temp: "N/A", tds: "N/A" });
-        setOverallSafety("N/A");
-        setStatus("Auto-scan stopped.");
+        resetScanUi();
       }
     } catch (error) {
       console.error("Failed to update scan status:", error);
+      autoScanRunningRef.current = !newStatus;
+      setAutoScanRunning(!newStatus);
+      setStatus("Failed to update auto-scan status.");
     }
-  }, [autoScanRunning, fetchSensorData, startCountdown]);
+  }, [fetchSensorData, startCountdown, resetScanUi, FIXED_INTERVAL]);
 
   // --------------------------
   // Live Sensor Updates for UI only
@@ -219,6 +233,51 @@ const AdminDashboard = () => {
     const liveInterval = setInterval(fetchSensorData, 1000);
     return () => clearInterval(liveInterval);
   }, [autoScanRunning, fetchSensorData]);
+
+  // --------------------------
+  // Real-time sync across devices
+  // --------------------------
+  useEffect(() => {
+    const channel = supabase
+      .channel("device_scanning_dashboard_sync")
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "device_scanning", filter: "id=eq.1" },
+        async (payload) => {
+          const next = payload?.new;
+          if (!next) return;
+
+          const isRunning = Boolean(next.status);
+          autoScanRunningRef.current = isRunning;
+          setAutoScanRunning(isRunning);
+
+          if (isRunning) {
+            const nextTimestamp =
+              Number.isFinite(Number(next.next_auto_save_ts)) && Number(next.next_auto_save_ts) > Date.now()
+                ? Number(next.next_auto_save_ts)
+                : Date.now() + FIXED_INTERVAL;
+
+            startCountdown(nextTimestamp);
+
+            if (next.latest_sensor) {
+              setSensorData(next.latest_sensor);
+              computeOverallSafety(next.latest_sensor);
+            } else {
+              await fetchSensorData();
+            }
+
+            setStatus("Auto-scan running.");
+          } else {
+            resetScanUi();
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [startCountdown, fetchSensorData, computeOverallSafety, resetScanUi, FIXED_INTERVAL]);
 
   // --------------------------
   // Initialize Dashboard
@@ -233,6 +292,7 @@ const AdminDashboard = () => {
 
       if (!data) return;
 
+      autoScanRunningRef.current = Boolean(data.status);
       setAutoScanRunning(Boolean(data.status));
 
       if (Boolean(data.status) && data.latest_sensor) {
