@@ -155,12 +155,31 @@ body {
   border-color: color-mix(in srgb, var(--primary), #000000 20%);
   background: linear-gradient(135deg, var(--primary), var(--primary-strong));
   box-shadow: var(--shadow-soft);
+  width: 40px;
+  height: 40px;
+  padding: 0;
+  gap: 0;
 }
 
 .live-toggle-button {
   color: #ffffff;
   border-color: color-mix(in srgb, var(--accent), #000000 18%);
   background: linear-gradient(135deg, color-mix(in srgb, var(--accent), #ffffff 6%), var(--accent));
+}
+
+.live-toggle-button.inactive {
+  border-color: color-mix(in srgb, var(--accent), #000000 18%);
+  background: linear-gradient(135deg, color-mix(in srgb, var(--accent), #ffffff 6%), var(--accent));
+}
+
+.live-toggle-button.active {
+  border-color: color-mix(in srgb, var(--safe), #000000 18%);
+  background: linear-gradient(
+    135deg,
+    color-mix(in srgb, var(--safe), #ffffff 10%),
+    color-mix(in srgb, var(--safe), #000000 10%)
+  );
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--safe), transparent 72%);
 }
 
 .theme-toggle-button:hover,
@@ -511,33 +530,79 @@ body {
   letter-spacing: -0.02em;
 }
 
-.filter-section {
+.view-mode-toggle {
   display: flex;
   align-items: center;
-  gap: 0.55rem;
+  gap: 0.35rem;
+  padding: 0.24rem;
+  border-radius: 999px;
+  border: 1px solid color-mix(in srgb, var(--line), transparent 12%);
+  background: color-mix(in srgb, var(--surface), transparent 4%);
+  box-shadow: var(--shadow-soft);
 }
 
-.filter-section label {
-  font-size: 0.85rem;
+.analysis-controls {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.trend-date-picker {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.24rem 0.5rem;
+  border-radius: 999px;
+  border: 1px solid color-mix(in srgb, var(--line), transparent 12%);
+  background: color-mix(in srgb, var(--surface), transparent 4%);
+  box-shadow: var(--shadow-soft);
+}
+
+.trend-date-picker span {
+  font-size: 0.78rem;
   font-weight: 700;
   color: var(--text-muted);
 }
 
-.filter-section select {
-  border-radius: 12px;
-  border: 1px solid color-mix(in srgb, var(--line), transparent 10%);
-  background: var(--surface);
+.trend-date-picker select {
+  border: 1px solid color-mix(in srgb, var(--line), transparent 12%);
+  border-radius: 999px;
+  padding: 0.38rem 0.6rem;
+  font: inherit;
+  font-size: 0.83rem;
   color: var(--text);
-  padding: 0.56rem 0.72rem;
-  font-family: inherit;
-  font-size: 0.9rem;
-  min-width: 200px;
+  background: var(--surface-muted);
 }
 
-.filter-section select:focus {
+.trend-date-picker select:focus {
   outline: none;
-  border-color: color-mix(in srgb, var(--primary), #ffffff 30%);
-  box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary), transparent 76%);
+  border-color: color-mix(in srgb, var(--primary), #ffffff 28%);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--primary), transparent 75%);
+}
+
+.view-mode-button {
+  border: 1px solid transparent;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--text-muted);
+  padding: 0.48rem 0.9rem;
+  font-family: inherit;
+  font-size: 0.85rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background-color 180ms ease, color 180ms ease, border-color 180ms ease;
+}
+
+.view-mode-button:hover {
+  color: var(--text);
+}
+
+.view-mode-button.active {
+  color: #ffffff;
+  border-color: color-mix(in srgb, var(--primary), #000000 16%);
+  background: linear-gradient(135deg, var(--primary), var(--primary-strong));
 }
 
 .chart-card {
@@ -780,6 +845,11 @@ body {
     flex-direction: column;
   }
 
+  .analysis-controls {
+    width: 100%;
+    justify-content: space-between;
+  }
+
   .features-grid-2x2,
   .developer-grid {
     grid-template-columns: 1fr;
@@ -814,14 +884,26 @@ body {
     justify-self: start;
   }
 
-  .filter-section {
+  .view-mode-toggle {
     width: 100%;
-    align-items: start;
-    flex-direction: column;
+    justify-content: space-between;
   }
 
-  .filter-section select {
+  .analysis-controls {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .trend-date-picker {
     width: 100%;
-    min-width: 0;
+    justify-content: space-between;
+  }
+
+  .trend-date-picker select {
+    width: 58%;
+  }
+
+  .view-mode-button {
+    width: 50%;
   }
 }

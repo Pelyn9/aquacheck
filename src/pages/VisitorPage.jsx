@@ -23,6 +23,25 @@ const SENSOR_META = [
   { key: "tds", label: "TDS", unit: "ppm" },
 ];
 
+const EMPTY_SENSOR_DATA = {
+  ph: "N/A",
+  turbidity: "N/A",
+  temperature: "N/A",
+  tds: "N/A",
+};
+
+const toFixedOrNA = (value, digits) => {
+  const numericValue = Number.parseFloat(value);
+  return Number.isFinite(numericValue) ? numericValue.toFixed(digits) : "N/A";
+};
+
+const normalizeSensorData = (raw = {}) => ({
+  ph: toFixedOrNA(raw.ph, 2),
+  turbidity: toFixedOrNA(raw.turbidity, 1),
+  temperature: toFixedOrNA(raw.temperature ?? raw.temp, 1),
+  tds: toFixedOrNA(raw.tds, 0),
+});
+
 const getToneClass = (status) => {
   if (status === "Safe") return "safe";
   if (status === "Moderate") return "moderate";
@@ -39,16 +58,13 @@ const VisitorPage = () => {
   const [theme, setTheme] = useState(localStorage.getItem("theme") || "light");
   const [menuOpen, setMenuOpen] = useState(false);
   const [liveVisible, setLiveVisible] = useState(false);
-  const [sensorData, setSensorData] = useState({
-    ph: "N/A",
-    turbidity: "N/A",
-    temperature: "N/A",
-    tds: "N/A",
-  });
+  const [isAdminLive, setIsAdminLive] = useState(false);
+  const [sensorData, setSensorData] = useState(EMPTY_SENSOR_DATA);
+  const [trendView, setTrendView] = useState("daily");
   const [availableDates, setAvailableDates] = useState([]);
   const [selectedDate, setSelectedDate] = useState("");
-  const [dailyData, setDailyData] = useState([]);
-  const [loadingDaily, setLoadingDaily] = useState(true);
+  const [trendData, setTrendData] = useState([]);
+  const [loadingTrend, setLoadingTrend] = useState(true);
 
   useEffect(() => {
     document.title = "SafeShore";
@@ -63,6 +79,7 @@ const VisitorPage = () => {
     setTheme((prevTheme) => (prevTheme === "light" ? "dark" : "light"));
 
   const toggleMenu = () => setMenuOpen((prev) => !prev);
+  const toggleLivePanel = () => setLiveVisible((prev) => !prev);
 
   const computeOverallStatus = (data = sensorData) => {
     if (!data || Object.values(data).every((value) => value === "N/A")) {
@@ -132,109 +149,211 @@ const VisitorPage = () => {
   const formatReading = (value, unit) =>
     value === "N/A" ? "N/A" : `${value}${unit ? ` ${unit}` : ""}`;
 
+  const formatDateLabel = (dateValue) =>
+    dateValue.toLocaleDateString("en-US", {
+      month: "short",
+      day: "numeric",
+      year: "numeric",
+    });
+
   const fetchSensorData = useCallback(async () => {
     try {
       const response = await fetch(esp32Url, { cache: "no-store" });
       if (!response.ok) throw new Error("Server unreachable");
       const payload = await response.json();
       const latest = payload.latestData || payload;
-
-      setSensorData({
-        ph: latest.ph !== undefined ? parseFloat(latest.ph).toFixed(2) : "N/A",
-        turbidity:
-          latest.turbidity !== undefined
-            ? parseFloat(latest.turbidity).toFixed(1)
-            : "N/A",
-        temperature:
-          latest.temperature !== undefined
-            ? parseFloat(latest.temperature).toFixed(1)
-            : "N/A",
-        tds: latest.tds !== undefined ? parseFloat(latest.tds).toFixed(0) : "N/A",
-      });
+      setSensorData(normalizeSensorData(latest));
     } catch {
-      setSensorData({
-        ph: "N/A",
-        turbidity: "N/A",
-        temperature: "N/A",
-        tds: "N/A",
-      });
+      setSensorData(EMPTY_SENSOR_DATA);
     }
   }, [esp32Url]);
 
   useEffect(() => {
-    if (!liveVisible) return;
+    if (!isAdminLive) {
+      setSensorData(EMPTY_SENSOR_DATA);
+      return;
+    }
+
     fetchSensorData();
     const intervalId = setInterval(fetchSensorData, 2000);
     return () => clearInterval(intervalId);
-  }, [liveVisible, fetchSensorData]);
+  }, [isAdminLive, fetchSensorData]);
 
-  const handleLiveClick = () => {
-    setLiveVisible((prev) => {
-      if (prev) {
-        setSensorData({
-          ph: "N/A",
-          turbidity: "N/A",
-          temperature: "N/A",
-          tds: "N/A",
-        });
-      }
-      return !prev;
-    });
-  };
+  const syncVisitorLiveState = useCallback((scanState) => {
+    if (!scanState) return;
+
+    const running = Boolean(scanState.status);
+    setIsAdminLive(running);
+
+    if (!running) {
+      setSensorData(EMPTY_SENSOR_DATA);
+      return;
+    }
+
+    if (scanState.latest_sensor) {
+      setSensorData(normalizeSensorData(scanState.latest_sensor));
+    }
+  }, []);
 
   useEffect(() => {
-    const fetchDates = async () => {
+    let mounted = true;
+
+    const fetchInitialScanState = async () => {
+      const { data } = await supabase
+        .from("device_scanning")
+        .select("status, latest_sensor")
+        .eq("id", 1)
+        .single();
+
+      if (!mounted || !data) return;
+      syncVisitorLiveState(data);
+    };
+
+    fetchInitialScanState();
+
+    const channel = supabase
+      .channel("device_scanning_visitor_sync")
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "device_scanning", filter: "id=eq.1" },
+        (payload) => {
+          if (!payload?.new) return;
+          syncVisitorLiveState(payload.new);
+        }
+      )
+      .subscribe();
+
+    return () => {
+      mounted = false;
+      supabase.removeChannel(channel);
+    };
+  }, [syncVisitorLiveState]);
+
+  useEffect(() => {
+    const fetchAvailableDates = async () => {
       const { data: rows } = await supabase
         .from("dataset_history")
         .select("created_at")
         .order("created_at", { ascending: false });
 
-      if (rows?.length) {
-        const uniqueDates = [...new Set(rows.map((row) => row.created_at.split("T")[0]))];
-        setAvailableDates(uniqueDates);
-        setSelectedDate(uniqueDates[0]);
-      } else {
-        setAvailableDates([]);
-        setSelectedDate("");
-        setLoadingDaily(false);
-      }
+      const uniqueDates = [...new Set((rows || []).map((item) => item.created_at.split("T")[0]))];
+      setAvailableDates(uniqueDates);
+      setSelectedDate((previous) => {
+        if (previous && uniqueDates.includes(previous)) return previous;
+        return uniqueDates[0] || "";
+      });
     };
 
-    fetchDates();
+    fetchAvailableDates();
   }, []);
 
   useEffect(() => {
-    if (!selectedDate) return;
-    setLoadingDaily(true);
+    const fetchTrendData = async () => {
+      setLoadingTrend(true);
 
-    const fetchDailyData = async () => {
-      const { data: rows } = await supabase
-        .from("dataset_history")
-        .select("*")
-        .gte("created_at", `${selectedDate}T00:00:00`)
-        .lte("created_at", `${selectedDate}T23:59:59`)
-        .order("created_at", { ascending: true });
+      try {
+        if (!selectedDate) {
+          setTrendData([]);
+          return;
+        }
 
-      const chartData =
-        rows?.map((item) => ({
-          time: new Date(item.created_at).toLocaleTimeString([], {
-            hour: "2-digit",
-            minute: "2-digit",
-          }),
-          ph: parseFloat(item.ph?.toFixed(2)) || 0,
-          turbidity: parseFloat(item.turbidity?.toFixed(2)) || 0,
-          temperature: parseFloat(item.temperature?.toFixed(2)) || 0,
-          tds: parseFloat(item.tds?.toFixed(2)) || 0,
-        })) || [];
+        const selectedStart = new Date(`${selectedDate}T00:00:00`);
+        const safeSelectedStart = Number.isNaN(selectedStart.getTime())
+          ? new Date(new Date().toISOString().slice(0, 10) + "T00:00:00")
+          : selectedStart;
+        const selectedEnd = new Date(safeSelectedStart);
+        selectedEnd.setDate(selectedEnd.getDate() + 1);
 
-      setDailyData(chartData);
-      setLoadingDaily(false);
+        if (trendView === "daily") {
+          const { data: rows } = await supabase
+            .from("dataset_history")
+            .select("created_at, ph, turbidity, temperature, tds")
+            .gte("created_at", safeSelectedStart.toISOString())
+            .lt("created_at", selectedEnd.toISOString())
+            .order("created_at", { ascending: true });
+
+          const chartData =
+            rows?.map((item) => ({
+              time: new Date(item.created_at).toLocaleTimeString([], {
+                hour: "2-digit",
+                minute: "2-digit",
+              }),
+              ph: Number.parseFloat(item.ph) || 0,
+              turbidity: Number.parseFloat(item.turbidity) || 0,
+              temperature: Number.parseFloat(item.temperature) || 0,
+              tds: Number.parseFloat(item.tds) || 0,
+            })) || [];
+
+          setTrendData(chartData);
+          return;
+        }
+
+        const startOfRange = new Date(safeSelectedStart);
+        startOfRange.setDate(startOfRange.getDate() - 6);
+
+        const { data: rows } = await supabase
+          .from("dataset_history")
+          .select("created_at, ph, turbidity, temperature, tds")
+          .gte("created_at", startOfRange.toISOString())
+          .lt("created_at", selectedEnd.toISOString())
+          .order("created_at", { ascending: true });
+
+        const grouped = new Map();
+
+        (rows || []).forEach((item) => {
+          const dateKey = item.created_at.split("T")[0];
+          if (!grouped.has(dateKey)) {
+            grouped.set(dateKey, {
+              count: 0,
+              ph: 0,
+              turbidity: 0,
+              temperature: 0,
+              tds: 0,
+            });
+          }
+
+          const totals = grouped.get(dateKey);
+          totals.count += 1;
+          totals.ph += Number.parseFloat(item.ph) || 0;
+          totals.turbidity += Number.parseFloat(item.turbidity) || 0;
+          totals.temperature += Number.parseFloat(item.temperature) || 0;
+          totals.tds += Number.parseFloat(item.tds) || 0;
+        });
+
+        const chartData = Array.from(grouped.entries()).map(([dateKey, totals]) => {
+          const safeCount = totals.count || 1;
+          return {
+            time: new Date(`${dateKey}T00:00:00`).toLocaleDateString("en-US", {
+              weekday: "short",
+              month: "short",
+              day: "numeric",
+            }),
+            ph: Number((totals.ph / safeCount).toFixed(2)),
+            turbidity: Number((totals.turbidity / safeCount).toFixed(2)),
+            temperature: Number((totals.temperature / safeCount).toFixed(2)),
+            tds: Number((totals.tds / safeCount).toFixed(2)),
+          };
+        });
+
+        setTrendData(chartData);
+      } catch {
+        setTrendData([]);
+      } finally {
+        setLoadingTrend(false);
+      }
     };
 
-    fetchDailyData();
-  }, [selectedDate]);
+    fetchTrendData();
+  }, [trendView, selectedDate]);
 
-  const latestSnapshot = dailyData[dailyData.length - 1] || sensorData;
+  const selectedStart = new Date(`${selectedDate}T00:00:00`);
+  const safeSelectedStart = Number.isNaN(selectedStart.getTime())
+    ? new Date(new Date().toISOString().slice(0, 10) + "T00:00:00")
+    : selectedStart;
+  const weeklyStart = new Date(safeSelectedStart);
+  weeklyStart.setDate(weeklyStart.getDate() - 6);
+
+  const latestSnapshot = trendData[trendData.length - 1] || sensorData;
   const latestStatus = computeOverallStatus({
     ph: latestSnapshot.ph,
     turbidity: latestSnapshot.turbidity,
@@ -267,12 +386,22 @@ const VisitorPage = () => {
               {section.charAt(0).toUpperCase() + section.slice(1)}
             </a>
           ))}
-          <button type="button" onClick={toggleTheme} className="theme-toggle-button">
+          <button
+            type="button"
+            onClick={toggleTheme}
+            className="theme-toggle-button"
+            aria-label={theme === "light" ? "Switch to dark mode" : "Switch to light mode"}
+            title={theme === "light" ? "Switch to dark mode" : "Switch to light mode"}
+          >
             {theme === "light" ? <FaMoon size={16} /> : <FaSun size={16} />}
-            {theme === "light" ? "Dark" : "Light"}
           </button>
-          <button type="button" onClick={handleLiveClick} className="live-toggle-button">
-            {liveVisible ? "Stop Live" : "Start Live"}
+          <button
+            type="button"
+            onClick={toggleLivePanel}
+            className={`live-toggle-button ${liveVisible ? "active" : "inactive"}`}
+            aria-pressed={liveVisible}
+          >
+            {liveVisible ? "Live On" : "Live Off"}
           </button>
         </div>
       </nav>
@@ -290,9 +419,6 @@ const VisitorPage = () => {
               <a className="cta-button" href="#weekly-analysis">
                 View Data Trend
               </a>
-              <button type="button" className="ghost-button" onClick={handleLiveClick}>
-                {liveVisible ? "Hide Live Panel" : "Open Live Panel"}
-              </button>
             </div>
           </div>
 
@@ -321,7 +447,7 @@ const VisitorPage = () => {
         <aside className="live-card" aria-live="polite">
           <div className="live-head">
             <h4>Live Sensor Reading</h4>
-            <span>Updates every 2s</span>
+            <span>{isAdminLive ? "Mirrored from admin (updates every 2s)" : "Waiting for admin live scan"}</span>
           </div>
           <ul>
             {SENSOR_META.map(({ key, label, unit }) => {
@@ -338,51 +464,77 @@ const VisitorPage = () => {
           <p className={`live-overall ${getToneClass(computeOverallStatus())}`}>
             Overall Status: {computeOverallStatus()}
           </p>
-          <p className="reference-note">Based on WHO and EPA water quality references.</p>
+          <p className="reference-note">
+            {isAdminLive
+              ? "Based on WHO and EPA water quality references."
+              : "Live data appears automatically when admin starts auto scan."}
+          </p>
         </aside>
       )}
 
       <section id="weekly-analysis" className="analysis-section">
         <div className="section-head">
           <h2>Water Quality Over Time</h2>
-          <div className="filter-section">
-            <label htmlFor="date-select">Date</label>
-            <select
-              id="date-select"
-              value={selectedDate}
-              onChange={(event) => setSelectedDate(event.target.value)}
-            >
-              {!availableDates.length ? <option value="">No dates available</option> : null}
-              {availableDates.map((date) => (
-                <option key={date} value={date}>
-                  {new Date(date).toLocaleDateString("en-US", {
-                    year: "numeric",
-                    month: "long",
-                    day: "numeric",
-                  })}
-                </option>
-              ))}
-            </select>
+          <div className="analysis-controls">
+            <div className="view-mode-toggle" role="group" aria-label="Water quality trend view">
+              <button
+                type="button"
+                className={`view-mode-button ${trendView === "daily" ? "active" : ""}`}
+                onClick={() => setTrendView("daily")}
+                aria-pressed={trendView === "daily"}
+              >
+                Daily
+              </button>
+              <button
+                type="button"
+                className={`view-mode-button ${trendView === "weekly" ? "active" : ""}`}
+                onClick={() => setTrendView("weekly")}
+                aria-pressed={trendView === "weekly"}
+              >
+                Weekly
+              </button>
+            </div>
+            <label className="trend-date-picker">
+              <span>{trendView === "daily" ? "Date" : "Week ending"}</span>
+              <select
+                value={selectedDate}
+                onChange={(event) => setSelectedDate(event.target.value)}
+                disabled={!availableDates.length}
+              >
+                {!availableDates.length ? <option value="">No saved dates</option> : null}
+                {availableDates.map((date) => (
+                  <option key={date} value={date}>
+                    {new Date(`${date}T00:00:00`).toLocaleDateString("en-US", {
+                      year: "numeric",
+                      month: "long",
+                      day: "numeric",
+                    })}
+                  </option>
+                ))}
+              </select>
+            </label>
           </div>
         </div>
 
         <div className="chart-card">
-          {loadingDaily ? (
+          {loadingTrend ? (
             <p className="chart-message">Loading data...</p>
-          ) : dailyData.length === 0 ? (
-            <p className="chart-message">No data available for this date.</p>
+          ) : !availableDates.length ? (
+            <p className="chart-message">No admin-saved dates available yet.</p>
+          ) : trendData.length === 0 ? (
+            <p className="chart-message">
+              No data available for {trendView === "daily" ? "daily" : "weekly"} view.
+            </p>
           ) : (
             <>
               <p className="chart-day">
-                {new Date(selectedDate).toLocaleDateString("en-US", {
-                  weekday: "long",
-                  month: "long",
-                  day: "numeric",
-                })}
+                {trendView === "daily"
+                  ? `Daily View (${formatDateLabel(safeSelectedStart)})`
+                  : `Weekly View (${formatDateLabel(weeklyStart)} - ${formatDateLabel(safeSelectedStart)})`}
               </p>
               <div className="chart-wrap">
                 <ResponsiveContainer width="100%" height={330}>
-                  <AreaChart data={dailyData} margin={{ top: 20, right: 20, left: 0, bottom: 0 }}>
+                  <AreaChart data={trendData} margin={{ top: 20, right: 20, left: 0, bottom: 0 }}>
                     <defs>
                       <linearGradient id="phGradient" x1="0" y1="0" x2="0" y2="1">
                         <stop offset="5%" stopColor="#27c5a5" stopOpacity={0.65} />
@@ -488,7 +640,7 @@ const VisitorPage = () => {
         <p>
           Email:{" "}
           <a href="mailto:contact@SafeShore.com" className="highlight">
-            contact@SafeShore.com
+            safeshore@gmail.com
           </a>
         </p>
         <p>
