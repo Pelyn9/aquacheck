@@ -1,4 +1,4 @@
-const DEFAULT_ADMIN_SECRET = "SuperSecretAdminKey123";
+const DEFAULT_ADMIN_SECRET = "Aquackeck123";
 const DEFAULT_MASTER_PASSWORD = "watercheck123";
 
 let runtimeAdminSecret = process.env.ADMIN_SECRET || DEFAULT_ADMIN_SECRET;
@@ -15,12 +15,32 @@ const getSupabaseConfig = () => {
     process.env.SUPABASE_SERVICE_ROLE_KEY ||
     process.env.SUPABASE_SECRET_KEY ||
     process.env.SUPABASE_SERVICE_KEY ||
+    process.env.SUPABASE_SERVICE_ROLE ||
+    process.env.SERVICE_ROLE_KEY ||
     "";
 
   return {
     supabaseUrl: supabaseUrl.replace(/\/+$/, ""),
     serviceKey: rawServiceKey.replace(/\s+/g, ""),
   };
+};
+
+const decodeJwtRole = (token) => {
+  if (typeof token !== "string" || token.trim() === "") return "";
+  const [, payloadPart] = token.split(".");
+  if (!payloadPart) return "";
+
+  try {
+    const normalized = payloadPart.replace(/-/g, "+").replace(/_/g, "/");
+    const padded = normalized.padEnd(
+      normalized.length + ((4 - (normalized.length % 4)) % 4),
+      "="
+    );
+    const decoded = JSON.parse(Buffer.from(padded, "base64").toString("utf8"));
+    return typeof decoded?.role === "string" ? decoded.role : "";
+  } catch {
+    return "";
+  }
 };
 
 const parseBody = (body) => {
@@ -71,9 +91,22 @@ const decodeRouteSegment = (value) => {
 const supabaseAdminRequest = async ({ path, method = "GET", body }) => {
   const { supabaseUrl, serviceKey } = getSupabaseConfig();
 
-  if (!supabaseUrl || !serviceKey) {
+  if (!supabaseUrl) {
     throw new Error(
-      "Missing SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY environment variables."
+      "Missing SUPABASE_URL. Set SUPABASE_URL (or REACT_APP_SUPABASE_URL) in server environment variables."
+    );
+  }
+
+  if (!serviceKey) {
+    throw new Error(
+      "Missing SUPABASE_SERVICE_ROLE_KEY. Add the service_role key in server environment variables."
+    );
+  }
+
+  const jwtRole = decodeJwtRole(serviceKey);
+  if (jwtRole && jwtRole !== "service_role") {
+    throw new Error(
+      "SUPABASE_SERVICE_ROLE_KEY must be a service_role key (your configured key is not service_role)."
     );
   }
 

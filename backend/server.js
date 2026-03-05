@@ -24,7 +24,7 @@ app.use(express.json());
 // ------------------------------
 // Local admin key system
 // ------------------------------
-let adminSecret = process.env.ADMIN_SECRET || "SuperSecretAdminKey123";
+let adminSecret = process.env.ADMIN_SECRET || "Aquackeck123";
 
 // ✅ Verify local admin key
 app.post("/api/admin/verify-key", (req, res) => {

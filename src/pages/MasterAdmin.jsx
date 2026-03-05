@@ -31,11 +31,12 @@ const buildApiCandidates = () => {
 
 const buildRequestUrls = (base, path) => {
   const normalizedPath = path.startsWith("/") ? path : `/${path}`;
-  const urls = [`${base}${normalizedPath}`];
-
-  if (base.endsWith("/api/admin")) {
-    urls.push(`${base}?path=${encodeURIComponent(normalizedPath)}`);
-  }
+  const urls = base.endsWith("/api/admin")
+    ? [
+        `${base}?path=${encodeURIComponent(normalizedPath)}`,
+        `${base}${normalizedPath}`,
+      ]
+    : [`${base}${normalizedPath}`];
 
   return [...new Set(urls)];
 };
