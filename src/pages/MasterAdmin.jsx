@@ -22,15 +22,24 @@ const buildApiCandidates = () => {
     typeof window !== "undefined" ? window.location.hostname : "";
   const isLocalHost = hostname === "localhost" || hostname === "127.0.0.1";
 
+  if (isLocalHost) {
+    candidates.push("http://localhost:4000/api/admin");
+    return [...new Set(candidates)];
+  }
+
   candidates.push("/api/admin");
-  if (isLocalHost && envBase) candidates.push(`${normalizeBase(envBase)}/api/admin`);
-  if (isLocalHost) candidates.push("http://localhost:4000/api/admin");
+  if (envBase) candidates.push(`${normalizeBase(envBase)}/api/admin`);
 
   return [...new Set(candidates)];
 };
 
 const buildRequestUrls = (base, path) => {
   const normalizedPath = path.startsWith("/") ? path : `/${path}`;
+
+  if (base.includes("localhost:4000/api/admin")) {
+    return [`${base}${normalizedPath}`];
+  }
+
   const urls = base.endsWith("/api/admin")
     ? [
         `${base}?path=${encodeURIComponent(normalizedPath)}`,
@@ -131,9 +140,8 @@ export default function MasterAdmin() {
             const serverMessage = getServerMessage(payload, response.status);
             const canFallback =
               !isLastCandidate &&
-              (response.status >= 500 ||
-                (retryNotFound &&
-                  (response.status === 404 || response.status === 405)));
+              (retryNotFound &&
+                (response.status === 404 || response.status === 405));
 
             if (canFallback) {
               lastError = new Error(serverMessage);

@@ -25,6 +25,7 @@ app.use(express.json());
 // Local admin key system
 // ------------------------------
 let adminSecret = process.env.ADMIN_SECRET || "Aquackeck123";
+let masterPassword = process.env.MASTER_ADMIN_PASSWORD || "watercheck123";
 
 // ✅ Verify local admin key
 app.post("/api/admin/verify-key", (req, res) => {
@@ -37,12 +38,35 @@ app.post("/api/admin/verify-key", (req, res) => {
 
 // ✅ Change local admin key
 app.post("/api/admin/change-key", (req, res) => {
-  const { newKey } = req.body;
-  if (!newKey?.trim()) {
-    return res.status(400).json({ message: "Key cannot be empty" });
+  const oldKey = typeof req.body?.oldKey === "string" ? req.body.oldKey.trim() : "";
+  const newKey = typeof req.body?.newKey === "string" ? req.body.newKey.trim() : "";
+
+  if (!oldKey || !newKey) {
+    return res.status(400).json({ error: "Current key and new key are required." });
   }
+
+  if (oldKey !== adminSecret) {
+    return res.status(401).json({ error: "Current key is incorrect." });
+  }
+
   adminSecret = newKey;
-  res.json({ message: "Admin key updated!" });
+  res.json({ success: true, message: "Admin key updated." });
+});
+
+app.get("/api/admin/master-password", (_req, res) => {
+  res.json({ password: masterPassword });
+});
+
+app.put("/api/admin/master-password", (req, res) => {
+  const password =
+    typeof req.body?.password === "string" ? req.body.password.trim() : "";
+
+  if (!password) {
+    return res.status(400).json({ error: "Password cannot be empty." });
+  }
+
+  masterPassword = password;
+  return res.json({ success: true, password: masterPassword });
 });
 
 // ------------------------------

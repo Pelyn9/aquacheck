@@ -1,5 +1,8 @@
 const DEFAULT_ADMIN_SECRET = "Aquackeck123";
 const DEFAULT_MASTER_PASSWORD = "watercheck123";
+const SECRETS_TABLE = process.env.ADMIN_SECRETS_TABLE || "admin_secrets";
+const ADMIN_SECRET_COLUMN = process.env.ADMIN_SECRET_COLUMN || "secret_admin_password";
+const MASTER_PASSWORD_COLUMN = process.env.MASTER_PASSWORD_COLUMN || "master_password";
 
 let runtimeAdminSecret = process.env.ADMIN_SECRET || DEFAULT_ADMIN_SECRET;
 let runtimeMasterPassword =
@@ -88,7 +91,7 @@ const decodeRouteSegment = (value) => {
   }
 };
 
-const supabaseAdminRequest = async ({ path, method = "GET", body }) => {
+const validateSupabaseConfig = () => {
   const { supabaseUrl, serviceKey } = getSupabaseConfig();
 
   if (!supabaseUrl) {
@@ -110,6 +113,19 @@ const supabaseAdminRequest = async ({ path, method = "GET", body }) => {
     );
   }
 
+  return { supabaseUrl, serviceKey };
+};
+
+const parseResponseJson = async (response) => {
+  try {
+    return await response.json();
+  } catch {
+    return null;
+  }
+};
+
+const supabaseAdminRequest = async ({ path, method = "GET", body }) => {
+  const { supabaseUrl, serviceKey } = validateSupabaseConfig();
   const response = await fetch(`${supabaseUrl}/auth/v1/admin${path}`, {
     method,
     headers: {
@@ -121,12 +137,7 @@ const supabaseAdminRequest = async ({ path, method = "GET", body }) => {
     cache: "no-store",
   });
 
-  let payload = null;
-  try {
-    payload = await response.json();
-  } catch {
-    payload = null;
-  }
+  const payload = await parseResponseJson(response);
 
   if (!response.ok) {
     const message =
@@ -143,6 +154,119 @@ const supabaseAdminRequest = async ({ path, method = "GET", body }) => {
   return payload;
 };
 
+const supabaseTableRequest = async ({
+  path,
+  method = "GET",
+  body,
+  preferRepresentation = false,
+}) => {
+  const { supabaseUrl, serviceKey } = validateSupabaseConfig();
+  const headers = {
+    apikey: serviceKey,
+    Authorization: `Bearer ${serviceKey}`,
+    "Content-Type": "application/json",
+  };
+
+  if (preferRepresentation) {
+    headers.Prefer = "return=representation";
+  }
+
+  const response = await fetch(`${supabaseUrl}/rest/v1/${path}`, {
+    method,
+    headers,
+    body: body ? JSON.stringify(body) : undefined,
+    cache: "no-store",
+  });
+
+  const payload = await parseResponseJson(response);
+
+  if (!response.ok) {
+    const message =
+      payload?.message ||
+      payload?.hint ||
+      payload?.details ||
+      payload?.error ||
+      `Supabase table HTTP ${response.status}`;
+    const error = new Error(message);
+    error.status = response.status;
+    throw error;
+  }
+
+  return payload;
+};
+
+const normalizeSecretValue = (value) =>
+  typeof value === "string" ? value.trim() : "";
+
+const readSecretsRow = async () => {
+  const select = encodeURIComponent(
+    `id,${ADMIN_SECRET_COLUMN},${MASTER_PASSWORD_COLUMN}`
+  );
+  const payload = await supabaseTableRequest({
+    path: `${SECRETS_TABLE}?select=${select}&order=id.asc&limit=1`,
+  });
+
+  if (!Array.isArray(payload) || payload.length === 0) {
+    return null;
+  }
+
+  return payload[0];
+};
+
+const syncRuntimeSecretsFromTable = async () => {
+  try {
+    const row = await readSecretsRow();
+    if (!row) return null;
+
+    const tableAdminSecret = normalizeSecretValue(row[ADMIN_SECRET_COLUMN]);
+    const tableMasterPassword = normalizeSecretValue(row[MASTER_PASSWORD_COLUMN]);
+
+    if (tableAdminSecret) runtimeAdminSecret = tableAdminSecret;
+    if (tableMasterPassword) runtimeMasterPassword = tableMasterPassword;
+
+    return row;
+  } catch {
+    return null;
+  }
+};
+
+const persistSecretsToTable = async ({ adminSecret, masterPassword }) => {
+  const payload = {};
+  const nextAdminSecret = normalizeSecretValue(adminSecret);
+  const nextMasterPassword = normalizeSecretValue(masterPassword);
+
+  if (nextAdminSecret) payload[ADMIN_SECRET_COLUMN] = nextAdminSecret;
+  if (nextMasterPassword) payload[MASTER_PASSWORD_COLUMN] = nextMasterPassword;
+
+  if (Object.keys(payload).length === 0) {
+    return { persisted: false };
+  }
+
+  try {
+    const currentRow = await readSecretsRow();
+
+    if (currentRow?.id !== undefined && currentRow?.id !== null) {
+      await supabaseTableRequest({
+        path: `${SECRETS_TABLE}?id=eq.${encodeURIComponent(String(currentRow.id))}`,
+        method: "PATCH",
+        body: payload,
+        preferRepresentation: true,
+      });
+      return { persisted: true };
+    }
+
+    await supabaseTableRequest({
+      path: SECRETS_TABLE,
+      method: "POST",
+      body: payload,
+      preferRepresentation: true,
+    });
+    return { persisted: true };
+  } catch (error) {
+    return { persisted: false, error: error.message };
+  }
+};
+
 async function handler(req, res) {
   withCors(req, res);
   res.setHeader("Cache-Control", "no-store");
@@ -155,6 +279,7 @@ async function handler(req, res) {
   const body = parseBody(req.body);
 
   if (path === "/verify-key" && req.method === "POST") {
+    await syncRuntimeSecretsFromTable();
     const key = typeof body.key === "string" ? body.key.trim() : "";
     return send(res, key === runtimeAdminSecret ? 200 : 401, {
       valid: key === runtimeAdminSecret,
@@ -163,6 +288,7 @@ async function handler(req, res) {
   }
 
   if (path === "/change-key" && req.method === "POST") {
+    await syncRuntimeSecretsFromTable();
     const oldKey = typeof body.oldKey === "string" ? body.oldKey.trim() : "";
     const newKey = typeof body.newKey === "string" ? body.newKey.trim() : "";
 
@@ -175,11 +301,21 @@ async function handler(req, res) {
     }
 
     runtimeAdminSecret = newKey;
-    return send(res, 200, { success: true, message: "Admin key updated." });
+    const dbResult = await persistSecretsToTable({ adminSecret: newKey });
+
+    return send(res, 200, {
+      success: true,
+      persistedToTable: Boolean(dbResult.persisted),
+      message: dbResult.persisted
+        ? "Admin key updated."
+        : "Admin key updated in runtime. SQL sync not available.",
+      warning: dbResult.error || undefined,
+    });
   }
 
   if (path === "/master-password") {
     if (req.method === "GET") {
+      await syncRuntimeSecretsFromTable();
       return send(res, 200, { password: runtimeMasterPassword });
     }
 
@@ -191,7 +327,14 @@ async function handler(req, res) {
       }
 
       runtimeMasterPassword = password;
-      return send(res, 200, { success: true, password: runtimeMasterPassword });
+      const dbResult = await persistSecretsToTable({ masterPassword: password });
+
+      return send(res, 200, {
+        success: true,
+        password: runtimeMasterPassword,
+        persistedToTable: Boolean(dbResult.persisted),
+        warning: dbResult.error || undefined,
+      });
     }
   }
 
