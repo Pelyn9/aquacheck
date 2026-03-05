@@ -9,6 +9,7 @@ import {
 } from "react-icons/fa";
 import Sidebar from "../components/Sidebar";
 import { AdminContext } from "../App";
+import { supabase } from "../supabaseClient";
 import "../assets/masteradmin.css";
 
 const DEFAULT_MASTER_PASSWORD = "watercheck123";
@@ -41,10 +42,7 @@ const buildRequestUrls = (base, path) => {
   }
 
   const urls = base.endsWith("/api/admin")
-    ? [
-        `${base}?path=${encodeURIComponent(normalizedPath)}`,
-        `${base}${normalizedPath}`,
-      ]
+    ? [`${base}?path=${encodeURIComponent(normalizedPath)}`]
     : [`${base}${normalizedPath}`];
 
   return [...new Set(urls)];
@@ -97,6 +95,7 @@ export default function MasterAdmin() {
   const [masterMessage, setMasterMessage] = useState("");
 
   const [showMenu, setShowMenu] = useState(false);
+  const [currentUserEmail, setCurrentUserEmail] = useState("");
 
   const requestAdmin = useCallback(
     async (path, options = {}, behavior = {}) => {
@@ -241,19 +240,70 @@ export default function MasterAdmin() {
   }, [isAdmin, requestAdmin]);
 
   useEffect(() => {
+    let isMounted = true;
+
+    const loadCurrentUser = async () => {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+
+      if (!isMounted) return;
+      setCurrentUserEmail((user?.email || "").toLowerCase());
+    };
+
+    loadCurrentUser();
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  const requireActionSecret = async () => {
+    const entered = window.prompt("Enter secret admin password to continue:");
+    const key = typeof entered === "string" ? entered.trim() : "";
+
+    if (!key) {
+      throw new Error("Secret admin password is required.");
+    }
+
+    await requestAdmin(
+      "/verify-key",
+      {
+        method: "POST",
+        body: JSON.stringify({ key }),
+      },
+      { retryNotFound: false }
+    );
+
+    return key;
+  };
+
+  useEffect(() => {
     if (!isAdmin) return;
     initializeMasterPassword();
     fetchUsers();
   }, [isAdmin, initializeMasterPassword, fetchUsers]);
 
-  const handleDelete = async (userId) => {
+  const handleDelete = async (user) => {
+    const userId = user.id;
+    const userEmail = (user.email || "").toLowerCase();
+
     if (!window.confirm("Delete this user?")) return;
+    if (userEmail && userEmail === currentUserEmail) {
+      setError("You cannot delete the account you are currently logged in with.");
+      return;
+    }
+
     setError("");
     setNotice("");
     setOpId(userId);
 
     try {
-      await requestAdmin(`/users/${userId}`, { method: "DELETE" });
+      const key = await requireActionSecret();
+      await requestAdmin(`/users/${userId}`, {
+        method: "DELETE",
+        headers: { "X-Admin-Key": key },
+      });
       setUsers((prev) => prev.filter((user) => user.id !== userId));
       setNotice("User deleted successfully.");
     } catch (requestError) {
@@ -264,15 +314,26 @@ export default function MasterAdmin() {
     }
   };
 
-  const handleToggleUser = async (userId, currentlyDisabled) => {
+  const handleToggleUser = async (user) => {
+    const userId = user.id;
+    const currentlyDisabled = Boolean(user.disabled);
+    const userEmail = (user.email || "").toLowerCase();
+
+    if (!currentlyDisabled && userEmail && userEmail === currentUserEmail) {
+      setError("You cannot disable the account you are currently logged in with.");
+      return;
+    }
+
     setError("");
     setNotice("");
     setOpId(userId);
 
     try {
+      const key = await requireActionSecret();
       await requestAdmin(`/users/${userId}/toggle`, {
         method: "POST",
-        body: JSON.stringify({ enable: currentlyDisabled }),
+        headers: { "X-Admin-Key": key },
+        body: JSON.stringify({ enable: currentlyDisabled, key }),
       });
 
       setUsers((prev) =>
@@ -479,7 +540,7 @@ export default function MasterAdmin() {
                           <button
                             type="button"
                             className="ma-btn ma-btn-danger"
-                            onClick={() => handleDelete(user.id)}
+                            onClick={() => handleDelete(user)}
                             disabled={rowBusy}
                           >
                             {rowBusy ? "Working..." : "Delete"}
@@ -487,7 +548,7 @@ export default function MasterAdmin() {
                           <button
                             type="button"
                             className={`ma-btn ${disabled ? "ma-btn-success" : "ma-btn-warning"}`}
-                            onClick={() => handleToggleUser(user.id, disabled)}
+                            onClick={() => handleToggleUser(user)}
                             disabled={rowBusy}
                           >
                             {rowBusy ? "Working..." : disabled ? "Enable" : "Disable"}

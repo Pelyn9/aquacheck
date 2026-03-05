@@ -15,7 +15,7 @@ app.use(
       "https://aquachecklive.vercel.app" // Deployed site
     ],
     methods: ["GET", "POST", "DELETE", "PUT", "PATCH"],
-    allowedHeaders: ["Content-Type", "Authorization"],
+    allowedHeaders: ["Content-Type", "Authorization", "X-Admin-Key"],
   })
 );
 
@@ -26,6 +26,26 @@ app.use(express.json());
 // ------------------------------
 let adminSecret = process.env.ADMIN_SECRET || "Aquackeck123";
 let masterPassword = process.env.MASTER_ADMIN_PASSWORD || "watercheck123";
+
+const resolveAdminKey = (req) => {
+  const headerKey =
+    typeof req.headers?.["x-admin-key"] === "string"
+      ? req.headers["x-admin-key"].trim()
+      : "";
+  const bodyKey =
+    typeof req.body?.key === "string" ? req.body.key.trim() : "";
+
+  return headerKey || bodyKey;
+};
+
+const requireAdminKey = (req, res) => {
+  const key = resolveAdminKey(req);
+  if (!key || key !== adminSecret) {
+    res.status(401).json({ error: "Invalid admin key" });
+    return false;
+  }
+  return true;
+};
 
 // ✅ Verify local admin key
 app.post("/api/admin/verify-key", (req, res) => {
@@ -91,6 +111,8 @@ app.get("/api/admin/users", async (_req, res) => {
 
 // ✅ Delete a user by ID
 app.delete("/api/admin/users/:id", async (req, res) => {
+  if (!requireAdminKey(req, res)) return;
+
   try {
     const { error } = await supabaseAdmin.auth.admin.deleteUser(req.params.id);
     if (error) throw error;
@@ -103,6 +125,8 @@ app.delete("/api/admin/users/:id", async (req, res) => {
 
 // ✅ Disable or enable a user (ban/unban)
 app.post("/api/admin/users/:id/toggle", async (req, res) => {
+  if (!requireAdminKey(req, res)) return;
+
   const { id } = req.params;
   const { enable } = req.body;
 

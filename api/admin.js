@@ -9,7 +9,7 @@ let runtimeMasterPassword =
   process.env.MASTER_ADMIN_PASSWORD || DEFAULT_MASTER_PASSWORD;
 
 const getSupabaseConfig = () => {
-  const supabaseUrl =
+  const rawSupabaseUrl =
     process.env.SUPABASE_URL ||
     process.env.NEXT_PUBLIC_SUPABASE_URL ||
     process.env.REACT_APP_SUPABASE_URL ||
@@ -21,6 +21,8 @@ const getSupabaseConfig = () => {
     process.env.SUPABASE_SERVICE_ROLE ||
     process.env.SERVICE_ROLE_KEY ||
     "";
+  const derivedSupabaseUrl = deriveSupabaseUrlFromKey(rawServiceKey);
+  const supabaseUrl = rawSupabaseUrl || derivedSupabaseUrl;
 
   return {
     supabaseUrl: supabaseUrl.replace(/\/+$/, ""),
@@ -28,10 +30,10 @@ const getSupabaseConfig = () => {
   };
 };
 
-const decodeJwtRole = (token) => {
-  if (typeof token !== "string" || token.trim() === "") return "";
+const parseJwtPayload = (token) => {
+  if (typeof token !== "string" || token.trim() === "") return null;
   const [, payloadPart] = token.split(".");
-  if (!payloadPart) return "";
+  if (!payloadPart) return null;
 
   try {
     const normalized = payloadPart.replace(/-/g, "+").replace(/_/g, "/");
@@ -39,11 +41,21 @@ const decodeJwtRole = (token) => {
       normalized.length + ((4 - (normalized.length % 4)) % 4),
       "="
     );
-    const decoded = JSON.parse(Buffer.from(padded, "base64").toString("utf8"));
-    return typeof decoded?.role === "string" ? decoded.role : "";
+    return JSON.parse(Buffer.from(padded, "base64").toString("utf8"));
   } catch {
-    return "";
+    return null;
   }
+};
+
+const decodeJwtRole = (token) => {
+  const payload = parseJwtPayload(token);
+  return typeof payload?.role === "string" ? payload.role : "";
+};
+
+const deriveSupabaseUrlFromKey = (token) => {
+  const payload = parseJwtPayload(token);
+  const ref = typeof payload?.ref === "string" ? payload.ref.trim() : "";
+  return ref ? `https://${ref}.supabase.co` : "";
 };
 
 const parseBody = (body) => {
@@ -89,6 +101,15 @@ const decodeRouteSegment = (value) => {
   } catch {
     return value;
   }
+};
+
+const resolveAdminKeyFromRequest = (req, body) => {
+  const headerKey =
+    typeof req.headers?.["x-admin-key"] === "string"
+      ? req.headers["x-admin-key"].trim()
+      : "";
+  const bodyKey = typeof body?.key === "string" ? body.key.trim() : "";
+  return headerKey || bodyKey;
 };
 
 const validateSupabaseConfig = () => {
@@ -368,6 +389,12 @@ async function handler(req, res) {
 
   const deleteMatch = path.match(/^\/users\/([^/]+)$/);
   if (deleteMatch && req.method === "DELETE") {
+    await syncRuntimeSecretsFromTable();
+    const actionKey = resolveAdminKeyFromRequest(req, body);
+    if (!actionKey || actionKey !== runtimeAdminSecret) {
+      return send(res, 401, { error: "Invalid admin key." });
+    }
+
     const userId = decodeRouteSegment(deleteMatch[1]);
 
     try {
@@ -385,6 +412,12 @@ async function handler(req, res) {
 
   const toggleMatch = path.match(/^\/users\/([^/]+)\/toggle$/);
   if (toggleMatch && req.method === "POST") {
+    await syncRuntimeSecretsFromTable();
+    const actionKey = resolveAdminKeyFromRequest(req, body);
+    if (!actionKey || actionKey !== runtimeAdminSecret) {
+      return send(res, 401, { error: "Invalid admin key." });
+    }
+
     const userId = decodeRouteSegment(toggleMatch[1]);
     const enable = Boolean(body.enable);
 
