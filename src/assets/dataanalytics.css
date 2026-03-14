@@ -150,20 +150,21 @@
 }
 
 /* Charts */
-.sensor-grid {
+.analytics-section .sensor-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 0.9rem;
+  gap: clamp(0.75rem, 1.6vw, 1rem);
 }
 
-.sensor-card {
+.analytics-section .sensor-card {
   border: 1px solid #d9e2ef;
   border-radius: 14px;
   padding: 0.85rem;
   background: linear-gradient(180deg, #ffffff, #f8fbff);
+  transition: transform 180ms ease, box-shadow 180ms ease, border-color 180ms ease;
 }
 
-.sensor-card h4 {
+.analytics-section .sensor-card h4 {
   margin: 0 0 0.7rem;
   font-size: 0.97rem;
   color: #1d3b5e;
@@ -235,10 +236,6 @@
     padding: 1rem;
   }
 
-  .sensor-grid {
-    grid-template-columns: 1fr;
-  }
-
   .section-head {
     flex-direction: column;
     align-items: flex-start;
@@ -256,6 +253,10 @@
 @media (max-width: 768px) {
   .analytics-content-sidebar {
     padding: calc(env(safe-area-inset-top, 0px) + 4.6rem) 1rem 1rem;
+  }
+
+  .analytics-section .sensor-grid {
+    grid-template-columns: 1fr;
   }
 }
 
