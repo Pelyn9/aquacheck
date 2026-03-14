@@ -114,16 +114,22 @@ const resolveAdminKeyFromRequest = (req, body) => {
 
 const validateSupabaseConfig = () => {
   const { supabaseUrl, serviceKey } = getSupabaseConfig();
+  const envHint =
+    "Set them in server environment variables (Vercel: Project Settings -> Environment Variables).";
+
+  if (!supabaseUrl && !serviceKey) {
+    throw new Error(`Missing SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY. ${envHint}`);
+  }
 
   if (!supabaseUrl) {
     throw new Error(
-      "Missing SUPABASE_URL. Set SUPABASE_URL (or REACT_APP_SUPABASE_URL) in server environment variables."
+      `Missing SUPABASE_URL. Set SUPABASE_URL or provide a valid service_role key so the URL can be derived. ${envHint}`
     );
   }
 
   if (!serviceKey) {
     throw new Error(
-      "Missing SUPABASE_SERVICE_ROLE_KEY. Add the service_role key in server environment variables."
+      `Missing SUPABASE_SERVICE_ROLE_KEY. Add the service_role key in server environment variables. ${envHint}`
     );
   }
 
