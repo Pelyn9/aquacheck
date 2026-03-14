@@ -474,6 +474,10 @@ body.sidebar-open {
     left: 14px;
   }
 
+  body.sidebar-open .hamburger {
+    left: calc(min(82vw, 300px) - 56px);
+  }
+
   /* Hide sidebar by default on mobile */
   .sidebar {
     position: fixed;

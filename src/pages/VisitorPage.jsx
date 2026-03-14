@@ -370,7 +370,7 @@ const VisitorPage = () => {
 
         <button
           type="button"
-          className={`hamburger ${menuOpen ? "active" : ""}`}
+          className={`visitor-hamburger ${menuOpen ? "active" : ""}`}
           onClick={toggleMenu}
           aria-label="Toggle navigation menu"
           aria-expanded={menuOpen}
