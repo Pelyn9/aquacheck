@@ -6,9 +6,11 @@ import { supabase } from "../supabaseClient";
 
 const AdminDashboard = () => {
   const FIXED_INTERVAL = 900000; // 15 minutes
+  const LIVE_MIRROR_INTERVAL = 2000;
   const intervalRef = useRef(null);
   const autoSaveLockRef = useRef(false);
   const autoScanRunningRef = useRef(false);
+  const lastMirrorSentRef = useRef(0);
 
   const [sensorData, setSensorData] = useState({
     ph: "N/A",
@@ -67,6 +69,22 @@ const AdminDashboard = () => {
   // --------------------------
   // Fetch Sensor Data
   // --------------------------
+  const mirrorLiveData = useCallback((data) => {
+    if (!autoScanRunningRef.current) return;
+
+    const now = Date.now();
+    if (now - lastMirrorSentRef.current < LIVE_MIRROR_INTERVAL) return;
+
+    lastMirrorSentRef.current = now;
+
+    supabase
+      .from("device_scanning")
+      .update({ latest_sensor: data })
+      .eq("id", 1)
+      .then(() => {})
+      .catch(() => {});
+  }, [LIVE_MIRROR_INTERVAL]);
+
   const fetchSensorData = useCallback(async () => {
     try {
       const response = await fetch(esp32Url, { cache: "no-store" });
@@ -90,11 +108,12 @@ const AdminDashboard = () => {
 
       setSensorData(formatted);
       computeOverallSafety(formatted);
+      mirrorLiveData(formatted);
       return formatted;
     } catch {
       return null;
     }
-  }, [esp32Url, computeOverallSafety]);
+  }, [esp32Url, computeOverallSafety, mirrorLiveData]);
 
   // --------------------------
   // Auto Save
@@ -247,28 +266,33 @@ const AdminDashboard = () => {
           const next = payload?.new;
           if (!next) return;
 
+          const previous = payload?.old || {};
           const isRunning = Boolean(next.status);
+          const statusChanged = previous.status !== next.status;
+          const nextTsChanged = previous.next_auto_save_ts !== next.next_auto_save_ts;
           autoScanRunningRef.current = isRunning;
           setAutoScanRunning(isRunning);
 
-          if (isRunning) {
+          if (!isRunning) {
+            resetScanUi();
+            return;
+          }
+
+          if (statusChanged || nextTsChanged) {
             const nextTimestamp =
               Number.isFinite(Number(next.next_auto_save_ts)) && Number(next.next_auto_save_ts) > Date.now()
                 ? Number(next.next_auto_save_ts)
                 : Date.now() + FIXED_INTERVAL;
 
             startCountdown(nextTimestamp);
-
-            if (next.latest_sensor) {
-              setSensorData(next.latest_sensor);
-              computeOverallSafety(next.latest_sensor);
-            } else {
-              await fetchSensorData();
-            }
-
             setStatus("Auto-scan running.");
-          } else {
-            resetScanUi();
+          }
+
+          if (next.latest_sensor) {
+            setSensorData(next.latest_sensor);
+            computeOverallSafety(next.latest_sensor);
+          } else if (statusChanged || nextTsChanged) {
+            await fetchSensorData();
           }
         }
       )

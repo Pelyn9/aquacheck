@@ -164,7 +164,8 @@ const VisitorPage = () => {
       const latest = payload.latestData || payload;
       setSensorData(normalizeSensorData(latest));
     } catch {
-      setSensorData(EMPTY_SENSOR_DATA);
+      // Keep last known reading; only clear when admin stops live scan.
+      return;
     }
   }, [esp32Url]);
 
